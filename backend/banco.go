@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -18,7 +19,19 @@ func abrirBanco(caminho string) (*sql.DB, error) {
 		db.Close()
 		return nil, err
 	}
+	for _, m := range migracoes {
+		if _, err := db.Exec(m); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+			db.Close()
+			return nil, err
+		}
+	}
 	return db, nil
+}
+
+// migracoes: colunas novas em tabelas que já existiam (a coluna repetida é ignorada).
+var migracoes = []string{
+	// Fase 6 (T27): o material escolhido na entrada C ("a partir de material").
+	`ALTER TABLE criacoes ADD COLUMN material TEXT NOT NULL DEFAULT '[]'`,
 }
 
 // O esquema cresce fase a fase (DECISOES.md §9).

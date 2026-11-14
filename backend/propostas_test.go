@@ -22,11 +22,15 @@ type iaFalsa struct {
 
 func (f *iaFalsa) chamar(_ context.Context, p pedidoClaude) (respostaClaude, error) {
 	arq := map[string]string{}
-	entradas, _ := os.ReadDir(p.pasta)
-	for _, e := range entradas {
-		b, _ := os.ReadFile(filepath.Join(p.pasta, e.Name()))
-		arq[e.Name()] = string(b)
-	}
+	filepath.WalkDir(p.pasta, func(caminho string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		rel, _ := filepath.Rel(p.pasta, caminho)
+		b, _ := os.ReadFile(caminho)
+		arq[filepath.ToSlash(rel)] = string(b)
+		return nil
+	})
 	f.pedidos = append(f.pedidos, p)
 	f.arquivos = append(f.arquivos, arq)
 	texto, err := f.resposta(len(f.pedidos), arq)

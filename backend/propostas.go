@@ -388,6 +388,10 @@ func (a *app) handleAprovar(w http.ResponseWriter, r *http.Request) {
 		a.aprovarEstudo(w, r, p)
 		return
 	}
+	if p.Tipo == tipoMateriais {
+		a.aprovarMateriais(w, r, p)
+		return
+	}
 	if err := a.semVersaoGerando(r.Context(), p); err != nil {
 		a.responderErro(w, err)
 		return
@@ -489,10 +493,8 @@ func (a *app) gerarLicao(ctx context.Context, t *tarefa) error {
 	if err != nil {
 		return err
 	}
-	for nome, texto := range arquivos {
-		if err := os.WriteFile(filepath.Join(pasta, nome), []byte(texto), 0o644); err != nil {
-			return err
-		}
+	if err := gravarNaPasta(pasta, arquivos); err != nil {
+		return err
 	}
 	var extras []string
 	for _, sub := range []string{"documentos", "licoes"} {
@@ -668,30 +670,19 @@ func (a *app) montarPedidoLicao(ctx context.Context, tr trilha, p proposta) (map
 		}
 	}
 
+	// Livros da Biblioteca e Temas do Acervo (fase 6): o texto vai junto, em material/.
+	doMaterial := map[string]string{}
 	if len(e.Materiais) > 0 {
+		lidos := a.arquivosDoMaterial(ctx, e.Materiais, doMaterial)
 		escreva("\n## Material da etapa\n\nA lição se apoia nele (é a fonte principal); cite-o onde usar.\n\n")
-		for _, m := range e.Materiais {
-			escreva("- [%s · %s] %s", m.Papel, m.Tipo, m.Titulo)
-			switch m.Tipo {
-			case "documento":
-				escreva(" — arquivo `documentos/%s.md`", m.Referencia)
-				if m.Localizador != "" {
-					escreva(", seção com âncora `#%s`", m.Localizador)
-				}
-			default:
-				if m.Referencia != "" {
-					escreva(" — %s", m.Referencia)
-				}
-				if m.Localizador != "" {
-					escreva(" (%s)", m.Localizador)
-				}
-			}
-			if m.Nota != "" {
-				escreva(". Nota: %s", m.Nota)
-			}
-			escreva("\n")
+		for i, m := range e.Materiais {
+			escreva("%s", descreverMaterial(m, lidos[i]))
 		}
-		escreva("\nOs documentos da trilha estão na pasta `documentos` (adicionada ao seu acesso; procure-a com Glob se o caminho relativo não abrir).\n")
+		escreva("\nOs documentos da trilha estão na pasta `documentos` (adicionada ao seu acesso; procure-a com Glob se o caminho relativo não abrir).")
+		if len(doMaterial) > 0 {
+			escreva(" O texto dos livros e do Acervo está em `material/`, nesta pasta: num livro, cite o capítulo e a página (o número entre colchetes); ele é protegido, então explique com as suas palavras e mande ler o trecho, sem copiar.")
+		}
+		escreva("\n")
 	}
 
 	escreva("\n## Instruções do Lucas\n\nVão da mais permanente à mais pontual; em conflito, vale a mais específica.\n\n")
@@ -699,7 +690,7 @@ func (a *app) montarPedidoLicao(ctx context.Context, tr trilha, p proposta) (map
 	escreva("- Da trilha: %s\n", padrao(tr.Instrucoes, "(nenhuma)"))
 	escreva("- Deste pedido: %s\n", padrao(p.Pedido, "(nenhuma)"))
 
-	arquivos := map[string]string{}
+	arquivos := doMaterial
 	comentarios := map[int64]bool{}
 	slug := tr.Slug
 	if p.AnteriorID > 0 {

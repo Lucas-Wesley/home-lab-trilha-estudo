@@ -1,12 +1,15 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import EscolherMaterial from '../EscolherMaterial.vue'
 import EstudoEtapa from '../EstudoEtapa.vue'
 import Icone from '../Icone.vue'
 import Leitor from '../Leitor.vue'
 import NavTrilhas from '../NavTrilhas.vue'
 import Pagina from '../Pagina.vue'
 import PropostaLicao from '../PropostaLicao.vue'
+import PropostaMaterial from '../PropostaMaterial.vue'
 import { api } from '../api.js'
+import { abreEmOutraAba, hrefMaterial } from '../material.js'
 import { link } from '../rotas.js'
 import { textoComCodigo } from '../markdown.js'
 import { BLOOM, PAPEIS, PROFUNDIDADES, STATUS, TIPOS_MATERIAL, duracao } from '../rotulos.js'
@@ -59,11 +62,8 @@ const materiaisPorPapel = computed(() => {
 
 const baseDocs = computed(() => `#/trilhas/${props.trilhaId}/documentos/`)
 
-function hrefMaterial(m) {
-  if (m.tipo === 'web') return m.referencia
-  if (m.tipo === 'documento') return `${baseDocs.value}${encodeURIComponent(m.referencia)}${m.localizador ? '#' + m.localizador : ''}`
-  return ''
-}
+const sugerir = ref(null)
+const sugestaoAberta = ref(false)
 
 async function mudarStatus(status) {
   aviso.value = ''
@@ -79,6 +79,7 @@ async function mudarStatus(status) {
 // ---------- edição ----------
 const edicao = ref(null)
 function editar() {
+  escolhendo.value = false
   const x = e.value
   edicao.value = {
     titulo: x.titulo,
@@ -93,8 +94,9 @@ function editar() {
     licao: x.licao || '',
   }
 }
-function novoMaterial() {
-  edicao.value.materiais.push({ tipo: 'web', papel: 'apoio', titulo: '', referencia: '', localizador: '', nota: '' })
+const escolhendo = ref(false)
+function adicionarMaterial(m) {
+  edicao.value.materiais.push(m)
 }
 function moverMaterial(i, delta) {
   const lista = edicao.value.materiais
@@ -176,15 +178,19 @@ async function excluir() {
           </div>
         </div>
 
-        <section v-if="materiaisPorPapel.length" class="secao">
-          <h2>Material</h2>
+        <section id="material" class="secao">
+          <div class="linha entre">
+            <h2>Material</h2>
+            <button v-if="!sugestaoAberta" class="botao discreto" @click="sugerir?.abrir()">Sugerir material</button>
+          </div>
+          <p v-if="!materiaisPorPapel.length" class="suave">Sem material ainda. A IA pode sugerir (web, os seus livros, o Acervo e os documentos da trilha), ou adicione em Editar.</p>
           <div v-for="[papel, lista] in materiaisPorPapel" :key="papel" class="grupo-material">
             <span class="rotulo">{{ PAPEIS[papel] }}</span>
             <ul class="materiais">
               <li v-for="(m, i) in lista" :key="i">
                 <span class="etiqueta">{{ TIPOS_MATERIAL[m.tipo] }}</span>
                 <div>
-                  <a v-if="hrefMaterial(m)" :href="hrefMaterial(m)" :target="m.tipo === 'web' ? '_blank' : undefined" :rel="m.tipo === 'web' ? 'noopener noreferrer' : undefined">{{ m.titulo }}</a>
+                  <a v-if="hrefMaterial(m, t.id)" :href="hrefMaterial(m, t.id)" :target="abreEmOutraAba(m) ? '_blank' : undefined" :rel="abreEmOutraAba(m) ? 'noopener noreferrer' : undefined">{{ m.titulo }}</a>
                   <span v-else>{{ m.titulo }}</span>
                   <span v-if="m.localizador && m.tipo !== 'documento'" class="fraco"> · {{ m.localizador }}</span>
                   <div v-if="m.nota" class="suave nota">{{ m.nota }}</div>
@@ -192,6 +198,13 @@ async function excluir() {
               </li>
             </ul>
           </div>
+          <div class="streaming">
+            <button class="botao discreto" disabled title="Quando o Streaming tiver subpastas e legendas">
+              <Icone nome="video" :tamanho="16" /> Vincular pasta de Meus vídeos
+            </button>
+            <span class="etiqueta">em breve</span>
+          </div>
+          <PropostaMaterial ref="sugerir" :key="`material-${e.id}`" :etapa-id="e.id" :trilha-id="t.id" @aprovada="recarregarEtapa" @aberta="sugestaoAberta = $event" />
         </section>
 
         <section id="licao" class="secao">
@@ -286,9 +299,9 @@ async function excluir() {
               v-model="m.referencia"
               class="campo"
               :list="m.tipo === 'documento' ? 'documentos-da-trilha' : undefined"
-              :placeholder="m.tipo === 'web' ? 'https://…' : m.tipo === 'documento' ? 'documento da trilha (ex.: 03-redes-separadas-firewall)' : 'Referência'"
+              :placeholder="{ web: 'https://…', documento: 'documento da trilha (ex.: 03-redes-separadas-firewall)', livro: 'id do livro na Biblioteca', acervo: 'pasta do Tema (temas/…) ou id da Referência' }[m.tipo] || 'Referência'"
             />
-            <input v-model="m.localizador" class="campo" :placeholder="m.tipo === 'documento' ? 'âncora da seção (opcional)' : 'cap., página, tempo (opcional)'" />
+            <input v-model="m.localizador" class="campo" :placeholder="{ documento: 'âncora da seção (opcional)', livro: 'cap. 3, caps. 2–4 ou p. 45–60 (vazio = o livro todo)', acervo: 'arquivo do Tema (opcional)' }[m.tipo] || 'cap., página, tempo (opcional)'" />
             <input v-model="m.nota" class="campo" placeholder="Nota: o que ler e por quê (opcional)" />
             <div class="linha">
               <button type="button" class="botao discreto icone" aria-label="Subir" @click="moverMaterial(i, -1)">↑</button>
@@ -296,11 +309,11 @@ async function excluir() {
               <button type="button" class="botao discreto" @click="edicao.materiais.splice(i, 1)">Remover</button>
             </div>
           </div>
-          <div><button type="button" class="botao" @click="novoMaterial">Adicionar material</button></div>
+          <EscolherMaterial v-if="escolhendo" :documentos="t.documentos || []" @escolher="adicionarMaterial" @fechar="escolhendo = false" />
+          <div v-else><button type="button" class="botao" @click="escolhendo = true">Adicionar material</button></div>
           <datalist id="documentos-da-trilha">
             <option v-for="d in t.documentos || []" :key="d.slug" :value="d.slug">{{ d.titulo }}</option>
           </datalist>
-          <p class="ajuda">Streaming: vincular uma pasta de Meus vídeos chega quando o Streaming tiver subpastas e legendas.</p>
         </fieldset>
 
         <div>
@@ -341,6 +354,8 @@ async function excluir() {
 .lista-simples { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e1); }
 .lista-simples li { display: flex; gap: var(--e2); align-items: center; flex-wrap: wrap; }
 .grupo-material + .grupo-material { margin-top: var(--e4); }
+.streaming { display: flex; align-items: center; gap: var(--e2); margin-top: var(--e4); }
+.streaming .botao:disabled { cursor: not-allowed; opacity: 0.6; }
 .materiais { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e3); }
 .materiais li { display: flex; gap: var(--e3); align-items: flex-start; font-size: 15px; line-height: 1.5; }
 .materiais .etiqueta { flex: none; margin-top: 2px; min-width: 76px; justify-content: center; }

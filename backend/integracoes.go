@@ -46,15 +46,17 @@ func chamarApp(ctx context.Context, base, nome, metodo, caminho string, corpo, d
 		return 0, fmt.Errorf("o %s não respondeu; ele está no ar?", nome)
 	}
 	defer res.Body.Close()
-	b, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
+	b, err := io.ReadAll(io.LimitReader(res.Body, 16<<20))
 	if err != nil {
 		return res.StatusCode, err
 	}
 	if res.StatusCode >= 300 {
 		var e struct {
-			Erro string `json:"erro"`
+			Erro  string `json:"erro"`
+			Error string `json:"error"` // a Biblioteca
 		}
-		if json.Unmarshal(b, &e) != nil || e.Erro == "" {
+		json.Unmarshal(b, &e)
+		if e.Erro = primeiro(e.Erro, e.Error); e.Erro == "" {
 			e.Erro = fmt.Sprintf("o %s respondeu %d", nome, res.StatusCode)
 		}
 		return res.StatusCode, errors.New(e.Erro)

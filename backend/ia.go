@@ -143,9 +143,11 @@ var regrasDoApp = []regra{
 	{Arquivo: "exercicios.md", Titulo: "Exercícios", Para: "Gerar os exercícios da etapa (escolha e completar)"},
 	{Arquivo: "simulado.md", Titulo: "Simulado", Para: "Gerar perguntas abertas para o banco do simulado"},
 	{Arquivo: "corrigir-simulado.md", Titulo: "Corrigir o simulado", Para: "Corrigir as respostas do simulado"},
+	{Arquivo: "materiais.md", Titulo: "Sugerir material", Para: "Procurar material para uma etapa (web, Biblioteca, Acervo, documentos)"},
 	{Arquivo: "entrevista.md", Titulo: "Entrevista", Para: "Criar trilha (a IA monta): pré-pesquisa e perguntas"},
 	{Arquivo: "mapa.md", Titulo: "Mapa do assunto", Para: "Criar trilha (a IA monta): o mapa completo e o recorte sugerido"},
 	{Arquivo: "validar-lista.md", Titulo: "Validar a lista", Para: "Criar trilha (eu tenho a lista): o que falta na lista"},
+	{Arquivo: "espinha.md", Titulo: "Espinha dorsal", Para: "Criar trilha (a partir de material): o material vira a sequência de etapas"},
 	{Arquivo: "plano.md", Titulo: "Plano da trilha", Para: "Criar trilha: módulos e etapas (vai junto com o método abaixo)"},
 	{Arquivo: "criar-trilha.md", Titulo: "Criar trilha (método)", Para: "O método e os critérios C1–C15, que vão junto com o plano"},
 }
@@ -359,6 +361,9 @@ func (a *app) modeloPara(ctx context.Context, tipo string) string {
 	}
 	if ehEstudo(tipo) || tipo == tipoCorrecao {
 		tipo = "estudo"
+	}
+	if tipo == tipoMateriais {
+		tipo = "licao"
 	}
 	var valor string
 	a.db.QueryRowContext(ctx, `SELECT valor FROM ajustes WHERE chave = ?`, "modelo_"+tipo).Scan(&valor)

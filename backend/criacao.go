@@ -18,6 +18,11 @@ import (
 //
 //	A. "A IA monta":       entrevista (1 a 4 rodadas) → mapa (o Lucas marca o recorte) → plano
 //	B. "Eu tenho a lista": validação (o Lucas aceita sugestões) → plano
+//	C. "A partir de material" (fase 6, T27): espinha dorsal (o material vira a sequência; a IA
+//	   marca o que é raso para a profundidade e propõe complementos, que ele aceita) → plano
+//
+// A espinha dorsal é uma proposta do tipo validação (mesmo formato e mesma tela), com outra regra
+// (espinha.md) e o material no pedido.
 //
 // Aprovar o plano importa a trilha (o mesmo caminho do POST /api/importar). Comentários, ajuste,
 // descarte e a fila são os mesmos da lição.
@@ -55,6 +60,7 @@ type criacao struct {
 	Pedido     string         `json:"pedido"`
 	Entrevista string         `json:"entrevista"`
 	Lista      string         `json:"lista"`
+	Material   []material     `json:"material"` // entrada C: livros da Biblioteca e Temas do Acervo
 	Passo      string         `json:"passo"`
 	Rodadas    []rodada       `json:"rodadas"`
 	Escolhas   escolhasCriado `json:"escolhas"`
@@ -140,6 +146,7 @@ type conteudoValidacao struct {
 		Chave  string `json:"chave"`
 		Titulo string `json:"titulo"`
 		Nota   string `json:"nota"`
+		Fonte  string `json:"fonte,omitempty"` // entrada C: de onde vem no material ("cap. 3")
 	} `json:"itens"`
 	Sugestoes    []sugestao           `json:"sugestoes"`
 	NivelPartida string               `json:"nivel_partida"`
@@ -197,7 +204,8 @@ var esquemasCriacao = map[string]string{
 
 	tipoValidacao: `{"type":"object","properties":{
 "itens":{"type":"array","items":{"type":"object","properties":{
-  "chave":{"type":"string"},"titulo":{"type":"string"},"nota":{"type":"string"}},"required":["chave","titulo","nota"]}},
+  "chave":{"type":"string"},"titulo":{"type":"string"},"nota":{"type":"string"},
+  "fonte":{"type":"string","description":"só a partir de material: de onde vem (livro e capítulos, Tema)"}},"required":["chave","titulo","nota"]}},
 "sugestoes":{"type":"array","items":{"type":"object","properties":{
   "id":{"type":"string"},"acao":{"type":"string","enum":["inserir","dividir","observar"]},
   "antes_de":{"type":"string"},"item":{"type":"string"},"titulo":{"type":"string"},"motivo":{"type":"string"}},
@@ -218,7 +226,8 @@ var esquemasCriacao = map[string]string{
       "tipo":{"type":"string","enum":["normal","base"]},"minutos":{"type":"integer"},"criterio":{"type":"string"},
       "requer":{"type":"array","items":{"type":"string"}},
       "materiais":{"type":"array","items":{"type":"object","properties":{
-        "tipo":{"type":"string","enum":["web","documento"]},"titulo":{"type":"string"},"referencia":{"type":"string"},
+        "tipo":{"type":"string","enum":["web","documento","livro","acervo"]},"titulo":{"type":"string"},
+        "referencia":{"type":"string","description":"web: URL; documento: slug; livro: id na Biblioteca; acervo: pasta do Tema"},
         "localizador":{"type":"string"},"papel":{"type":"string","enum":["principal","apoio","aprofundar"]},"nota":{"type":"string"}},
         "required":["tipo","titulo","referencia","papel"]}}},
       "required":["chave","titulo","objetivo","bloom","minutos","criterio","requer","materiais"]}}},
@@ -232,10 +241,10 @@ var esquemasCriacao = map[string]string{
 
 func (a *app) criacaoDa(ctx context.Context, trilhaID int64) (criacao, error) {
 	var c criacao
-	var rodadas, escolhas string
-	err := a.db.QueryRowContext(ctx, `SELECT trilha_id, entrada, tema, pedido, entrevista, lista, passo, rodadas, escolhas, criado_em
+	var rodadas, escolhas, mat string
+	err := a.db.QueryRowContext(ctx, `SELECT trilha_id, entrada, tema, pedido, entrevista, lista, material, passo, rodadas, escolhas, criado_em
 		FROM criacoes WHERE trilha_id = ?`, trilhaID).Scan(&c.TrilhaID, &c.Entrada, &c.Tema, &c.Pedido, &c.Entrevista, &c.Lista,
-		&c.Passo, &rodadas, &escolhas, &c.CriadoEm)
+		&mat, &c.Passo, &rodadas, &escolhas, &c.CriadoEm)
 	if errors.Is(err, sql.ErrNoRows) {
 		return c, errNaoEncontrou
 	}
@@ -248,6 +257,10 @@ func (a *app) criacaoDa(ctx context.Context, trilhaID int64) (criacao, error) {
 	if c.Rodadas == nil {
 		c.Rodadas = []rodada{}
 	}
+	if err := json.Unmarshal([]byte(mat), &c.Material); err != nil {
+		return c, err
+	}
+	c.Material = vazioSeNulo(c.Material)
 	return c, json.Unmarshal([]byte(escolhas), &c.Escolhas)
 }
 
@@ -304,9 +317,10 @@ type pedidoCriacao struct {
 	Tema         string `json:"tema"`
 	Pedido       string `json:"pedido"`
 	Entrevista   string `json:"entrevista"`
-	Lista        string `json:"lista"`
-	Profundidade int    `json:"profundidade"`
-	Instrucoes   string `json:"instrucoes"`
+	Lista        string     `json:"lista"`
+	Material     []material `json:"material"`
+	Profundidade int        `json:"profundidade"`
+	Instrucoes   string     `json:"instrucoes"`
 }
 
 func (a *app) handleCriarComIA(w http.ResponseWriter, r *http.Request) {
@@ -335,6 +349,23 @@ func (a *app) handleCriarComIA(w http.ResponseWriter, r *http.Request) {
 			a.responderErro(w, erroDeEntrada{errors.New("escreva a lista: um assunto por linha, pelo menos dois")})
 			return
 		}
+	case "material":
+		// Os documentos próprios chegam depois de criar (a tela manda); sem livro nem Tema, a
+		// espinha sai só deles, e gerar recusa se não houver nenhum.
+		passo = tipoValidacao
+		c.Entrevista, c.Lista = "", ""
+		for i := range c.Material {
+			m := &c.Material[i]
+			m.Titulo, m.Referencia, m.Localizador = strings.TrimSpace(m.Titulo), strings.TrimSpace(m.Referencia), strings.TrimSpace(m.Localizador)
+			if (m.Tipo != "livro" && m.Tipo != "acervo") || m.Referencia == "" || m.Titulo == "" {
+				a.responderErro(w, erroDeEntrada{errors.New("o material da criação é um livro da Biblioteca ou um Tema do Acervo, com título e referência")})
+				return
+			}
+			m.Papel = "principal"
+		}
+		if c.Tema == "" && len(c.Material) > 0 {
+			c.Tema = c.Material[0].Titulo
+		}
 	default:
 		a.responderErro(w, erroDeEntrada{fmt.Errorf("forma de criar desconhecida: %q", c.Entrada)})
 		return
@@ -348,8 +379,9 @@ func (a *app) handleCriarComIA(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
-	if _, err := a.db.ExecContext(r.Context(), `INSERT INTO criacoes (trilha_id, entrada, tema, pedido, entrevista, lista, passo, criado_em, atualizado_em)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, c.Entrada, c.Tema, c.Pedido, c.Entrevista, c.Lista, passo, agora(), agora()); err != nil {
+	mat, _ := json.Marshal(vazioSeNulo(c.Material))
+	if _, err := a.db.ExecContext(r.Context(), `INSERT INTO criacoes (trilha_id, entrada, tema, pedido, entrevista, lista, material, passo, criado_em, atualizado_em)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, c.Entrada, c.Tema, c.Pedido, c.Entrevista, c.Lista, string(mat), passo, agora(), agora()); err != nil {
 		a.responderErro(w, err)
 		return
 	}
@@ -428,7 +460,12 @@ func (a *app) gerarPasso(ctx context.Context, c criacao, pedido string) (propost
 	if abertas > 0 {
 		return proposta{}, errCriacaoOcupada
 	}
-	return a.novaProposta(ctx, c.TrilhaID, "", c.Passo, pedido, 0, titulosCriacao[c.Passo]+": "+c.Tema)
+	if c.Entrada == "material" && c.Passo == tipoValidacao && len(c.Material) == 0 {
+		if lista, err := a.conteudo.documentos("trilhas/" + a.slugDaTrilha(ctx, c.TrilhaID) + "/documentos"); err != nil || len(lista) == 0 {
+			return proposta{}, erroDeEntrada{errors.New("escolha o material: um livro, um Tema do Acervo ou documentos próprios")}
+		}
+	}
+	return a.novaProposta(ctx, c.TrilhaID, "", c.Passo, pedido, 0, tituloDoPasso(c.Entrada, c.Passo)+": "+c.Tema)
 }
 
 func (a *app) handleGerarPasso(w http.ResponseWriter, r *http.Request) {
@@ -454,6 +491,14 @@ func (a *app) handleGerarPasso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.responderCriacao(w, r, id, http.StatusCreated)
+}
+
+// tituloDoPasso: a validação da entrada C se chama espinha dorsal.
+func tituloDoPasso(entrada, tipo string) string {
+	if entrada == "material" && tipo == tipoValidacao {
+		return "Espinha dorsal"
+	}
+	return titulosCriacao[tipo]
 }
 
 // ---------- aprovar cada passo ----------
@@ -706,10 +751,8 @@ func (a *app) gerarCriacao(ctx context.Context, t *tarefa) error {
 	if err != nil {
 		return err
 	}
-	for nome, texto := range arquivos {
-		if err := os.WriteFile(filepath.Join(pasta, nome), []byte(texto), 0o644); err != nil {
-			return err
-		}
+	if err := gravarNaPasta(pasta, arquivos); err != nil {
+		return err
 	}
 	var extras []string
 	if caminho, err := a.conteudo.caminho("trilhas/" + tr.Slug + "/documentos"); err == nil {
@@ -717,11 +760,11 @@ func (a *app) gerarCriacao(ctx context.Context, t *tarefa) error {
 			extras = append(extras, caminho)
 		}
 	}
-	regra, err := a.regraDaCriacao(p.Tipo)
+	regra, err := a.regraDaCriacao(c.Entrada, p.Tipo)
 	if err != nil {
 		return err
 	}
-	instrucao := "Você está ajudando a criar uma trilha de estudo (" + strings.ToLower(titulosCriacao[p.Tipo]) + "). " +
+	instrucao := "Você está ajudando a criar uma trilha de estudo (" + strings.ToLower(tituloDoPasso(c.Entrada, p.Tipo)) + "). " +
 		"Tudo o que você precisa saber está em `pedido.md`, nesta pasta: leia-o inteiro primeiro, e depois os arquivos que ele indicar."
 	resp, err := a.ia.chamar(ctx, pedidoClaude{
 		pasta: pasta, extras: extras, regra: regra, instrucao: instrucao,
@@ -738,8 +781,11 @@ func (a *app) gerarCriacao(ctx context.Context, t *tarefa) error {
 }
 
 // regraDaCriacao: o plano leva também o método de criar trilhas.
-func (a *app) regraDaCriacao(tipo string) (string, error) {
+func (a *app) regraDaCriacao(entrada, tipo string) (string, error) {
 	arquivo := map[string]string{tipoEntrevista: "entrevista.md", tipoMapa: "mapa.md", tipoValidacao: "validar-lista.md", tipoPlano: "plano.md"}[tipo]
+	if entrada == "material" && tipo == tipoValidacao {
+		arquivo = "espinha.md"
+	}
 	rg, err := a.ia.lerRegra(arquivo)
 	if err != nil {
 		return "", err
@@ -850,6 +896,13 @@ func (a *app) revisarPlano(ctx context.Context, tr trilha, cp conteudoPlano) ([]
 	for _, d := range tr.Documentos {
 		docs[d.Slug] = true
 	}
+	// Livros e Temas: os do material da criação (entrada C).
+	fontes := map[string]bool{}
+	if c, err := a.criacaoDa(ctx, tr.ID); err == nil {
+		for _, m := range c.Material {
+			fontes[m.Tipo+"|"+m.Referencia] = true
+		}
+	}
 	var urls []string
 	for mi, m := range pk.Trilha.Modulos {
 		if n := len(m.Etapas); n < 2 || n > 6 {
@@ -879,6 +932,10 @@ func (a *app) revisarPlano(ctx context.Context, tr trilha, cp conteudoPlano) ([]
 					}
 				case "web":
 					urls = append(urls, mt.Referencia)
+				case "livro", "acervo":
+					if !fontes[mt.Tipo+"|"+mt.Referencia] {
+						avisos = append(avisos, aviso{Criterio: "C10", Onde: onde, Texto: fmt.Sprintf("\"%s\" não está no material escolhido", mt.Titulo)})
+					}
 				}
 			}
 			if !principal {
@@ -914,12 +971,18 @@ func (a *app) montarPedidoCriacao(ctx context.Context, tr trilha, c criacao, p p
 	}
 	var s strings.Builder
 	escreva := func(format string, args ...any) { fmt.Fprintf(&s, format, args...) }
-	escreva("# Pedido: %s\n\n", strings.ToLower(titulosCriacao[p.Tipo]))
+	cabecalho := strings.ToLower(tituloDoPasso(c.Entrada, p.Tipo))
+	if c.Entrada == "material" && p.Tipo == tipoValidacao {
+		cabecalho = "espinha dorsal do material"
+	}
+	escreva("# Pedido: %s\n\n", cabecalho)
 
 	escreva("## O que o Lucas quer aprender\n\n- Tema: %s\n", c.Tema)
 	escreva("- O que ele quer com isto: %s\n", padrao(c.Pedido, "(não disse)"))
 	if c.Entrada == "lista" {
 		escreva("- Forma de criar: ele deu a lista, na ordem dele (a IA só aponta o que falta)\n")
+	} else if c.Entrada == "material" {
+		escreva("- Forma de criar: a partir de material (o material dá a ordem: a espinha dorsal; a IA marca o que é raso para a profundidade pedida e propõe complementos)\n")
 	} else {
 		escreva("- Forma de criar: a IA monta (entrevista → mapa completo → ele escolhe o recorte → plano)\n")
 	}
@@ -967,6 +1030,12 @@ func (a *app) montarPedidoCriacao(ctx context.Context, tr trilha, c criacao, p p
 	}
 
 	arquivos := map[string]string{}
+	if c.Entrada == "material" && len(c.Material) > 0 {
+		// Na espinha, o texto (a IA julga a profundidade); no plano, só os sumários.
+		completo := p.Tipo == tipoValidacao
+		escreva("\n## O material\n\nNa ordem em que ele escolheu. Livro: o capítulo é o número do sumário (`cap. N`); a página, a do livro.\n\n")
+		escreva("%s", a.arquivosDaEspinha(ctx, c.Material, completo, arquivos))
+	}
 	switch p.Tipo {
 	case tipoEntrevista:
 		limite := tamanhosEntrevista[c.Entrevista]
@@ -987,7 +1056,11 @@ func (a *app) montarPedidoCriacao(ctx context.Context, tr trilha, c criacao, p p
 	case tipoMapa:
 		escreva("\n## O que fazer agora\n\nMonte o mapa completo do assunto e sugira o recorte, pela entrevista.\n")
 	case tipoValidacao:
-		escreva("\n## O que fazer agora\n\nConfira a lista e aponte o que falta. A ordem é dele.\n")
+		if c.Entrada == "material" {
+			escreva("\n## O que fazer agora\n\nMonte a espinha dorsal: o material, na ordem dele, vira a sequência de itens (um item = uma sessão de estudo; capítulo grande pode virar dois, capítulos curtos e ligados podem ficar juntos). Em cada item, diga em `fonte` de onde vem (livro e capítulos, Tema). Depois aponte, em `sugestoes`, o que é raso para a profundidade pedida e os complementos que faltam.\n")
+		} else {
+			escreva("\n## O que fazer agora\n\nConfira a lista e aponte o que falta. A ordem é dele.\n")
+		}
 	case tipoPlano:
 		if err := a.escreverBaseDoPlano(ctx, &s, c); err != nil {
 			return nil, nil, err
@@ -1063,7 +1136,7 @@ func descreverResposta(x resposta) string {
 // escreverBaseDoPlano: o recorte do mapa (A) ou a lista com as sugestões aceitas (B).
 func (a *app) escreverBaseDoPlano(ctx context.Context, s *strings.Builder, c criacao) error {
 	escreva := func(format string, args ...any) { fmt.Fprintf(s, format, args...) }
-	if c.Entrada == "lista" {
+	if c.Entrada == "lista" || c.Entrada == "material" {
 		var cv conteudoValidacao
 		if c.Escolhas.ValidacaoID > 0 {
 			v, err := a.propostaPorID(ctx, c.Escolhas.ValidacaoID)
@@ -1074,9 +1147,13 @@ func (a *app) escreverBaseDoPlano(ctx context.Context, s *strings.Builder, c cri
 				return err
 			}
 		}
-		escreva("\n## A lista, como a IA entendeu (use estas chaves, nesta ordem)\n\n")
+		if c.Entrada == "material" {
+			escreva("\n## A espinha dorsal aprovada (use estas chaves, nesta ordem)\n\nCada etapa que vem do material leva ele como material **principal** (livro: `tipo` livro, `referencia` = o id, `localizador` = `cap. N` ou `p. A–B`; Tema: `tipo` acervo, `referencia` = a pasta).\n\n")
+		} else {
+			escreva("\n## A lista, como a IA entendeu (use estas chaves, nesta ordem)\n\n")
+		}
 		for _, it := range cv.Itens {
-			escreva("- `%s` — %s%s\n", it.Chave, it.Titulo, entreParenteses(it.Nota))
+			escreva("- `%s` — %s%s%s\n", it.Chave, it.Titulo, entreParenteses(it.Nota), sufixo(" · fonte: ", it.Fonte))
 		}
 		aceitas := map[string]bool{}
 		for _, id := range c.Escolhas.Aceitas {

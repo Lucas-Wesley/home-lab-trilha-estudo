@@ -32,6 +32,7 @@ func (a *app) ligarIA() {
 		a.fila.executores[tipo] = a.gerarEstudo
 	}
 	a.fila.executores[tipoCorrecao] = a.corrigirSimulado
+	a.fila.executores[tipoMateriais] = a.gerarMateriais
 	a.fila.aoTerminar = a.aoTerminarTarefa
 }
 
@@ -85,6 +86,16 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/etapas/{id}/simulado/tentativas", a.handleTentativaSimulado)
 	mux.HandleFunc("POST /api/etapas/{id}/flashcards", a.handleEnviarFlashcards)
 	mux.HandleFunc("GET /api/flashcards/baralhos", a.handleBaralhos)
+	// Fase 6: material de apoio da Biblioteca, do Acervo e da web (T27).
+	mux.HandleFunc("GET /api/integracoes", a.handleIntegracoes)
+	mux.HandleFunc("GET /api/biblioteca/livros", a.handleLivros)
+	mux.HandleFunc("POST /api/biblioteca/livros", a.handleEnviarLivro)
+	mux.HandleFunc("GET /api/biblioteca/livros/{id}", a.handleSumarioLivro)
+	mux.HandleFunc("GET /api/biblioteca/livros/{id}/capa", a.handleCapaLivro)
+	mux.HandleFunc("GET /api/acervo/temas", a.handleTemasAcervo)
+	mux.HandleFunc("GET /api/acervo/referencias", a.handleReferenciasAcervo)
+	mux.HandleFunc("GET /api/material/abrir", a.handleAbrirMaterial)
+	mux.HandleFunc("POST /api/etapas/{id}/materiais", a.handleSugerirMaterial)
 	mux.HandleFunc("POST /api/criacoes", a.handleCriarComIA)
 	mux.HandleFunc("GET /api/trilhas/{id}/criacao", a.handleCriacao)
 	mux.HandleFunc("POST /api/trilhas/{id}/criacao/gerar", a.handleGerarPasso)

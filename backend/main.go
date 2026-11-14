@@ -61,6 +61,10 @@ func main() {
 		flashcards:     strings.TrimSuffix(os.Getenv("FLASHCARDS_URL"), "/"),
 		flashcardsLink: strings.TrimSuffix(env("FLASHCARDS_LINK", "https://flashcards.internal"), "/"),
 		trilhaLink:     strings.TrimSuffix(env("TRILHA_LINK", "https://trilha.internal"), "/"),
+		biblioteca:     strings.TrimSuffix(os.Getenv("BIBLIOTECA_URL"), "/"),
+		bibliotecaLink: strings.TrimSuffix(env("BIBLIOTECA_LINK", "https://biblioteca.internal"), "/"),
+		acervo:         strings.TrimSuffix(os.Getenv("ACERVO_URL"), "/"),
+		acervoLink:     strings.TrimSuffix(env("ACERVO_LINK", "https://acervo.internal"), "/"),
 	}}
 	a.ligarIA()
 	if err := a.fila.recuperar(ctx); err != nil {

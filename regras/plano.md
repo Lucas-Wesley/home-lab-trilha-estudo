@@ -18,9 +18,10 @@ Devolva:
     `bloom` (`lembrar`, `entender`, `aplicar`, `analisar`, `avaliar` ou `criar`), `tipo`
     (`normal` ou `base`), `minutos` (20 a 90), `criterio` (verificável);
   - `requer`: as chaves dos pré-requisitos **diretos** (cada uma de uma etapa anterior);
-  - `materiais`: pelo menos um com `papel` `principal`. Cada material tem `tipo` (`web` ou
-    `documento`), `titulo`, `referencia` (a URL, ou o nome do documento da trilha sem `.md`),
-    `localizador` (a âncora da seção, "cap. 3", vazio se for a página toda), `papel`
+  - `materiais`: pelo menos um com `papel` `principal`. Cada material tem `tipo` (`web`,
+    `documento`, `livro` ou `acervo`), `titulo`, `referencia` (a URL; o nome do documento da
+    trilha sem `.md`; o id do livro na Biblioteca; a pasta do Tema do Acervo),
+    `localizador` (a âncora da seção; no livro, `cap. N` ou `p. A–B`; vazio se for tudo), `papel`
     (`principal`, `apoio` ou `aprofundar`) e `nota` (o que ler e para quê, com o rótulo
     `[oficial]` `[padrão]` `[livro]` `[curso]` `[artigo]` `[vídeo]` no começo, nas fontes web).
 - `notas`: para o Lucas, em poucas linhas: as fontes de referência que conferiram ordem e
@@ -38,6 +39,11 @@ Devolva:
 - **Entrada "eu tenho a lista":** a lista do Lucas, **na ordem dele**, com as chaves dela, mais
   as sugestões que ele aceitou, aplicadas. Não reordene nem tire itens. Pode dividir um item
   grande só se ele aceitou a sugestão de dividir.
+- **Entrada "a partir de material":** a espinha dorsal aprovada (as chaves e a ordem dela, que
+  seguem o material) e os complementos que ele aceitou. Cada etapa que vem do material leva o
+  trecho dele como material **principal** (`livro` com `cap. N`, ou `acervo` com a pasta do
+  Tema), como a `fonte` do item diz; os complementos aceitos viram etapas com material da web.
+  Use só os livros e Temas listados em "O material" (o app avisa os outros).
 
 ## 2. Material
 
@@ -46,6 +52,8 @@ Devolva:
   para o Lucas como defeito.
 - Prefira a fonte primária (documentação oficial, padrão, RFC) a blogs.
 - Documento da trilha (em `documentos/`) é material `documento`, com a âncora da seção exata.
+- Livro da Biblioteca é material `livro` com o capítulo **do sumário** (`cap. 3`) ou as páginas;
+  Tema do Acervo é material `acervo`. Só os que estão no pedido.
 - A etapa não precisa de material externo para tudo: a lição dela é gerada depois, ancorada no
   material. Mas toda etapa tem um material principal.
 

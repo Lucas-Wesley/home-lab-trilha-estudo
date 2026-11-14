@@ -3,7 +3,7 @@
 // de token (CLAUDE_BIN=/caminho/claude-falso.mjs). Lê o pedido.md da pasta da tarefa como o Claude
 // leria e devolve, no mesmo formato do --output-format json, uma lição curta que mostra o que
 // recebeu: o título da etapa, o pedido e os comentários a responder.
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 
 await new Promise((r) => setTimeout(r, Number(process.env.CLAUDE_FALSO_ESPERA || 4000)))
 
@@ -16,7 +16,7 @@ const responder = (dados) => {
 }
 
 // Criação com IA (fase 4): uma resposta de teste para cada passo.
-const passo = (pedido.match(/^# Pedido: (entrevista|mapa do assunto|validação da lista|plano da trilha)$/m) || [])[1]
+const passo = (pedido.match(/^# Pedido: (entrevista|mapa do assunto|validação da lista|espinha dorsal do material|plano da trilha)$/m) || [])[1]
 if (passo === 'entrevista') {
   const rodada = Number((pedido.match(/rodada (\d+) de no máximo/) || [, 1])[1])
   responder({
@@ -53,16 +53,41 @@ if (passo === 'validação da lista') {
     nivel_partida: 'iniciante', nivel_alvo: 'intermediário', notas: 'Validação de teste.',
   })
 }
+if (passo === 'espinha dorsal do material') {
+  // Fase 6: um item por capítulo do sumário (lido de material/livro-N-sumario.md) ou por Tema.
+  const sumarios = (existsSync('material') ? readdirSync('material', { withFileTypes: true }) : []).filter((f) => f.isFile() && /sumario\.md$/.test(f.name))
+  const itens = []
+  for (const f of sumarios) {
+    for (const m of readFileSync(`material/${f.name}`, 'utf8').matchAll(/^\| (\d+) \| ([^|]+) \|/gm)) {
+      itens.push({ chave: `cap-${m[1]}`, titulo: m[2].trim(), nota: '', fonte: `cap. ${m[1]}` })
+    }
+  }
+  for (const m of pedido.matchAll(/^- Acervo \*\*(.*)\*\* \(referência `([^`]+)`\)/gm)) itens.push({ chave: `tema-${itens.length + 1}`, titulo: m[1], nota: '', fonte: m[2] })
+  if (itens.length < 2) itens.push({ chave: 'extra', titulo: 'Item de teste', nota: '', fonte: 'teste' })
+  responder({
+    itens,
+    sugestoes: [
+      { id: 's1', acao: 'inserir', antes_de: itens[0].chave, titulo: 'Base de teste', motivo: 'o material supõe isto.' },
+      { id: 's2', acao: 'observar', item: itens.at(-1).chave, titulo: 'Raso para a profundidade', motivo: 'o capítulo é curto.' },
+    ],
+    nivel_partida: 'iniciante', nivel_alvo: 'intermediário', notas: `Espinha de teste a partir de ${sumarios.length} livro(s).`,
+  })
+}
 if (passo === 'plano da trilha') {
   const chaves = [...pedido.matchAll(/^\s*- (?:✔ )?`([a-z0-9-]+)`/gm)].map((m) => m[1]).slice(0, 4)
   const lista = chaves.length >= 2 ? chaves : ['etapa-1', 'etapa-2']
+  const livro = (pedido.match(/^- Livro \*\*.*\*\* \(referência `([^`]+)`\)/m) || [])[1]
   responder({
     trilha: {
       titulo: 'Trilha de teste', objetivo: 'Ao final, você será capaz de explicar o assunto de teste.', descricao: 'Plano de teste.',
       recorte: 'Só o de teste; fica de fora o resto.', nivel_partida: 'iniciante', nivel_alvo: 'intermediário',
       modulos: [{
         titulo: 'Módulo de teste', descricao: '',
-        etapas: lista.map((chave, i) => ({
+        etapas: lista.map((chave, i) => (livro && /^cap-\d+$/.test(chave) ? {
+          chave, titulo: `Etapa ${i + 1}`, objetivo: 'Explicar o capítulo de teste.', bloom: 'entender', tipo: 'normal',
+          minutos: 45, criterio: 'Responder às perguntas.', requer: i ? [lista[i - 1]] : [],
+          materiais: [{ tipo: 'livro', titulo: 'Livro de teste', referencia: livro, localizador: `cap. ${chave.slice(4)}`, papel: 'principal', nota: '' }],
+        } : {
           chave, titulo: `Etapa ${i + 1}`, objetivo: 'Explicar a etapa de teste.', bloom: 'entender', tipo: 'normal',
           minutos: i === 0 ? 120 : 30, criterio: 'Responder às perguntas.', requer: i ? [lista[i - 1]] : [],
           materiais: [{ tipo: 'web', titulo: 'RFC 1918', referencia: 'https://www.rfc-editor.org/rfc/rfc1918', localizador: '', papel: 'principal', nota: '[padrão] teste' }],
@@ -90,6 +115,19 @@ if (/^# Pedido: simulado da etapa/m.test(pedido)) {
     perguntas: [1, 2].map((i) => ({ pergunta: `Pergunta aberta de teste ${n + i}: por que isto acontece?`, esperado: '- o motivo de teste (essencial)\n- um exemplo', conceito: `conceito ${n + i}` })),
     notas: 'Perguntas de teste.',
   })
+}
+// Sugerir material (fase 6): um da web, o primeiro livro e o primeiro Tema da lista, e um livro
+// inventado (o app tira).
+if (/^# Pedido: material da etapa/m.test(pedido)) {
+  const livro = existsSync('biblioteca.md') ? (readFileSync('biblioteca.md', 'utf8').match(/^\| `([^`]+)` \| ([^|]+) \|/m) || []) : []
+  const tema = existsSync('acervo.md') ? (readFileSync('acervo.md', 'utf8').match(/^- `([^`]+)` — ([^:\n]+)/m) || []) : []
+  const materiais = [
+    { tipo: 'web', titulo: 'RFC 1918', referencia: 'https://www.rfc-editor.org/rfc/rfc1918', localizador: '', papel: 'apoio', nota: '[padrão] teste', motivo: 'Material de teste da web.' },
+    { tipo: 'livro', titulo: 'Livro inventado', referencia: 'nao-existe', localizador: 'cap. 1', papel: 'apoio', nota: '', motivo: 'O app tira.' },
+  ]
+  if (livro[1]) materiais.push({ tipo: 'livro', titulo: livro[2].trim(), referencia: livro[1], localizador: 'cap. 1', papel: 'principal', nota: '[livro] teste', motivo: 'Livro de teste da Biblioteca.' })
+  if (tema[1]) materiais.push({ tipo: 'acervo', titulo: tema[2].trim(), referencia: tema[1], localizador: '', papel: 'aprofundar', nota: '', motivo: 'Tema de teste do Acervo.' })
+  responder({ materiais, notas: 'Material de teste (scripts/claude-falso.mjs).' })
 }
 if (/^# Pedido: correção do simulado/m.test(pedido)) {
   const respostas = [...pedido.matchAll(/^## Pergunta (\d+)$/gm)].map((m) => Number(m[1]))

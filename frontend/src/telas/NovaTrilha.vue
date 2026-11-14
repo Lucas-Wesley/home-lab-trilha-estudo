@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import EscolherMaterial from '../EscolherMaterial.vue'
 import FormTrilha from '../FormTrilha.vue'
 import Icone from '../Icone.vue'
 import NavTrilhas from '../NavTrilhas.vue'
@@ -7,20 +8,30 @@ import Pagina from '../Pagina.vue'
 import { api } from '../api.js'
 import { enviarDocumentos } from '../documentos.js'
 import { link } from '../rotas.js'
-import { PROFUNDIDADES } from '../rotulos.js'
+import { PROFUNDIDADES, TIPOS_MATERIAL } from '../rotulos.js'
 
-// As quatro entradas (DECISOES.md §3). A partir de material chega na fase 6.
+// As quatro entradas (DECISOES.md §3).
 const entradas = [
   { id: 'ia', icone: 'trilhas', titulo: 'A IA monta', texto: 'Pré-pesquisa, entrevista com perguntas para este tipo de assunto, mapa completo e você escolhe o recorte.', fase: '' },
   { id: 'lista', icone: 'menu', titulo: 'Eu tenho a lista', texto: 'Você dá a ordem; a IA só aponta pré-requisitos que faltam, e você aceita ou não.', fase: '' },
   { id: 'manual', icone: 'mais', titulo: 'Montar à mão', texto: 'Sem IA: você escreve módulos e etapas, na ordem que quiser.', fase: '' },
-  { id: 'material', icone: 'livro', titulo: 'A partir de material', texto: 'Um livro da Biblioteca, Temas do Acervo ou documentos próprios viram a espinha dorsal.', fase: 'fase 6' },
+  { id: 'material', icone: 'livro', titulo: 'A partir de material', texto: 'Um livro da Biblioteca, Temas do Acervo ou documentos próprios viram a espinha dorsal.', fase: '' },
 ]
 const entrada = ref('ia')
 const dados = ref({ titulo: '', objetivo: '', recorte: '', nivel_partida: '', nivel_alvo: '', profundidade: 3, instrucoes: '' })
 // Com IA (fase 4): o tema e o que você quer, em texto livre, e o tamanho da entrevista ou a lista.
 const comIA = computed(() => entrada.value !== 'manual')
 const ia = ref({ tema: '', pedido: '', entrevista: 'padrao', lista: '', profundidade: 3, instrucoes: '' })
+// A partir de material (fase 6): livros e Temas na ordem escolhida; os documentos vão como sempre.
+const material = ref([])
+const escolhendo = ref(true)
+function moverMaterial(i, delta) {
+  const j = i + delta
+  if (j < 0 || j >= material.value.length) return
+  const lista = [...material.value]
+  ;[lista[i], lista[j]] = [lista[j], lista[i]]
+  material.value = lista
+}
 const TAMANHOS = [
   { id: 'rapida', nome: 'Rápida', texto: '2 a 3 perguntas' },
   { id: 'padrao', nome: 'Padrão', texto: '5 a 8 perguntas, em 1 ou 2 rodadas' },
@@ -29,6 +40,7 @@ const TAMANHOS = [
 const itensLista = computed(() => ia.value.lista.split('\n').filter((l) => l.trim()).length)
 const podeCriar = computed(() => {
   if (!comIA.value) return !!dados.value.titulo.trim()
+  if (entrada.value === 'material') return material.value.length > 0 || arquivos.value.length > 0
   return !!ia.value.tema.trim() && (entrada.value !== 'lista' || itensLista.value >= 2)
 })
 const erro = ref('')
@@ -63,7 +75,9 @@ async function criar() {
 
 // A trilha nasce como rascunho, os documentos entram, e só então a IA começa (ela lê os documentos).
 async function criarComIA() {
-  const r = await api('/api/criacoes', { metodo: 'POST', corpo: { entrada: entrada.value, ...ia.value } })
+  const corpo = { entrada: entrada.value, ...ia.value, material: entrada.value === 'material' ? material.value : [] }
+  if (entrada.value === 'material' && !corpo.tema.trim()) corpo.tema = material.value[0]?.titulo || arquivos.value[0]?.name.replace(/\.md$/i, '') || 'Trilha'
+  const r = await api('/api/criacoes', { metodo: 'POST', corpo })
   const id = r.criacao.trilha_id
   if (arquivos.value.length) {
     const { erros } = await enviarDocumentos(id, arquivos.value)
@@ -109,9 +123,25 @@ async function criarComIA() {
     <form class="pilha formulario" @submit.prevent="criar">
       <FormTrilha v-if="!comIA" v-model="dados" />
       <template v-else>
+        <fieldset v-if="entrada === 'material'" class="sem-borda pilha">
+          <legend class="rotulo">O material, na ordem em que vai virar a trilha</legend>
+          <ol v-if="material.length" class="escolhidos">
+            <li v-for="(m, i) in material" :key="m.tipo + m.referencia + m.localizador" class="linha entre">
+              <span><span class="etiqueta">{{ TIPOS_MATERIAL[m.tipo] }}</span> {{ m.titulo }}<span v-if="m.localizador" class="fraco"> · {{ m.localizador }}</span></span>
+              <span class="linha">
+                <button type="button" class="botao discreto icone" aria-label="Subir" @click="moverMaterial(i, -1)">↑</button>
+                <button type="button" class="botao discreto icone" aria-label="Descer" @click="moverMaterial(i, 1)">↓</button>
+                <button type="button" class="botao discreto" @click="material.splice(i, 1)">Tirar</button>
+              </span>
+            </li>
+          </ol>
+          <EscolherMaterial v-if="escolhendo" simples @escolher="material.push($event)" @fechar="escolhendo = false" />
+          <div v-else><button type="button" class="botao" @click="escolhendo = true">Adicionar livro ou Tema</button></div>
+          <p class="ajuda">Um livro inteiro ou alguns capítulos, Temas do Acervo, e os seus documentos (abaixo). A IA lê o sumário e o texto, monta a sequência e aponta onde o material é raso para a profundidade pedida.</p>
+        </fieldset>
         <div>
-          <label class="rotulo" for="n-tema">O que você quer aprender?</label>
-          <input id="n-tema" v-model="ia.tema" class="campo" placeholder="Ex.: AWS; História do Brasil; crase e regência" required />
+          <label class="rotulo" for="n-tema">{{ entrada === 'material' ? 'Nome da trilha' : 'O que você quer aprender?' }} <span v-if="entrada === 'material'" class="fraco">(opcional: sem ele, o título do primeiro material)</span></label>
+          <input id="n-tema" v-model="ia.tema" class="campo" :placeholder="entrada === 'material' ? 'Ex.: Redes pelo Kurose' : 'Ex.: AWS; História do Brasil; crase e regência'" :required="entrada !== 'material'" />
         </div>
         <div>
           <label class="rotulo" for="n-pedido">O que você quer com isto? <span class="fraco">(foco, o que já sabe, o que evitar, fontes preferidas)</span></label>
@@ -122,7 +152,7 @@ async function criarComIA() {
           <textarea id="n-lista" v-model="ia.lista" class="campo" rows="7" placeholder="EC2&#10;S3&#10;IAM&#10;VPC" />
           <p class="ajuda">A ordem é sua. A IA só aponta o que falta (um pré-requisito, um item grande demais) e você aceita ou não cada sugestão.</p>
         </div>
-        <fieldset v-else class="sem-borda">
+        <fieldset v-else-if="entrada === 'ia'" class="sem-borda">
           <legend class="rotulo">Tamanho da entrevista</legend>
           <div class="linha tamanhos">
             <label v-for="tm in TAMANHOS" :key="tm.id" class="cartao tamanho" :class="{ escolhida: ia.entrevista === tm.id }">
@@ -167,6 +197,7 @@ async function criarComIA() {
         <span class="pequeno">{{
           entrada === 'ia' ? 'A IA pesquisa o assunto e faz as primeiras perguntas. Leva alguns minutos.'
           : entrada === 'lista' ? 'A IA confere a lista e volta com as sugestões. Leva alguns minutos.'
+          : entrada === 'material' ? 'A IA lê o material e volta com a espinha dorsal. Leva alguns minutos.'
           : 'Depois de criar, você monta os módulos e as etapas.'
         }}</span>
       </div>
@@ -192,6 +223,9 @@ async function criarComIA() {
 .tamanhos { align-items: stretch; flex-wrap: wrap; }
 .tamanho { display: grid; gap: 2px; cursor: pointer; flex: 1 1 160px; padding: var(--e2) var(--e3); }
 .tamanho.escolhida { border-color: var(--texto-suave); background: var(--superficie); }
+.escolhidos { margin: 0; padding: 0 0 0 var(--e5); display: grid; gap: var(--e1); font-size: 14px; }
+.escolhidos li { flex-wrap: nowrap; }
+.escolhidos li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 599px) {
   .entradas { grid-template-columns: minmax(0, 1fr); }
 }

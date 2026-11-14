@@ -15,8 +15,8 @@ Devolva:
 
 ## 1. Antes de escrever
 
-1. **Leia o material da etapa** (os arquivos em `documentos/`, na seção indicada; os links da web
-   com WebFetch). Ele é a fonte principal: a lição **ensina a partir dele** e aponta para ele, não o
+1. **Leia o material da etapa** (os arquivos em `documentos/`, na seção indicada; o texto dos livros
+   e do Acervo em `material/`, quando o pedido diz; os links da web com WebFetch). Ele é a fonte principal: a lição **ensina a partir dele** e aponta para ele, não o
    substitui. Se o material já explica bem um ponto, resuma e mande ler a seção ("leia a seção 2.3
    do documento 03"); gaste o texto no que falta nele.
 2. **Leia as lições dos pré-requisitos e da etapa anterior** (em `licoes/`, quando existirem), para
@@ -112,6 +112,16 @@ E repita na `notas`, com o arquivo e a seção, para o Lucas corrigir o document
 - O app testa cada link depois; link quebrado volta para o Lucas como defeito da lição.
 - Link para o material da trilha: `[seção 2.3 do documento 03](03-redes-separadas-firewall.md#23-...)`,
   pelo nome do arquivo e a âncora do título, como ela está no documento.
+- Livro da Biblioteca e Tema do Acervo **não** levam link na lição (o app põe o link no material
+  da etapa): cite pelo título, capítulo e página ("cap. 3 de *Computer Networking*, p. 45–52").
+
+## 5.1 Livros
+
+- O livro é protegido: **não copie** trechos longos. Explique com as suas palavras e mande ler o
+  trecho exato (capítulo e páginas). Uma citação curta, entre aspas e com a página, só quando a
+  formulação do autor importa.
+- As **marcações do Lucas** (no fim de cada parte, em `material/`) são o que ele achou
+  importante: dê a elas atenção na lição e nas perguntas.
 
 ## 6. Não faça
 

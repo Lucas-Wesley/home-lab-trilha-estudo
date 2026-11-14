@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T26), fases, riscos e o que está em aberto.
+  (T1–T27), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — o design **próprio** desta app (estilo Claude
@@ -61,6 +61,16 @@ corrigido pela IA na fila (tarefa `correcao`, ligada à `tentativas`, sem propos
 mínima de Ajustes. A lição vai ao Flashcards (`FLASHCARDS_URL`, `POST /api/textos` com
 `origem: "trilha"`): mudar esse envio é mudar o Flashcards também. Telas: `EstudoEtapa.vue` e
 `PropostaEstudo.vue`, na página da etapa.
+
+## Material de apoio (fase 6, T27)
+`backend/material.go`: livro da Biblioteca (`referencia` = id, `localizador` = `cap. N`/`p. A–B`)
+e Tema/Referência do Acervo são guardados por referência; o texto é lido pelas APIs de lá na hora de
+chamar a IA e vai para `material/` na pasta da tarefa (lição e espinha dorsal). Links por
+`GET /api/material/abrir` (redireciona ao ponto do livro). `backend/sugerir.go`: "Sugerir material"
+(proposta `materiais`, regra `materiais.md`). Entrada C ("a partir de material") em `criacao.go`: a
+espinha dorsal é uma validação com a regra `espinha.md`. Telas: `EscolherMaterial.vue` (seletor, com
+"Enviar PDF" para a Biblioteca) e `PropostaMaterial.vue`. Mudar uma API da Biblioteca ou do Acervo
+que a Trilha usa é mudar a Trilha também (`BIBLIOTECA_URL`, `ACERVO_URL`).
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

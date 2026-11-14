@@ -5,8 +5,9 @@ import Leitor from '../Leitor.vue'
 import NavTrilhas from '../NavTrilhas.vue'
 import Pagina from '../Pagina.vue'
 import { api } from '../api.js'
+import { abreEmOutraAba, hrefMaterial } from '../material.js'
 import { link } from '../rotas.js'
-import { BLOOM, PROFUNDIDADES, duracao } from '../rotulos.js'
+import { BLOOM, PROFUNDIDADES, TIPOS_MATERIAL, duracao } from '../rotulos.js'
 
 // Criar a trilha com a IA (fase 4, DECISOES.md §3 e T25). Cada passo é uma proposta que espera
 // você: a entrevista (responder), o mapa (marcar o recorte), a validação da lista (aceitar
@@ -71,7 +72,13 @@ const PASSOS = {
     { id: 'plano', nome: 'Plano' },
     { id: 'pronta', nome: 'Trilha criada' },
   ],
+  material: [
+    { id: 'validacao', nome: 'Espinha dorsal' },
+    { id: 'plano', nome: 'Plano' },
+    { id: 'pronta', nome: 'Trilha criada' },
+  ],
 }
+const doMaterial = computed(() => criacao.value?.entrada === 'material')
 const passos = computed(() => PASSOS[criacao.value?.entrada] || [])
 const indicePasso = computed(() => passos.value.findIndex((p) => p.id === criacao.value?.passo))
 const ESTADO_TAREFA = { na_fila: 'na fila', rodando: 'trabalhando', concluida: 'pronta', falhou: 'falhou', cancelada: 'cancelada' }
@@ -292,7 +299,7 @@ const rodadasFeitas = computed(() =>
       <!-- Gerando -->
       <div v-if="gerando" class="cartao linha entre">
         <div>
-          <strong>A IA está {{ OQUE[gerando.tipo] }}: {{ ESTADO_TAREFA[gerando.tarefa?.estado] || 'na fila' }}…</strong>
+          <strong>A IA está {{ doMaterial && gerando.tipo === 'validacao' ? 'lendo o material e montando a espinha dorsal' : OQUE[gerando.tipo] }}: {{ ESTADO_TAREFA[gerando.tarefa?.estado] || 'na fila' }}…</strong>
           <div class="suave">Leva alguns minutos; pode sair desta tela.<template v-if="gerando.pedido"> Pedido: “{{ gerando.pedido }}”</template></div>
         </div>
         <button class="botao discreto" :disabled="ocupado" @click="cancelar">Cancelar</button>
@@ -396,12 +403,19 @@ const rodadasFeitas = computed(() =>
 
         <!-- Validação da lista -->
         <section v-if="vista.tipo === 'validacao'" class="pilha">
-          <h2>A sua lista</h2>
-          <p class="sem-margem">A ordem é a sua. Marque as sugestões que quer aceitar; as outras ficam de fora.</p>
+          <h2>{{ doMaterial ? 'A espinha dorsal' : 'A sua lista' }}</h2>
+          <p class="sem-margem">{{ doMaterial ? 'A ordem é a do material. Marque os complementos e observações que quer aceitar; os outros ficam de fora.' : 'A ordem é a sua. Marque as sugestões que quer aceitar; as outras ficam de fora.' }}</p>
+          <ul v-if="doMaterial && criacao.material.length" class="lista-simples pequeno">
+            <li v-for="m in criacao.material" :key="m.tipo + m.referencia + m.localizador">
+              <span class="etiqueta">{{ TIPOS_MATERIAL[m.tipo] }}</span>
+              <a :href="hrefMaterial(m, trilhaId)" target="_blank" rel="noopener noreferrer">{{ m.titulo }}</a><span v-if="m.localizador" class="fraco"> · {{ m.localizador }}</span>
+            </li>
+          </ul>
           <ul class="lista-validada">
             <li v-for="(l, i) in listaComSugestoes" :key="i" :class="l.sugestao ? 'sugestao' : 'item'">
               <template v-if="l.item">
                 <strong>{{ l.item.titulo }}</strong>
+                <span v-if="l.item.fonte" class="fraco"> · {{ l.item.fonte }}</span>
                 <span v-if="l.item.nota" class="suave"> · {{ l.item.nota }}</span>
               </template>
               <label v-else class="linha">
@@ -410,7 +424,7 @@ const rodadasFeitas = computed(() =>
               </label>
             </li>
           </ul>
-          <p v-if="!conteudo.sugestoes.length" class="sem-margem">A IA não viu nada faltando.</p>
+          <p v-if="!conteudo.sugestoes.length" class="sem-margem">{{ doMaterial ? 'A IA achou o material suficiente para a profundidade pedida.' : 'A IA não viu nada faltando.' }}</p>
         </section>
 
         <!-- Níveis (mapa e validação) -->
@@ -480,8 +494,8 @@ const rodadasFeitas = computed(() =>
                     <ul class="materiais">
                       <li v-for="mt in e.materiais" :key="mt.referencia + mt.titulo">
                         <span class="fraco">{{ mt.papel }} · </span>
-                        <a v-if="mt.tipo === 'web'" :href="mt.referencia" target="_blank" rel="noopener noreferrer">{{ mt.titulo }}</a>
-                        <a v-else :href="link('trilhas', trilhaId, 'documentos', mt.referencia)">{{ mt.titulo }}</a>
+                        <span v-if="mt.tipo === 'livro' || mt.tipo === 'acervo'" class="fraco">{{ TIPOS_MATERIAL[mt.tipo].toLowerCase() }} · </span>
+                        <a :href="hrefMaterial(mt, trilhaId)" :target="abreEmOutraAba(mt) ? '_blank' : undefined" rel="noopener noreferrer">{{ mt.titulo }}</a>
                         <span v-if="mt.localizador" class="fraco"> ({{ mt.localizador }})</span>
                         <span v-if="(conteudo.links || []).some((l) => l.url === mt.referencia && l.situacao === 'quebrado')" class="etiqueta vermelho">quebrado</span>
                         <div v-if="mt.nota" class="suave">{{ mt.nota }}</div>
@@ -588,6 +602,8 @@ section h2 { margin: var(--e4) 0 0; }
 .etapa-plano { border-top: 1px solid var(--borda); padding: var(--e2) 0; }
 .etapa-plano summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2); }
 .titulo-etapa { font-weight: 500; }
+.lista-simples { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e1); }
+.lista-simples li { display: flex; gap: var(--e2); align-items: center; flex-wrap: wrap; }
 .etapa-plano .ficha { margin: var(--e2) 0; }
 .materiais li { margin-bottom: var(--e1); }
 .aviso-item { color: var(--ambar); }

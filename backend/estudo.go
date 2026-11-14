@@ -36,6 +36,7 @@ var titulosEstudo = map[string]string{
 	"licao":        "Lição",
 	tipoExercicios: "Exercícios",
 	tipoSimulado:   "Simulado",
+	tipoMateriais:  "Material sugerido",
 }
 
 type exercicio struct {
@@ -301,10 +302,8 @@ func (a *app) gerarEstudo(ctx context.Context, t *tarefa) error {
 	if err != nil {
 		return err
 	}
-	for nome, texto := range arquivos {
-		if err := os.WriteFile(filepath.Join(pasta, nome), []byte(texto), 0o644); err != nil {
-			return err
-		}
+	if err := gravarNaPasta(pasta, arquivos); err != nil {
+		return err
 	}
 	rg, err := a.ia.lerRegra(p.Tipo + ".md")
 	if err != nil {
@@ -928,6 +927,10 @@ type integracoes struct {
 	flashcards     string // FLASHCARDS_URL (rede interna); vazio = não configurado
 	flashcardsLink string // FLASHCARDS_LINK, para os links da tela
 	trilhaLink     string // TRILHA_LINK, o endereço deste app (o link de volta de cada cartão)
+	biblioteca     string // BIBLIOTECA_URL (fase 6, material.go)
+	bibliotecaLink string // BIBLIOTECA_LINK
+	acervo         string // ACERVO_URL
+	acervoLink     string // ACERVO_LINK
 }
 
 type envioFlashcards struct {
