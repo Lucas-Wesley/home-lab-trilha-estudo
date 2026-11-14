@@ -1,0 +1,54 @@
+{
+  "documentos": {
+    "01-openwrt-instalacao": {
+      "excluir": {
+        "1-o-que-fizemos": "diário da prática; o conteúdo está nas seções conceituais",
+        "24-http-apis-e-tokens-de-sessão": "web/HTTP: o Lucas já domina como dev",
+        "25-linux-embarcado-o-roteador-é-um-computador": "fora do recorte: sistema do roteador, não rede",
+        "26-arquitetura-de-cpu-por-que-existe-uma-imagem-para-cada-roteador": "fora do recorte: hardware",
+        "27-memória-flash-partições-e-bootloader": "fora do recorte: hardware",
+        "32-como-conseguimos-acesso-a-vulnerabilidade": "fora do recorte: segurança do firmware de fábrica",
+        "33-ssh-e-dropbear": "fora do recorte: acesso ao sistema",
+        "34-testar-antes-de-gravar-initramfs-vs-sysupgrade": "fora do recorte: instalação do firmware",
+        "41-hash-conferir-se-o-arquivo-é-o-certo": "fora do recorte: instalação do firmware",
+        "42-brick-e-recuperação": "fora do recorte: hardware",
+        "43-vulnerabilidades-divulgação-e-atualizações": "fora do recorte: manutenção do firmware",
+        "44-alternativas-ao-openwrt": "curiosidade (⚪)",
+        "45-por-que-o-navegador-bloqueia-algumas-portas": "curiosidade (⚪), segurança de navegador",
+        "6-por-que-importa-no-nosso-cenário": "contexto do documento",
+        "9-flashcards-sugeridos": "vai para o Flashcards (fase 5)",
+        "10-referências": "as fontes entram como material das etapas",
+        "11-para-aprofundar": "as fontes entram como material das etapas"
+      }
+    },
+    "02-wifi": {
+      "excluir": {
+        "1-o-que-fizemos": "diário da prática",
+        "6-como-tudo-se-conecta": "diagrama do documento",
+        "7-por-que-importa-no-nosso-cenário": "contexto do documento",
+        "10-flashcards-sugeridos": "Flashcards (fase 5)",
+        "11-referências": "fontes entram nas etapas",
+        "12-para-aprofundar": "fontes entram nas etapas"
+      }
+    },
+    "03-redes-separadas-firewall": {
+      "excluir": {
+        "1-o-que-fizemos": "diário da prática",
+        "9-por-que-importa-no-nosso-cenário": "contexto do documento",
+        "12-flashcards-sugeridos": "Flashcards (fase 5)",
+        "13-referências": "fontes entram nas etapas",
+        "14-para-aprofundar": "fontes entram nas etapas"
+      }
+    },
+    "05-claro-bridge-wan-sqm": {
+      "excluir": {
+        "1-o-que-fizemos": "diário da prática",
+        "5-como-tudo-se-conecta": "diagrama do documento",
+        "6-por-que-importa-no-nosso-cenário": "contexto do documento",
+        "9-flashcards-sugeridos": "Flashcards (fase 5)",
+        "10-referências": "fontes entram nas etapas",
+        "11-para-aprofundar": "fontes entram nas etapas"
+      }
+    }
+  }
+}
