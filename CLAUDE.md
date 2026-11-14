@@ -47,6 +47,6 @@ novas na seção 6 das regras. A trilha entra no app por `POST /api/importar` (p
   proposta aceita **comentários**. Nunca aplicar mudança da IA sem aprovação.
 - Toda chamada ao Claude passa pela **fila** (uma tarefa por vez).
 - Toda cor, raio e tamanho vem de um token de `style.css`; mudou o design, atualizar
-  `docs/DESIGN-SYSTEM.md` e a vitrine `#/design`.
+  `docs/DESIGN-SYSTEM.md` e a vitrine `#/design` (sem aba; só pelo endereço).
 - Só teoria por enquanto; ferramentas práticas por trilha só quando o Lucas pedir (T11).
 - **Commits:** autoria do Lucas; **sem linha `Co-Authored-By`**.

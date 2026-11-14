@@ -10,7 +10,7 @@
 import puppeteer from 'puppeteer-core'
 
 const base = process.env.BASE || 'http://host.docker.internal:8080/'
-const telas = (process.env.TELAS || '#/hoje,#/trilhas,#/trilhas/1,#/trilhas/1/etapas/1,#/documentos,#/design').split(',')
+const telas = (process.env.TELAS || '#/hoje,#/trilhas,#/trilhas/nova,#/trilhas/1,#/trilhas/1/etapas/1,#/trilhas/1/documentos/03-redes-separadas-firewall').split(',')
 
 const navegador = await puppeteer.launch({ executablePath: '/usr/bin/chromium-browser', args: ['--no-sandbox'] })
 let falhou = false

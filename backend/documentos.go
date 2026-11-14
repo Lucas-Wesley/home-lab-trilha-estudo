@@ -8,8 +8,42 @@ import (
 	"strings"
 )
 
+// Documentos são material próprio em Markdown de uma trilha (ex.: os docs de estudo do homelab na
+// trilha de rede). Pertencem à trilha: ficam em trilhas/<slug>/documentos/, aparecem só nela e saem
+// junto quando ela é excluída. Entram à mão, em qualquer forma de criar a trilha.
+
+func caminhoDocumento(slugTrilha, doc string) string {
+	return "trilhas/" + slugTrilha + "/documentos/" + doc + ".md"
+}
+
+// trilhaDaRota lê {id} da rota e devolve o slug da trilha.
+func (a *app) trilhaDaRota(r *http.Request) (string, error) {
+	id, err := idDaRota(r)
+	if err != nil {
+		return "", err
+	}
+	slug := a.slugDaTrilha(r.Context(), id)
+	if slug == "" {
+		return "", errNaoEncontrou
+	}
+	return slug, nil
+}
+
+func nomeDocumento(r *http.Request) (string, error) {
+	doc := r.PathValue("doc")
+	if !slugValido.MatchString(doc) {
+		return "", erroDeEntrada{fmt.Errorf("nome de documento inválido: %q (use letras minúsculas, números e hífens)", doc)}
+	}
+	return doc, nil
+}
+
 func (a *app) handleDocumentos(w http.ResponseWriter, r *http.Request) {
-	lista, err := a.conteudo.documentos()
+	slug, err := a.trilhaDaRota(r)
+	if err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	lista, err := a.conteudo.documentos("trilhas/" + slug + "/documentos")
 	if err != nil {
 		a.responderErro(w, err)
 		return
@@ -17,21 +51,18 @@ func (a *app) handleDocumentos(w http.ResponseWriter, r *http.Request) {
 	responderJSON(w, http.StatusOK, lista)
 }
 
-func slugDocumento(r *http.Request) (string, error) {
-	slug := r.PathValue("slug")
-	if !slugValido.MatchString(slug) {
-		return "", erroDeEntrada{fmt.Errorf("nome de documento inválido: %q (use letras minúsculas, números e hífens)", slug)}
-	}
-	return slug, nil
-}
-
 func (a *app) handleDocumento(w http.ResponseWriter, r *http.Request) {
-	slug, err := slugDocumento(r)
+	slug, err := a.trilhaDaRota(r)
 	if err != nil {
 		a.responderErro(w, err)
 		return
 	}
-	texto, err := a.conteudo.ler("documentos/" + slug + ".md")
+	doc, err := nomeDocumento(r)
+	if err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	texto, err := a.conteudo.ler(caminhoDocumento(slug, doc))
 	if errors.Is(err, fs.ErrNotExist) {
 		a.responderErro(w, errNaoEncontrou)
 		return
@@ -40,11 +71,16 @@ func (a *app) handleDocumento(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
-	responderJSON(w, http.StatusOK, documento{Slug: slug, Titulo: tituloDoMarkdown(texto, slug), Conteudo: texto})
+	responderJSON(w, http.StatusOK, documento{Slug: doc, Titulo: tituloDoMarkdown(texto, doc), Conteudo: texto})
 }
 
 func (a *app) handleSalvarDocumento(w http.ResponseWriter, r *http.Request) {
-	slug, err := slugDocumento(r)
+	slug, err := a.trilhaDaRota(r)
+	if err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	doc, err := nomeDocumento(r)
 	if err != nil {
 		a.responderErro(w, err)
 		return
@@ -60,7 +96,7 @@ func (a *app) handleSalvarDocumento(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, erroDeEntrada{errors.New("o documento está vazio")})
 		return
 	}
-	if err := a.conteudo.gravar("documento "+slug, map[string]*string{"documentos/" + slug + ".md": &corpo.Conteudo}); err != nil {
+	if err := a.conteudo.gravar(slug+": documento "+doc, map[string]*string{caminhoDocumento(slug, doc): &corpo.Conteudo}); err != nil {
 		a.responderErro(w, err)
 		return
 	}
@@ -68,12 +104,17 @@ func (a *app) handleSalvarDocumento(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) handleExcluirDocumento(w http.ResponseWriter, r *http.Request) {
-	slug, err := slugDocumento(r)
+	slug, err := a.trilhaDaRota(r)
 	if err != nil {
 		a.responderErro(w, err)
 		return
 	}
-	if err := a.conteudo.gravar("documento "+slug+" excluído", map[string]*string{"documentos/" + slug + ".md": nil}); err != nil {
+	doc, err := nomeDocumento(r)
+	if err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	if err := a.conteudo.gravar(slug+": documento "+doc+" excluído", map[string]*string{caminhoDocumento(slug, doc): nil}); err != nil {
 		a.responderErro(w, err)
 		return
 	}

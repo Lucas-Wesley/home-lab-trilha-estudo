@@ -3,20 +3,17 @@ import { computed, onBeforeUnmount, onMounted, provide, ref } from 'vue'
 import Icone from './Icone.vue'
 import Hoje from './telas/Hoje.vue'
 import Trilhas from './telas/Trilhas.vue'
-import Documentos from './telas/Documentos.vue'
 import Vitrine from './telas/Vitrine.vue'
 import { lerRota, link } from './rotas.js'
 import { aplicarTema, lerTema, proximoTema } from './tema.js'
 
 const hash = ref(location.hash)
 const rota = computed(() => lerRota(hash.value))
-const telas = { hoje: Hoje, trilhas: Trilhas, documentos: Documentos, design: Vitrine }
+const telas = { hoje: Hoje, trilhas: Trilhas, design: Vitrine }
 
 const abas = [
   { secao: 'hoje', nome: 'Hoje', icone: 'hoje' },
   { secao: 'trilhas', nome: 'Trilhas', icone: 'trilhas' },
-  { secao: 'documentos', nome: 'Documentos', icone: 'livro' },
-  { secao: 'design', nome: 'Design', icone: 'design' },
 ]
 
 const tema = ref(lerTema())
@@ -137,7 +134,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
     bottom: 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     padding: var(--e1) var(--e2) calc(var(--e1) + env(safe-area-inset-bottom));
     background: var(--fundo);
     border-top: 1px solid var(--borda);

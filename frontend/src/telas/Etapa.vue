@@ -44,9 +44,11 @@ const materiaisPorPapel = computed(() => {
   return Object.entries(grupos).filter(([, lista]) => lista.length)
 })
 
+const baseDocs = computed(() => `#/trilhas/${props.trilhaId}/documentos/`)
+
 function hrefMaterial(m) {
   if (m.tipo === 'web') return m.referencia
-  if (m.tipo === 'documento') return `#/documentos/${encodeURIComponent(m.referencia)}${m.localizador ? '#' + m.localizador : ''}`
+  if (m.tipo === 'documento') return `${baseDocs.value}${encodeURIComponent(m.referencia)}${m.localizador ? '#' + m.localizador : ''}`
   return ''
 }
 
@@ -181,7 +183,7 @@ async function excluir() {
 
         <section class="secao">
           <h2>Lição</h2>
-          <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancora" @titulos="titulos = $event" />
+          <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancora" :base-docs="baseDocs" @titulos="titulos = $event" />
           <div v-else class="cartao">
             <p class="suave sem-margem">Esta etapa ainda não tem lição própria: estude pela leitura principal acima. A lição gerada pela IA, na profundidade da etapa, chega na fase 3; até lá, dá para escrever uma em Editar.</p>
           </div>
@@ -263,7 +265,12 @@ async function excluir() {
               </select>
             </div>
             <input v-model="m.titulo" class="campo" placeholder="Título" />
-            <input v-model="m.referencia" class="campo" :placeholder="m.tipo === 'web' ? 'https://…' : m.tipo === 'documento' ? 'nome do documento (ex.: 03-redes-separadas-firewall)' : 'Referência'" />
+            <input
+              v-model="m.referencia"
+              class="campo"
+              :list="m.tipo === 'documento' ? 'documentos-da-trilha' : undefined"
+              :placeholder="m.tipo === 'web' ? 'https://…' : m.tipo === 'documento' ? 'documento da trilha (ex.: 03-redes-separadas-firewall)' : 'Referência'"
+            />
             <input v-model="m.localizador" class="campo" :placeholder="m.tipo === 'documento' ? 'âncora da seção (opcional)' : 'cap., página, tempo (opcional)'" />
             <input v-model="m.nota" class="campo" placeholder="Nota: o que ler e por quê (opcional)" />
             <div class="linha">
@@ -273,6 +280,9 @@ async function excluir() {
             </div>
           </div>
           <div><button type="button" class="botao" @click="novoMaterial">Adicionar material</button></div>
+          <datalist id="documentos-da-trilha">
+            <option v-for="d in t.documentos || []" :key="d.slug" :value="d.slug">{{ d.titulo }}</option>
+          </datalist>
           <p class="ajuda">Streaming: vincular uma pasta de Meus vídeos chega quando o Streaming tiver subpastas e legendas.</p>
         </fieldset>
 

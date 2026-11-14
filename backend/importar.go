@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// pacote é uma trilha inteira (e os documentos que ela usa) num JSON só. É o formato da trilha
+// pacote é uma trilha inteira (e os documentos dela) num JSON só. É o formato da trilha
 // montada fora do app (a piloto, feita à mão com o processo de regras/criar-trilha.md) e, na fase 4,
 // o que a IA vai devolver. Ver docs/CRIACAO-DE-TRILHAS.md.
 type pacote struct {
@@ -41,7 +41,7 @@ func validarPacote(p *pacote) error {
 		}
 	}
 	if p.Trilha == nil {
-		return nil
+		return errors.New("o pacote precisa de uma trilha (os documentos pertencem a ela)")
 	}
 	t := p.Trilha
 	if err := validarTrilha(&t.trilha); err != nil {
@@ -107,19 +107,6 @@ func (a *app) importar(ctx context.Context, p pacote) (resultadoImportacao, erro
 	var res resultadoImportacao
 	if err := validarPacote(&p); err != nil {
 		return res, erroDeEntrada{err}
-	}
-	if len(p.Documentos) > 0 {
-		arquivos := map[string]*string{}
-		for i := range p.Documentos {
-			arquivos["documentos/"+p.Documentos[i].Slug+".md"] = &p.Documentos[i].Conteudo
-		}
-		if err := a.conteudo.gravar(fmt.Sprintf("%d documentos importados", len(arquivos)), arquivos); err != nil {
-			return res, err
-		}
-		res.Documentos = len(arquivos)
-	}
-	if p.Trilha == nil {
-		return res, nil
 	}
 	t := p.Trilha
 
@@ -228,6 +215,10 @@ func (a *app) importar(ctx context.Context, p pacote) (resultadoImportacao, erro
 		if _, fica := licoes[caminhoLicao(t.Slug, chave)]; !fica {
 			licoes[caminhoLicao(t.Slug, chave)] = nil
 		}
+	}
+	for i := range p.Documentos {
+		licoes[caminhoDocumento(t.Slug, p.Documentos[i].Slug)] = &p.Documentos[i].Conteudo
+		res.Documentos++
 	}
 	mensagem := "importada"
 	if p.Substituir && len(statusAnterior) > 0 {

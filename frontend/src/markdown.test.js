@@ -17,9 +17,13 @@ describe('ancora (igual ao GitHub)', () => {
 })
 
 describe('reescreverLink', () => {
-  it('documento relativo vira rota do app, com a âncora', () => {
-    expect(reescreverLink('06-proxmox-instalacao.md#41-reserva').href).toBe('#/documentos/06-proxmox-instalacao#41-reserva')
-    expect(reescreverLink('../casa-inteligente-rede.md').href).toBe('#/documentos/casa-inteligente-rede')
+  const base = '#/trilhas/3/documentos/'
+  it('documento relativo vira rota do documento na trilha, com a âncora', () => {
+    expect(reescreverLink('06-proxmox-instalacao.md#41-reserva', base).href).toBe('#/trilhas/3/documentos/06-proxmox-instalacao#41-reserva')
+    expect(reescreverLink('../casa-inteligente-rede.md', base).href).toBe('#/trilhas/3/documentos/casa-inteligente-rede')
+  })
+  it('sem trilha, o link fica como veio', () => {
+    expect(reescreverLink('02-wifi.md').href).toBe('02-wifi.md')
   })
   it('externo abre fora', () => {
     expect(reescreverLink('https://openwrt.org/docs')).toEqual({ href: 'https://openwrt.org/docs', externo: true })
@@ -44,6 +48,6 @@ describe('renderizar', () => {
     expect(renderizar('| a |\n|---|\n| b |').html).toContain('<div class="tabela-rolavel"><table>')
   })
   it('link para documento vira rota', () => {
-    expect(renderizar('[ver](02-wifi.md#canais)').html).toContain('href="#/documentos/02-wifi#canais"')
+    expect(renderizar('[ver](02-wifi.md#canais)', { baseDocs: '#/trilhas/1/documentos/' }).html).toContain('href="#/trilhas/1/documentos/02-wifi#canais"')
   })
 })

@@ -151,7 +151,7 @@ func TestValidacoes(t *testing.T) {
 	if s := c.chamar("PUT", "/api/etapas/1", map[string]any{"titulo": "E", "requer": []int64{1}}, nil); s != 400 {
 		t.Fatalf("requisito de si mesma: %d", s)
 	}
-	if s := c.chamar("GET", "/api/documentos/..%2F..%2Fetc", nil, nil); s != 400 {
+	if s := c.chamar("GET", "/api/trilhas/1/documentos/..%2F..%2Fetc", nil, nil); s != 400 {
 		t.Fatalf("nome de documento com barra: %d", s)
 	}
 	if s := c.chamar("DELETE", "/api/modulos/1", nil, nil); s != 400 {
@@ -315,7 +315,7 @@ func TestImportar(t *testing.T) {
 		t.Fatalf("importação: %+v", res)
 	}
 	var docs []documento
-	c.ok("GET", "/api/documentos", nil, &docs)
+	c.ok("GET", "/api/trilhas/1/documentos", nil, &docs)
 	if len(docs) != 1 || docs[0].Titulo != "OpenWrt" {
 		t.Fatalf("documentos: %+v", docs)
 	}
@@ -346,5 +346,49 @@ func TestImportar(t *testing.T) {
 	es := tr.Modulos[0].Etapas
 	if es[0].Status != "concluida" || es[0].Titulo != "Camadas (revisto)" || es[1].Chave != "dhcp" || es[0].TemLicao {
 		t.Fatalf("depois da nova versão: %+v", es)
+	}
+}
+
+func TestDocumentosDaTrilha(t *testing.T) {
+	c := novoCliente(t)
+	c.ok("POST", "/api/trilhas", map[string]any{"titulo": "Rede"}, nil)
+	c.ok("POST", "/api/trilhas", map[string]any{"titulo": "AWS"}, nil)
+	var d documento
+	c.ok("PUT", "/api/trilhas/1/documentos/02-wifi", map[string]any{"conteudo": "# Wi-Fi\n\nCanais."}, &d)
+	if d.Titulo != "Wi-Fi" {
+		t.Fatalf("documento salvo: %+v", d)
+	}
+	var docs []documento
+	c.ok("GET", "/api/trilhas/1/documentos", nil, &docs)
+	if len(docs) != 1 || docs[0].Slug != "02-wifi" || docs[0].Conteudo != "" {
+		t.Fatalf("lista da trilha 1: %+v", docs)
+	}
+	var tr trilha
+	c.ok("GET", "/api/trilhas/1", nil, &tr)
+	if len(tr.Documentos) != 1 || tr.Documentos[0].Titulo != "Wi-Fi" {
+		t.Fatalf("detalhe da trilha sem o documento: %+v", tr.Documentos)
+	}
+	// Cada trilha vê só os seus.
+	c.ok("GET", "/api/trilhas/2/documentos", nil, &docs)
+	if len(docs) != 0 {
+		t.Fatalf("a trilha 2 não tem documentos: %+v", docs)
+	}
+	if s := c.chamar("GET", "/api/trilhas/2/documentos/02-wifi", nil, nil); s != 404 {
+		t.Fatalf("documento de outra trilha: %d", s)
+	}
+	if s := c.chamar("GET", "/api/trilhas/9/documentos", nil, nil); s != 404 {
+		t.Fatalf("trilha que não existe: %d", s)
+	}
+	if s := c.chamar("PUT", "/api/trilhas/1/documentos/x", map[string]any{"conteudo": "  "}, nil); s != 400 {
+		t.Fatalf("documento vazio: %d", s)
+	}
+	// Excluir a trilha leva os documentos junto.
+	if s := c.chamar("DELETE", "/api/trilhas/1", nil, nil); s != 204 {
+		t.Fatalf("excluir trilha: %d", s)
+	}
+	c.ok("POST", "/api/trilhas", map[string]any{"titulo": "Rede"}, nil)
+	c.ok("GET", "/api/trilhas/3/documentos", nil, &docs)
+	if len(docs) != 0 {
+		t.Fatalf("documento sobrou da trilha excluída: %+v", docs)
 	}
 }

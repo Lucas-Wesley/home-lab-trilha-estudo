@@ -9,6 +9,7 @@ import { link } from './rotas.js'
 const props = defineProps({
   trilha: { type: Object, default: null },
   etapaAtual: { type: Number, default: 0 },
+  documentoAtual: { type: String, default: '' },
   nova: { type: Boolean, default: false },
 })
 
@@ -29,7 +30,7 @@ const ICONE_STATUS = { concluida: '✓', pulada: '–', em_andamento: '●', dis
   <template v-if="trilha">
     <div class="nav-grupo">
       <a class="nav-item voltar" :href="link('trilhas')"><Icone nome="seta-direita" :tamanho="14" class="vira" /> Todas as trilhas</a>
-      <a class="nav-item" :class="{ ativo: !etapaAtual }" :href="link('trilhas', trilha.id)"><strong>{{ trilha.titulo }}</strong></a>
+      <a class="nav-item" :class="{ ativo: !etapaAtual && !documentoAtual }" :href="link('trilhas', trilha.id)"><strong>{{ trilha.titulo }}</strong></a>
     </div>
     <div v-for="(m, i) in trilha.modulos" :key="m.id" class="nav-grupo">
       <span class="nav-titulo">{{ i + 1 }}. {{ m.titulo }}</span>
@@ -44,6 +45,16 @@ const ICONE_STATUS = { concluida: '✓', pulada: '–', em_andamento: '●', dis
         <span>{{ e.titulo }}</span>
       </a>
       <p v-if="!m.etapas.length" class="nav-vazio">Sem etapas.</p>
+    </div>
+    <div v-if="trilha.documentos?.length" class="nav-grupo">
+      <span class="nav-titulo">Documentos</span>
+      <a
+        v-for="d in trilha.documentos"
+        :key="d.slug"
+        class="nav-item"
+        :class="{ ativo: documentoAtual === d.slug }"
+        :href="link('trilhas', trilha.id, 'documentos', d.slug)"
+      >{{ d.titulo }}</a>
     </div>
   </template>
   <template v-else>

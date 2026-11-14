@@ -23,7 +23,7 @@ describe('lerRota', () => {
   })
 
   it('não quebra com "%" malformado', () => {
-    expect(lerRota('#/documentos/x%E2').secao).toBe('documentos')
+    expect(lerRota('#/trilhas/x%E2').secao).toBe('trilhas')
   })
 })
 

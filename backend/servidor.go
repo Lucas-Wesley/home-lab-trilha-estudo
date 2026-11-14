@@ -43,10 +43,10 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("DELETE /api/etapas/{id}", a.handleExcluirEtapa)
 	mux.HandleFunc("POST /api/etapas/{id}/status", a.handleStatusEtapa)
 
-	mux.HandleFunc("GET /api/documentos", a.handleDocumentos)
-	mux.HandleFunc("GET /api/documentos/{slug}", a.handleDocumento)
-	mux.HandleFunc("PUT /api/documentos/{slug}", a.handleSalvarDocumento)
-	mux.HandleFunc("DELETE /api/documentos/{slug}", a.handleExcluirDocumento)
+	mux.HandleFunc("GET /api/trilhas/{id}/documentos", a.handleDocumentos)
+	mux.HandleFunc("GET /api/trilhas/{id}/documentos/{doc}", a.handleDocumento)
+	mux.HandleFunc("PUT /api/trilhas/{id}/documentos/{doc}", a.handleSalvarDocumento)
+	mux.HandleFunc("DELETE /api/trilhas/{id}/documentos/{doc}", a.handleExcluirDocumento)
 
 	mux.HandleFunc("POST /api/importar", a.handleImportar)
 

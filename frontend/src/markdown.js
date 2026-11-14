@@ -14,14 +14,14 @@ export function ancora(texto) {
 }
 
 // Link relativo para outro Markdown ("03-redes.md#zonas", "../casa.md") vira a rota do documento
-// no app; links externos abrem em outra aba.
-export function reescreverLink(href) {
+// na trilha (baseDocs = "#/trilhas/3/documentos/"); links externos abrem em outra aba.
+export function reescreverLink(href, baseDocs = '') {
   if (!href) return { href }
   if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return { href, externo: true }
   const m = href.match(/^(?:\.{1,2}\/)*(?:[\w.-]+\/)*([\w.-]+)\.md(?:#(.*))?$/i)
-  if (m) {
+  if (m && baseDocs) {
     const slug = m[1].toLowerCase()
-    return { href: `#/documentos/${encodeURIComponent(slug)}${m[2] ? '#' + m[2] : ''}` }
+    return { href: `${baseDocs}${encodeURIComponent(slug)}${m[2] ? '#' + m[2] : ''}` }
   }
   if (href.startsWith('#') && !href.startsWith('#/')) return { href, ancoraLocal: href.slice(1) }
   return { href }
@@ -34,7 +34,7 @@ export function textoComCodigo(texto) {
 }
 
 // renderizar devolve o HTML limpo e os títulos (h2 e h3) para o "nesta página".
-export function renderizar(texto) {
+export function renderizar(texto, { baseDocs = '' } = {}) {
   const titulos = []
   const usados = new Map()
   const marked = new Marked({
@@ -51,7 +51,7 @@ export function renderizar(texto) {
       },
       link({ href, title, tokens }) {
         const texto = this.parser.parseInline(tokens)
-        const r = reescreverLink(href)
+        const r = reescreverLink(href, baseDocs)
         const t = title ? ` title="${title}"` : ''
         if (r.externo) return `<a href="${r.href}"${t} target="_blank" rel="noopener noreferrer">${texto}</a>`
         if (r.ancoraLocal !== undefined) return `<a href="${r.href}" data-ancora="${r.ancoraLocal}"${t}>${texto}</a>`

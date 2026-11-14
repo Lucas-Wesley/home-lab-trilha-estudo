@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import DialogoMeta from '../DialogoMeta.vue'
+import DocumentosTrilha from '../DocumentosTrilha.vue'
 import FormTrilha from '../FormTrilha.vue'
 import Icone from '../Icone.vue'
 import NavTrilhas from '../NavTrilhas.vue'
@@ -27,7 +28,14 @@ async function carregar() {
     erro.value = e.status === 404 ? 'Trilha não encontrada.' : e.message
   }
 }
-onMounted(carregar)
+// Chegou com âncora (#/trilhas/3#documentos): vai até a seção depois de carregar.
+onMounted(async () => {
+  await carregar()
+  if (props.ancora) {
+    await nextTick()
+    document.getElementById(props.ancora)?.scrollIntoView({ block: 'start' })
+  }
+})
 
 // Toda mudança devolve a trilha atualizada (ou não), e o erro aparece no topo.
 async function fazer(acao) {
@@ -172,6 +180,7 @@ const secoes = [
   { id: 'sobre', nome: 'Sobre a trilha' },
   { id: 'meta', nome: 'Meta e ritmo' },
   { id: 'estrutura', nome: 'Estrutura' },
+  { id: 'documentos', nome: 'Documentos' },
   { id: 'cronograma', nome: 'Cronograma' },
 ]
 function irPara(id) {
@@ -299,6 +308,12 @@ function irPara(id) {
           <input v-model="novoModulo" class="campo" placeholder="Novo módulo" />
           <button class="botao" type="submit">Criar módulo</button>
         </form>
+      </section>
+
+      <!-- Documentos -->
+      <section id="documentos" class="secao">
+        <h2>Documentos</h2>
+        <DocumentosTrilha :trilha="t" @mudou="carregar" />
       </section>
 
       <!-- Cronograma -->

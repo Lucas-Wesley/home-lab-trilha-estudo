@@ -5,6 +5,7 @@ import Icone from '../Icone.vue'
 import NavTrilhas from '../NavTrilhas.vue'
 import Pagina from '../Pagina.vue'
 import { api } from '../api.js'
+import { enviarDocumentos } from '../documentos.js'
 import { link } from '../rotas.js'
 
 // As quatro entradas (DECISOES.md §3). Na fase 2 só a manual funciona.
@@ -19,11 +20,24 @@ const dados = ref({ titulo: '', objetivo: '', recorte: '', nivel_partida: '', ni
 const erro = ref('')
 const enviando = ref(false)
 
+// Documentos próprios valem para qualquer forma de começar: vão junto quando a trilha é criada.
+const arquivos = ref([])
+function escolher(evento) {
+  const novos = [...evento.target.files].filter((f) => !arquivos.value.some((a) => a.name === f.name))
+  arquivos.value = [...arquivos.value, ...novos]
+  evento.target.value = ''
+}
+
 async function criar() {
   erro.value = ''
   enviando.value = true
   try {
     const t = await api('/api/trilhas', { metodo: 'POST', corpo: dados.value })
+    if (arquivos.value.length) {
+      const { erros } = await enviarDocumentos(t.id, arquivos.value)
+      // A trilha já existe: os que falharam podem ser mandados de novo na página dela.
+      if (erros.length) alert(`A trilha foi criada, mas alguns documentos não entraram:\n${erros.join('\n')}\n\nDá para mandar de novo na seção Documentos da trilha.`)
+    }
     location.hash = link('trilhas', t.id)
   } catch (e) {
     erro.value = e.message
@@ -67,6 +81,22 @@ async function criar() {
 
     <form class="pilha formulario" @submit.prevent="criar">
       <FormTrilha v-model="dados" />
+      <fieldset class="pilha documentos">
+        <legend class="rotulo">Documentos próprios (opcional)</legend>
+        <p class="pequeno sem-margem">Material seu em Markdown sobre o assunto. Fica guardado na trilha e as etapas podem usar como leitura. Vale para qualquer forma de começar; depois dá para adicionar mais na página da trilha.</p>
+        <ul v-if="arquivos.length" class="arquivos">
+          <li v-for="(f, i) in arquivos" :key="f.name" class="linha entre">
+            <span>{{ f.name }}</span>
+            <button type="button" class="botao discreto" @click="arquivos.splice(i, 1)">Tirar</button>
+          </li>
+        </ul>
+        <div>
+          <label class="botao escolher">
+            <Icone nome="mais" /> Escolher arquivos .md
+            <input type="file" accept=".md,text/markdown" multiple class="so-leitor" @change="escolher" />
+          </label>
+        </div>
+      </fieldset>
       <p v-if="erro" class="aviso">{{ erro }}</p>
       <div class="linha">
         <button class="botao primario" type="submit" :disabled="enviando || !dados.titulo.trim()">Criar trilha</button>
@@ -85,6 +115,11 @@ async function criar() {
 .topo { justify-content: space-between; margin-bottom: var(--e2); }
 .entrada-icone { color: var(--texto-suave); }
 .formulario { margin-top: var(--e6); max-width: var(--leitura); }
+.documentos { border: 0; padding: 0; margin: 0; }
+.arquivos { list-style: none; margin: 0; padding: 0; border: 1px solid var(--borda); border-radius: var(--raio); }
+.arquivos li { padding: var(--e1) var(--e3); border-bottom: 1px solid var(--borda); font-size: 14px; }
+.arquivos li:last-child { border-bottom: 0; }
+.escolher { cursor: pointer; }
 @media (max-width: 599px) {
   .entradas { grid-template-columns: minmax(0, 1fr); }
 }

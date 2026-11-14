@@ -21,8 +21,8 @@ import (
 // local (T3): nunca vai para o GitHub, e o histórico permite ver e desfazer qualquer mudança.
 //
 //	conteudo/
-//	  documentos/<slug>.md            material próprio importado (ex.: os docs de estudo/)
-//	  trilhas/<slug>/licoes/<chave>.md a lição de cada etapa
+//	  trilhas/<slug>/licoes/<chave>.md  a lição de cada etapa
+//	  trilhas/<slug>/documentos/<d>.md  material próprio da trilha (ex.: os docs de estudo/)
 //	  trilhas/<slug>/trilha.json      a estrutura exportada do banco, para o histórico
 type conteudo struct {
 	raiz       string
@@ -34,10 +34,8 @@ type conteudo struct {
 }
 
 func abrirConteudo(raiz, autorNome, autorEmail string) (*conteudo, error) {
-	for _, pasta := range []string{"documentos", "trilhas"} {
-		if err := os.MkdirAll(filepath.Join(raiz, pasta), 0o755); err != nil {
-			return nil, err
-		}
+	if err := os.MkdirAll(filepath.Join(raiz, "trilhas"), 0o755); err != nil {
+		return nil, err
 	}
 	c := &conteudo{raiz: raiz, autorNome: autorNome, autorEmail: autorEmail}
 	if _, err := exec.LookPath("git"); err != nil {
@@ -147,25 +145,33 @@ func (c *conteudo) caminho(rel string) (string, error) {
 
 var slugValido = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
-// documento é um material próprio em Markdown (ex.: os docs de estudo do homelab).
+// documento é um material próprio em Markdown de uma trilha (ex.: os docs de estudo do homelab).
 type documento struct {
 	Slug     string `json:"slug"`
 	Titulo   string `json:"titulo"`
 	Conteudo string `json:"conteudo,omitempty"`
 }
 
-func (c *conteudo) documentos() ([]documento, error) {
-	entradas, err := os.ReadDir(filepath.Join(c.raiz, "documentos"))
+// documentos lista os .md de uma pasta do conteúdo (pasta que não existe = nenhum documento).
+func (c *conteudo) documentos(pasta string) ([]documento, error) {
+	lista := []documento{}
+	dir, err := c.caminho(pasta)
 	if err != nil {
 		return nil, err
 	}
-	lista := []documento{}
+	entradas, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return lista, nil
+	}
+	if err != nil {
+		return nil, err
+	}
 	for _, e := range entradas {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
 			continue
 		}
 		slug := strings.TrimSuffix(e.Name(), ".md")
-		texto, err := c.ler("documentos/" + e.Name())
+		texto, err := c.ler(pasta + "/" + e.Name())
 		if err != nil {
 			return nil, err
 		}

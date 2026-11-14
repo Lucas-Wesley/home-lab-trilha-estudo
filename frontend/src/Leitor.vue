@@ -7,11 +7,13 @@ import { renderizar } from './markdown.js'
 const props = defineProps({
   texto: { type: String, default: '' },
   ancora: { type: String, default: '' },
+  // "#/trilhas/3/documentos/": para onde vão os links a outros .md (documentos da trilha)
+  baseDocs: { type: String, default: '' },
 })
 const emit = defineEmits(['titulos'])
 
 const caixa = ref(null)
-const resultado = computed(() => renderizar(props.texto))
+const resultado = computed(() => renderizar(props.texto, { baseDocs: props.baseDocs }))
 
 function irPara(id, suave = true) {
   const alvo = id && caixa.value?.querySelector(`[id="${CSS.escape(id)}"]`)

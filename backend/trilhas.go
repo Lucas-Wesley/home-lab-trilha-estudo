@@ -47,6 +47,8 @@ type trilha struct {
 	AtualizadoEm string    `json:"atualizado_em"`
 	Progresso    progresso `json:"progresso"`
 	Modulos      []modulo  `json:"modulos,omitempty"`
+	// Documentos da trilha (só nome e título), no detalhe.
+	Documentos []documento `json:"documentos,omitempty"`
 }
 
 type modulo struct {
@@ -250,7 +252,8 @@ func (a *app) trilhaCompleta(ctx context.Context, id int64) (trilha, error) {
 			t.Modulos[i].Etapas = append(t.Modulos[i].Etapas, e)
 		}
 	}
-	return t, nil
+	t.Documentos, err = a.conteudo.documentos("trilhas/" + t.Slug + "/documentos")
+	return t, err
 }
 
 const colunasEtapa = `e.id, e.trilha_id, e.modulo_id, e.ordem, e.chave, e.titulo, e.objetivo, e.bloom,

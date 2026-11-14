@@ -181,7 +181,7 @@ Futuro: ditar o pedido ou o comentário por voz (Whisper, como o "foco falado" d
 | **Acervo** | escolher Tema ou Referência; texto como fonte; link de volta | ✅ `GET /api/temas` e `/api/arquivos/…` existem; confirmar o uso |
 | **PDF próprio** | upload **para a Biblioteca**, e a Trilha liga (ganha busca, capítulos e leitor de graça) | ✅ |
 | **Web** | a IA busca; o **servidor confere se cada URL abre** antes de salvar | ✅ |
-| **Docs próprios** (ex.: `estudo/` do homelab) | importação dos Markdown como material | ✅ |
+| **Docs próprios** (ex.: `estudo/` do homelab) | arquivos `.md` **da trilha** (T23), adicionados à mão na criação (qualquer entrada) ou depois, na página da trilha | ✅ |
 | **Streaming** | botão "Vincular pasta de Meus vídeos" e área no material da etapa, **visíveis e desativados** ("em breve") | 🔜 quando o Streaming tiver subpastas e legendas |
 
 Regra: a lição **referencia** livros protegidos ("leia o cap. 3, p. 45–60") e explica com as
@@ -211,10 +211,11 @@ próprias palavras; não copia o livro.
 | T16 | **Streaming: só o lugar na interface** (botão/área desativados) até ele ter subpastas e legendas | Pedido do Lucas. |
 | T17 | **Infra:** VM `apps` (`192.168.1.20`), Docker Compose, Caddy, nome `trilha.internal`; LAN-only; PWA com lições offline | Igual às outras apps. |
 | T18 | **Trilha piloto: "Home lab: rede"**, a partir dos docs de `estudo/` (entrada C) | Conteúdo já existe; testa a entrada a partir de material. |
-| T19 | **Onde mora cada coisa (fase 2):** estrutura das trilhas, meta, cronograma e progresso no **SQLite**; lições (`trilhas/<slug>/licoes/<chave>.md`) e documentos (`documentos/<slug>.md`) em **Markdown no git local** (`/data/conteudo`), com um commit por mudança; a estrutura também é exportada em `trilhas/<slug>/trilha.json` a cada mudança | Consultas do Hoje e do cronograma precisam do banco; o texto precisa de histórico, diff e backup simples. O `trilha.json` dá o histórico da estrutura sem depender do banco. |
+| T19 | **Onde mora cada coisa (fase 2):** estrutura das trilhas, meta, cronograma e progresso no **SQLite**; lições (`trilhas/<slug>/licoes/<chave>.md`) e documentos (`trilhas/<slug>/documentos/<doc>.md`, T23) em **Markdown no git local** (`/data/conteudo`), com um commit por mudança; a estrutura também é exportada em `trilhas/<slug>/trilha.json` a cada mudança | Consultas do Hoje e do cronograma precisam do banco; o texto precisa de histórico, diff e backup simples. O `trilha.json` dá o histórico da estrutura sem depender do banco. |
 | T20 | **Criar trilha é um processo iterativo com critérios** (C1–C15): versão → revisão automática (`scripts/revisar_trilha.py`) + leitura manual → correção → nova rodada, até passar. Método em `regras/criar-trilha.md` (vira a regra da IA na fase 4); histórico e lições em `docs/CRIACAO-DE-TRILHAS.md` | Pedido do Lucas em 14/11/2026: criar, analisar, revisar contra critérios e refazer, documentando para a próxima trilha não repetir os erros. |
 | T21 | **Importação por pacote JSON** (`POST /api/importar`): trilha + documentos + lições num arquivo; com `substituir`, a nova versão troca a estrutura e **mantém o progresso** das etapas com a mesma `chave`. A ordem dos pré-requisitos é conferida (requisito sempre antes) | Uma trilha feita fora do app (a piloto, e na fase 4 a resposta da IA) entra inteira; refazer a trilha não apaga o que já foi estudado. |
 | T22 | **Desenvolvimento 100% em containers** (`compose.dev.yaml`: Go e Node em imagens oficiais; testes e build também); nada instalado no Windows | Pedido do Lucas em 14/11/2026. |
+| T23 | **Documentos pertencem à trilha**, não há seção Documentos: ficam em `trilhas/<slug>/documentos/`, aparecem na página da trilha (seção e navegação lateral) e saem junto quando ela é excluída. Entram **à mão**, em qualquer forma de criar a trilha (A, B, C ou D) ou depois. Links entre eles (`02-wifi.md#canais`) abrem dentro da trilha. O topo do app tem só **Hoje** e **Trilhas**; a vitrine do design system continua em `#/design`, sem aba | Pedido do Lucas em 14/11/2026: os documentos que existiam eram só da trilha de rede. |
 
 ---
 
