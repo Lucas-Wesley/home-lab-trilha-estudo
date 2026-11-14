@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T25), fases, riscos e o que está em aberto.
+  (T1–T26), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — o design **próprio** desta app (estilo Claude
@@ -52,6 +52,15 @@ entrevista → mapa → plano (entrada A) ou validação → plano (entrada B). 
 pacote na própria trilha. Regras em `regras/entrevista.md`, `mapa.md`, `validar-lista.md` e
 `plano.md` (+ `criar-trilha.md`). Tela: `frontend/src/telas/Criacao.vue` (`#/trilhas/<id>/criar`).
 O `scripts/claude-falso.mjs` responde também aos quatro passos.
+
+## Estudar a etapa (fase 5, T26)
+`backend/estudo.go`: exercícios e simulado são propostas da etapa (tipos `exercicios` e `simulado`,
+gabarito escondido na revisão) que saem da lição aprovada; aprovados, vão para
+`trilhas/<slug>/exercicios|simulado/<chave>.json`. Exercícios corrigidos pelo servidor; simulado
+corrigido pela IA na fila (tarefa `correcao`, ligada à `tentativas`, sem proposta). Critério: nota
+mínima de Ajustes. A lição vai ao Flashcards (`FLASHCARDS_URL`, `POST /api/textos` com
+`origem: "trilha"`): mudar esse envio é mudar o Flashcards também. Telas: `EstudoEtapa.vue` e
+`PropostaEstudo.vue`, na página da etapa.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

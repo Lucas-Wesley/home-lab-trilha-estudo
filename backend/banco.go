@@ -174,6 +174,38 @@ CREATE INDEX IF NOT EXISTS tarefas_estado ON tarefas (estado, id);
 -- → mapa → plano) · lista (validação → plano). entrevista: rapida · padrao · profunda.
 -- passo: entrevista · mapa · validacao · plano · pronta. rodadas: JSON das rodadas da entrevista
 -- (perguntas e respostas); escolhas: JSON do recorte do mapa ou das sugestões aceitas.
+-- Fase 5 (T26): cada vez que o Lucas faz os exercícios ou o simulado de uma etapa (pela chave,
+-- como as propostas). tipo: exercicios (corrigidos na hora) · simulado (a IA corrige na fila).
+-- estado: corrigida · corrigindo · falhou. nota de 0 a 100.
+CREATE TABLE IF NOT EXISTS tentativas (
+	id            INTEGER PRIMARY KEY AUTOINCREMENT,
+	trilha_id     INTEGER NOT NULL REFERENCES trilhas(id) ON DELETE CASCADE,
+	etapa_chave   TEXT NOT NULL,
+	tipo          TEXT NOT NULL,
+	estado        TEXT NOT NULL,
+	nota          INTEGER NOT NULL DEFAULT 0,
+	acertos       INTEGER NOT NULL DEFAULT 0,
+	total         INTEGER NOT NULL DEFAULT 0,
+	respostas     TEXT NOT NULL DEFAULT '[]',
+	resultado     TEXT NOT NULL DEFAULT '',
+	erro          TEXT NOT NULL DEFAULT '',
+	tarefa_id     INTEGER REFERENCES tarefas(id) ON DELETE SET NULL,
+	criado_em     TEXT NOT NULL,
+	atualizado_em TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tentativas_etapa ON tentativas (trilha_id, etapa_chave, id);
+CREATE INDEX IF NOT EXISTS tentativas_tarefa ON tentativas (tarefa_id);
+
+-- Fase 5: cada lição mandada ao Flashcards (POST /api/textos de lá); geracao_id = o pedido lá.
+CREATE TABLE IF NOT EXISTS envios_flashcards (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	trilha_id   INTEGER NOT NULL REFERENCES trilhas(id) ON DELETE CASCADE,
+	etapa_chave TEXT NOT NULL,
+	geracao_id  INTEGER NOT NULL DEFAULT 0,
+	erro        TEXT NOT NULL DEFAULT '',
+	criado_em   TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS criacoes (
 	trilha_id     INTEGER PRIMARY KEY REFERENCES trilhas(id) ON DELETE CASCADE,
 	entrada       TEXT NOT NULL,

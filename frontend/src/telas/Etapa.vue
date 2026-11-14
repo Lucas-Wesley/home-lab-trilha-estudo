@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import EstudoEtapa from '../EstudoEtapa.vue'
 import Icone from '../Icone.vue'
 import Leitor from '../Leitor.vue'
 import NavTrilhas from '../NavTrilhas.vue'
@@ -23,6 +24,11 @@ const aviso = ref('')
 const titulos = ref([])
 const proposta = ref(null)
 const propostaAberta = ref(false)
+// Fazer exercícios ou simulado começa a etapa: o status muda no servidor.
+async function recarregarEtapa() {
+  e.value = await api(`/api/etapas/${props.etapaId}`)
+  t.value = await api(`/api/trilhas/${props.trilhaId}`)
+}
 async function aoAprovar() {
   e.value = await api(`/api/etapas/${props.etapaId}`)
   t.value = await api(`/api/trilhas/${props.trilhaId}`)
@@ -197,6 +203,8 @@ async function excluir() {
           <PropostaLicao ref="proposta" :key="e.id" :etapa-id="e.id" :licao-atual="e.licao || ''" :base-docs="baseDocs" @aprovada="aoAprovar" @aberta="propostaAberta = $event" />
           <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancora" :base-docs="baseDocs" @titulos="titulos = $event" />
         </section>
+
+        <EstudoEtapa :key="`estudo-${e.id}-${!!e.licao}`" :etapa="e" :trilha="t" @concluir="mudarStatus('concluida')" @mudou="recarregarEtapa" />
 
         <nav class="vizinhas" aria-label="Etapas vizinhas">
           <a v-if="anterior" class="cartao" :href="link('trilhas', t.id, 'etapas', anterior.id)">

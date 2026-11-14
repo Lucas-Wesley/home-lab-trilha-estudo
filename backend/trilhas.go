@@ -1000,8 +1000,10 @@ func (a *app) handleExcluirEtapa(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.tocarTrilha(r.Context(), e.TrilhaID)
-	if err := a.exportar(r.Context(), e.TrilhaID, "etapa "+e.Chave+" excluída",
-		map[string]*string{caminhoLicao(a.slugDaTrilha(r.Context(), e.TrilhaID), e.Chave): nil}); err != nil {
+	slug := a.slugDaTrilha(r.Context(), e.TrilhaID)
+	if err := a.exportar(r.Context(), e.TrilhaID, "etapa "+e.Chave+" excluída", map[string]*string{
+		caminhoLicao(slug, e.Chave): nil, caminhoEstudo(slug, tipoExercicios, e.Chave): nil, caminhoEstudo(slug, tipoSimulado, e.Chave): nil,
+	}); err != nil {
 		a.responderErro(w, err)
 		return
 	}

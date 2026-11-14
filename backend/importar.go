@@ -211,9 +211,14 @@ func (a *app) importar(ctx context.Context, p pacote) (resultadoImportacao, erro
 		return res, err
 	}
 	// Lição de etapa que saiu, ou que ficou sem texto, sai do conteúdo.
+	// Exercícios e simulado só saem com a etapa (a nova versão do plano não traz os dois).
 	for _, chave := range licoesAntigas {
 		if _, fica := licoes[caminhoLicao(t.Slug, chave)]; !fica {
 			licoes[caminhoLicao(t.Slug, chave)] = nil
+		}
+		if _, fica := idDaChave[chave]; !fica {
+			licoes[caminhoEstudo(t.Slug, tipoExercicios, chave)] = nil
+			licoes[caminhoEstudo(t.Slug, tipoSimulado, chave)] = nil
 		}
 	}
 	for i := range p.Documentos {

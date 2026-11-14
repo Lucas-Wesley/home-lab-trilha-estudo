@@ -62,8 +62,12 @@ func (f *fila) recuperar(ctx context.Context) error {
 func (f *fila) enfileirar(ctx context.Context, q interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
 }, tipo string, propostaID int64, titulo, modelo string) (int64, error) {
+	var proposta any // 0 = tarefa sem proposta (a correção do simulado aponta para a tentativa)
+	if propostaID > 0 {
+		proposta = propostaID
+	}
 	res, err := q.ExecContext(ctx, `INSERT INTO tarefas (tipo, proposta_id, titulo, estado, modelo, criado_em)
-		VALUES (?, ?, ?, ?, ?, ?)`, tipo, propostaID, titulo, naFila, modelo, agora())
+		VALUES (?, ?, ?, ?, ?, ?)`, tipo, proposta, titulo, naFila, modelo, agora())
 	if err != nil {
 		return 0, err
 	}

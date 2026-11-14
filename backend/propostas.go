@@ -210,8 +210,12 @@ func (a *app) handlePropostasDaEtapa(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
+	tipo := r.URL.Query().Get("tipo")
+	if tipo == "" {
+		tipo = "licao"
+	}
 	rows, err := a.db.QueryContext(r.Context(), `SELECT `+colunasProposta+` FROM propostas
-		WHERE trilha_id = ? AND etapa_chave = ? AND tipo = 'licao' ORDER BY versao`, e.TrilhaID, e.Chave)
+		WHERE trilha_id = ? AND etapa_chave = ? AND tipo = ? ORDER BY versao`, e.TrilhaID, e.Chave, tipo)
 	if err != nil {
 		a.responderErro(w, err)
 		return
@@ -360,7 +364,7 @@ func (a *app) handleAjustar(w http.ResponseWriter, r *http.Request) {
 	if ehCriacao(p.Tipo) {
 		titulo = titulosCriacao[p.Tipo] + ": " + a.tituloDaTrilha(r.Context(), p.TrilhaID)
 	} else if e, err := a.etapaPorChave(r.Context(), p.TrilhaID, p.EtapaChave); err == nil {
-		titulo = "Lição: " + e.Titulo
+		titulo = titulosEstudo[p.Tipo] + ": " + e.Titulo
 	}
 	nova, err := a.novaProposta(r.Context(), p.TrilhaID, p.EtapaChave, p.Tipo, corpo.Pedido, p.ID, titulo)
 	if err != nil {
@@ -380,14 +384,12 @@ func (a *app) handleAprovar(w http.ResponseWriter, r *http.Request) {
 		a.aprovarCriacao(w, r, p)
 		return
 	}
-	var gerando int
-	if err := a.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM propostas WHERE trilha_id = ? AND etapa_chave = ? AND tipo = ? AND estado = ?`,
-		p.TrilhaID, p.EtapaChave, p.Tipo, propGerando).Scan(&gerando); err != nil {
-		a.responderErro(w, err)
+	if ehEstudo(p.Tipo) {
+		a.aprovarEstudo(w, r, p)
 		return
 	}
-	if gerando > 0 {
-		a.responderErro(w, erroDeEntrada{errors.New("uma versão nova está sendo gerada; espere ela chegar ou cancele a tarefa antes de aprovar esta")})
+	if err := a.semVersaoGerando(r.Context(), p); err != nil {
+		a.responderErro(w, err)
 		return
 	}
 	var c conteudoLicao
@@ -405,14 +407,10 @@ func (a *app) handleAprovar(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
-	momento := agora()
-	if _, err := a.db.ExecContext(r.Context(), `UPDATE propostas SET estado = CASE WHEN id = ? THEN ? ELSE ? END, atualizado_em = ?
-		WHERE trilha_id = ? AND etapa_chave = ? AND tipo = ? AND (id = ? OR estado = ?)`,
-		p.ID, propAprovada, propSubstituida, momento, p.TrilhaID, p.EtapaChave, p.Tipo, p.ID, propAguardando); err != nil {
+	if err := a.marcarAprovada(r.Context(), p); err != nil {
 		a.responderErro(w, err)
 		return
 	}
-	a.tocarTrilha(r.Context(), p.TrilhaID)
 	a.responderProposta(w, r, p.ID, http.StatusOK)
 }
 
@@ -455,7 +453,15 @@ func (a *app) etapaPorChave(ctx context.Context, trilhaID int64, chave string) (
 // aoTerminarTarefa: tarefa que falhou ou foi cancelada leva a proposta junto (a versão anterior,
 // se houver, continua aguardando).
 func (a *app) aoTerminarTarefa(t *tarefa) {
-	if t.PropostaID == 0 || (t.Estado != falhou && t.Estado != cancelada) {
+	if t.Estado != falhou && t.Estado != cancelada {
+		return
+	}
+	if t.PropostaID == 0 {
+		// A correção do simulado: a tentativa fica com o erro (e pode ser feita de novo).
+		if _, err := a.db.Exec(`UPDATE tentativas SET estado = ?, erro = ?, atualizado_em = ? WHERE tarefa_id = ? AND estado = ?`,
+			tentFalhou, t.Erro, agora(), t.ID, tentCorrigindo); err != nil {
+			log.Printf("tentativa da tarefa %d: %v", t.ID, err)
+		}
 		return
 	}
 	if _, err := a.db.Exec(`UPDATE propostas SET estado = ?, erro = ?, atualizado_em = ? WHERE id = ? AND estado = ?`,

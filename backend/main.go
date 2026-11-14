@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -56,6 +57,10 @@ func main() {
 		regrasEditada: filepath.Join(dataDir, "regras"),
 		tarefas:       filepath.Join(dataDir, "tarefas"),
 		conferirLinks: conferirLinks,
+	}, integra: integracoes{
+		flashcards:     strings.TrimSuffix(os.Getenv("FLASHCARDS_URL"), "/"),
+		flashcardsLink: strings.TrimSuffix(env("FLASHCARDS_LINK", "https://flashcards.internal"), "/"),
+		trilhaLink:     strings.TrimSuffix(env("TRILHA_LINK", "https://trilha.internal"), "/"),
 	}}
 	a.ligarIA()
 	if err := a.fila.recuperar(ctx); err != nil {

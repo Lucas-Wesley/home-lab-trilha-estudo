@@ -73,6 +73,32 @@ if (passo === 'plano da trilha') {
   })
 }
 
+// Estudar a etapa (fase 5): exercícios, perguntas do simulado e a correção.
+if (/^# Pedido: exercícios da etapa/m.test(pedido)) {
+  responder({
+    exercicios: [
+      { tipo: 'escolha', enunciado: 'Exercício de teste 1: qual é a certa?', alternativas: ['A certa', 'Uma errada plausível', 'Outra errada'], correta: 0, explicacao: 'A primeira é a certa no teste.', conceito: 'conceito A' },
+      { tipo: 'escolha', enunciado: 'Exercício de teste 2: e agora?', alternativas: ['Errada', 'Errada também', 'A certa'], correta: 2, explicacao: 'A terceira é a certa.', conceito: 'conceito B' },
+      { tipo: 'completar', enunciado: 'Exercício de teste 3: a palavra é ____.', aceitas: ['teste', 'testes'], explicacao: 'A palavra é "teste".', conceito: 'conceito C' },
+    ],
+    notas: 'Exercícios de teste (scripts/claude-falso.mjs).',
+  })
+}
+if (/^# Pedido: simulado da etapa/m.test(pedido)) {
+  const n = (pedido.match(/^\d+\. /gm) || []).length
+  responder({
+    perguntas: [1, 2].map((i) => ({ pergunta: `Pergunta aberta de teste ${n + i}: por que isto acontece?`, esperado: '- o motivo de teste (essencial)\n- um exemplo', conceito: `conceito ${n + i}` })),
+    notas: 'Perguntas de teste.',
+  })
+}
+if (/^# Pedido: correção do simulado/m.test(pedido)) {
+  const respostas = [...pedido.matchAll(/^## Pergunta (\d+)$/gm)].map((m) => Number(m[1]))
+  responder({
+    correcoes: respostas.map((p) => ({ pergunta: p, nota: p % 2 ? 85 : 50, veredito: p % 2 ? 'certo' : 'parcial', comentario: `Correção de teste da pergunta ${p}.`, faltou: p % 2 ? '' : 'Faltou o exemplo.' })),
+    resumo: 'Resumo de teste: revise a seção de teste.',
+  })
+}
+
 const titulo = (pedido.match(/^# Pedido: lição da etapa "(.*)"$/m) || [])[1] || 'Etapa'
 const deste = (pedido.match(/^- Deste pedido: (.*)$/m) || [])[1] || ''
 const comentarios = [...pedido.matchAll(/^- Comentário (\d+)(?: \(em [^)]*\))?(?:, sobre o trecho: «[\s\S]*?»)?: (.*)$/gm)].map((m) => ({ id: Number(m[1]), texto: m[2] }))

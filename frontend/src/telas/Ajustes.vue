@@ -132,6 +132,16 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
           <input id="a-modelo-criacao" v-model="ajustes.modelo_criacao" class="campo" list="modelos" :placeholder="ajustes.modelo_padrao ? `padrão: ${ajustes.modelo_padrao}` : 'padrão do Claude Code'" />
           <p class="ajuda">Entrevista, mapa, validação da lista e plano. O plano decide a trilha inteira: vale o opus, se o limite permitir.</p>
         </div>
+        <div>
+          <label class="rotulo" for="a-modelo-estudo">Modelo dos exercícios e do simulado</label>
+          <input id="a-modelo-estudo" v-model="ajustes.modelo_estudo" class="campo" list="modelos" :placeholder="ajustes.modelo_padrao ? `padrão: ${ajustes.modelo_padrao}` : 'padrão do Claude Code'" />
+          <p class="ajuda">Gerar os exercícios, as perguntas do simulado e corrigir as respostas do simulado. O sonnet costuma bastar.</p>
+        </div>
+        <div>
+          <label class="rotulo" for="a-nota">Nota mínima nos exercícios</label>
+          <input id="a-nota" v-model="ajustes.nota_minima" class="campo curto" inputmode="numeric" placeholder="80" />
+          <p class="ajuda">Em %. Atingida, a etapa sugere concluir (o critério automático); concluir à mão e pular continuam valendo.</p>
+        </div>
         <div class="linha">
           <button class="botao primario" type="submit">Salvar</button>
           <span v-if="salvo" class="pequeno">{{ salvo }}</span>
@@ -199,6 +209,7 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
 .secao { margin-top: var(--e7); }
 .secao > h2 { margin-bottom: var(--e3); }
 .formulario { max-width: var(--leitura); }
+.curto { max-width: 120px; }
 .editor { margin-top: var(--e5); }
 .regra { min-height: 420px; font-family: var(--fonte-mono); font-size: 13px; }
 a.titulo { text-decoration: none; }

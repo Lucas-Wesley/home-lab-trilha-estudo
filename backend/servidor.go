@@ -16,6 +16,7 @@ type app struct {
 	conteudo *conteudo
 	ia       *configIA
 	fila     *fila
+	integra  integracoes
 }
 
 // ligarIA registra os tipos de tarefa na fila (fase 3).
@@ -27,6 +28,10 @@ func (a *app) ligarIA() {
 	for _, tipo := range tiposCriacao {
 		a.fila.executores[tipo] = a.gerarCriacao
 	}
+	for _, tipo := range tiposEstudo {
+		a.fila.executores[tipo] = a.gerarEstudo
+	}
+	a.fila.executores[tipoCorrecao] = a.corrigirSimulado
 	a.fila.aoTerminar = a.aoTerminarTarefa
 }
 
@@ -72,6 +77,14 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/propostas/{id}/aprovar", a.handleAprovar)
 	mux.HandleFunc("POST /api/propostas/{id}/descartar", a.handleDescartar)
 	mux.HandleFunc("DELETE /api/comentarios/{id}", a.handleExcluirComentario)
+	// Fase 5: estudar a etapa (T26).
+	mux.HandleFunc("GET /api/etapas/{id}/estudo", a.handleEstudo)
+	mux.HandleFunc("POST /api/etapas/{id}/exercicios", a.handleGerarEstudo(tipoExercicios))
+	mux.HandleFunc("POST /api/etapas/{id}/simulado", a.handleGerarEstudo(tipoSimulado))
+	mux.HandleFunc("POST /api/etapas/{id}/exercicios/tentativas", a.handleTentativaExercicios)
+	mux.HandleFunc("POST /api/etapas/{id}/simulado/tentativas", a.handleTentativaSimulado)
+	mux.HandleFunc("POST /api/etapas/{id}/flashcards", a.handleEnviarFlashcards)
+	mux.HandleFunc("GET /api/flashcards/baralhos", a.handleBaralhos)
 	mux.HandleFunc("POST /api/criacoes", a.handleCriarComIA)
 	mux.HandleFunc("GET /api/trilhas/{id}/criacao", a.handleCriacao)
 	mux.HandleFunc("POST /api/trilhas/{id}/criacao/gerar", a.handleGerarPasso)

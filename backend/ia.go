@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -139,6 +140,9 @@ type regra struct {
 // As regras que o app usa. criar-trilha.md é o método da fase 4 (já editável).
 var regrasDoApp = []regra{
 	{Arquivo: "licao.md", Titulo: "Lição da etapa", Para: "Gerar lição e pedir mudança numa lição"},
+	{Arquivo: "exercicios.md", Titulo: "Exercícios", Para: "Gerar os exercícios da etapa (escolha e completar)"},
+	{Arquivo: "simulado.md", Titulo: "Simulado", Para: "Gerar perguntas abertas para o banco do simulado"},
+	{Arquivo: "corrigir-simulado.md", Titulo: "Corrigir o simulado", Para: "Corrigir as respostas do simulado"},
 	{Arquivo: "entrevista.md", Titulo: "Entrevista", Para: "Criar trilha (a IA monta): pré-pesquisa e perguntas"},
 	{Arquivo: "mapa.md", Titulo: "Mapa do assunto", Para: "Criar trilha (a IA monta): o mapa completo e o recorte sugerido"},
 	{Arquivo: "validar-lista.md", Titulo: "Validar a lista", Para: "Criar trilha (eu tenho a lista): o que falta na lista"},
@@ -266,6 +270,8 @@ type ajustes struct {
 	InstrucoesGlobais string `json:"instrucoes_globais"`
 	ModeloLicao       string `json:"modelo_licao"`
 	ModeloCriacao     string `json:"modelo_criacao"`
+	ModeloEstudo      string `json:"modelo_estudo"` // exercícios, simulado e a correção (fase 5)
+	NotaMinima        string `json:"nota_minima"`   // critério automático: % nos exercícios (vazio = 80)
 	ModeloPadrao      string `json:"modelo_padrao"` // só leitura: CLAUDE_MODEL
 }
 
@@ -273,6 +279,8 @@ var chavesAjustes = map[string]func(*ajustes) *string{
 	"instrucoes_globais": func(x *ajustes) *string { return &x.InstrucoesGlobais },
 	"modelo_licao":       func(x *ajustes) *string { return &x.ModeloLicao },
 	"modelo_criacao":     func(x *ajustes) *string { return &x.ModeloCriacao },
+	"modelo_estudo":      func(x *ajustes) *string { return &x.ModeloEstudo },
+	"nota_minima":        func(x *ajustes) *string { return &x.NotaMinima },
 }
 
 func (a *app) lerAjustes(ctx context.Context) (ajustes, error) {
@@ -311,7 +319,12 @@ func (a *app) handleSalvarAjustes(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
-	for _, m := range []*string{&x.ModeloLicao, &x.ModeloCriacao} {
+	x.NotaMinima = strings.TrimSuffix(strings.TrimSpace(x.NotaMinima), "%")
+	if n, err := strconv.Atoi(x.NotaMinima); x.NotaMinima != "" && (err != nil || n < 1 || n > 100) {
+		a.responderErro(w, erroDeEntrada{fmt.Errorf("a nota mínima vai de 1 a 100 (%%), não %q", x.NotaMinima)})
+		return
+	}
+	for _, m := range []*string{&x.ModeloLicao, &x.ModeloCriacao, &x.ModeloEstudo} {
 		*m = strings.TrimSpace(*m)
 		if !contem(modelosAceitos, *m) && !strings.HasPrefix(*m, "claude-") {
 			a.responderErro(w, erroDeEntrada{fmt.Errorf("modelo desconhecido: %q (use opus, sonnet, haiku ou o nome completo)", *m)})
@@ -343,6 +356,9 @@ func (a *app) handleSalvarAjustes(w http.ResponseWriter, r *http.Request) {
 func (a *app) modeloPara(ctx context.Context, tipo string) string {
 	if ehCriacao(tipo) {
 		tipo = "criacao"
+	}
+	if ehEstudo(tipo) || tipo == tipoCorrecao {
+		tipo = "estudo"
 	}
 	var valor string
 	a.db.QueryRowContext(ctx, `SELECT valor FROM ajustes WHERE chave = ?`, "modelo_"+tipo).Scan(&valor)
