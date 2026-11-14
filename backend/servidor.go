@@ -10,9 +10,46 @@ import (
 	"strings"
 )
 
-func novoServidor(db *sql.DB, web fs.FS, versao string) http.Handler {
+// app junta o que os handlers usam.
+type app struct {
+	db       *sql.DB
+	conteudo *conteudo
+}
+
+func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/health", handleHealth(db, versao))
+	mux.HandleFunc("GET /api/health", handleHealth(a.db, versao))
+
+	mux.HandleFunc("GET /api/hoje", a.handleHoje)
+
+	mux.HandleFunc("GET /api/trilhas", a.handleListarTrilhas)
+	mux.HandleFunc("POST /api/trilhas", a.handleCriarTrilha)
+	mux.HandleFunc("GET /api/trilhas/{id}", a.handleTrilha)
+	mux.HandleFunc("PUT /api/trilhas/{id}", a.handleEditarTrilha)
+	mux.HandleFunc("DELETE /api/trilhas/{id}", a.handleExcluirTrilha)
+	mux.HandleFunc("POST /api/trilhas/{id}/estado", a.handleEstadoTrilha)
+	mux.HandleFunc("PUT /api/trilhas/{id}/ordem", a.handleOrdem)
+	mux.HandleFunc("PUT /api/trilhas/{id}/meta", a.handleMeta)
+	mux.HandleFunc("POST /api/trilhas/{id}/recalcular", a.handleRecalcular)
+	mux.HandleFunc("GET /api/trilhas/{id}/cronograma", a.handleCronograma)
+	mux.HandleFunc("POST /api/trilhas/{id}/modulos", a.handleCriarModulo)
+
+	mux.HandleFunc("PUT /api/modulos/{id}", a.handleEditarModulo)
+	mux.HandleFunc("DELETE /api/modulos/{id}", a.handleExcluirModulo)
+	mux.HandleFunc("POST /api/modulos/{id}/etapas", a.handleCriarEtapa)
+
+	mux.HandleFunc("GET /api/etapas/{id}", a.handleEtapa)
+	mux.HandleFunc("PUT /api/etapas/{id}", a.handleEditarEtapa)
+	mux.HandleFunc("DELETE /api/etapas/{id}", a.handleExcluirEtapa)
+	mux.HandleFunc("POST /api/etapas/{id}/status", a.handleStatusEtapa)
+
+	mux.HandleFunc("GET /api/documentos", a.handleDocumentos)
+	mux.HandleFunc("GET /api/documentos/{slug}", a.handleDocumento)
+	mux.HandleFunc("PUT /api/documentos/{slug}", a.handleSalvarDocumento)
+	mux.HandleFunc("DELETE /api/documentos/{slug}", a.handleExcluirDocumento)
+
+	mux.HandleFunc("POST /api/importar", a.handleImportar)
+
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		erroJSON(w, http.StatusNotFound, "rota não encontrada")
 	})
@@ -73,4 +110,9 @@ func responderJSON(w http.ResponseWriter, status int, dados any) {
 
 func erroJSON(w http.ResponseWriter, status int, mensagem string) {
 	responderJSON(w, status, map[string]string{"erro": mensagem})
+}
+
+func erroInterno(w http.ResponseWriter, err error) {
+	log.Print(err)
+	erroJSON(w, http.StatusInternalServerError, "erro interno: "+err.Error())
 }

@@ -9,7 +9,7 @@ services:
     image: trilha:${VERSION:-dev}
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${PORTA:-8080}:8080"
     volumes:
       - ./data:/data
     # No servidor, a conta do Claude vem do Hub (tela Claude, H11 do Hub; ver compose.prod.yaml).

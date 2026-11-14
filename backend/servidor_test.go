@@ -10,19 +10,29 @@ import (
 	"testing/fstest"
 )
 
-func novoTeste(t *testing.T) http.Handler {
+func novoApp(t *testing.T) *app {
 	t.Helper()
-	db, err := abrirBanco(filepath.Join(t.TempDir(), "teste.db"))
+	pasta := t.TempDir()
+	db, err := abrirBanco(filepath.Join(pasta, "teste.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
+	c, err := abrirConteudo(filepath.Join(pasta, "conteudo"), "Teste", "teste@exemplo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &app{db: db, conteudo: c}
+}
+
+func novoTeste(t *testing.T) http.Handler {
+	t.Helper()
 	web := fstest.MapFS{
 		"index.html":    {Data: []byte("<!doctype html><title>Trilha</title>")},
 		"assets/app.js": {Data: []byte("console.log(1)")},
 		"sw.js":         {Data: []byte("// sw")},
 	}
-	return novoServidor(db, web, "teste")
+	return novoServidor(novoApp(t), web, "teste")
 }
 
 func pedir(h http.Handler, metodo, caminho string) *httptest.ResponseRecorder {
@@ -85,12 +95,7 @@ func TestAppServeIndexEArquivos(t *testing.T) {
 }
 
 func TestSemBuildDoFrontAvisa(t *testing.T) {
-	db, err := abrirBanco(filepath.Join(t.TempDir(), "teste.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	h := novoServidor(db, fstest.MapFS{".gitkeep": {}}, "teste")
+	h := novoServidor(novoApp(t), fstest.MapFS{".gitkeep": {}}, "teste")
 
 	rec := pedir(h, "GET", "/")
 	if rec.Code != http.StatusServiceUnavailable || strings.Contains(rec.Body.String(), ".gitkeep") {

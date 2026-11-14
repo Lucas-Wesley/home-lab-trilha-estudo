@@ -33,6 +33,14 @@ func main() {
 	}
 	defer db.Close()
 
+	carregarFuso(env("FUSO", "America/Sao_Paulo"))
+
+	c, err := abrirConteudo(filepath.Join(dataDir, "conteudo"),
+		env("GIT_AUTOR_NOME", "Trilha de Estudo"), env("GIT_AUTOR_EMAIL", "trilha@homelab.local"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -43,7 +51,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           novoServidor(db, web, version),
+		Handler:           novoServidor(&app{db: db, conteudo: c}, web, version),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

@@ -1,0 +1,42 @@
+# Desenvolvimento 100% em containers (nada de Go ou Node instalados no Windows).
+#   docker compose -f compose.dev.yaml up            → API em :8080 e Vite em :5173
+#   docker compose -f compose.dev.yaml run --rm api go test ./...
+#   docker compose -f compose.dev.yaml run --rm web npm test
+name: trilha-dev
+
+services:
+  api:
+    image: golang:1.26-alpine
+    working_dir: /src/backend
+    command: sh -c "apk add --no-cache git >/dev/null && go run ."
+    environment:
+      DATA_DIR: /data
+      GOFLAGS: -buildvcs=false
+    volumes:
+      - .:/src
+      - go-cache:/root/.cache
+      - go-mod:/go/pkg/mod
+      - dados-dev:/data
+    ports:
+      - "127.0.0.1:${PORTA:-8080}:8080"
+
+  web:
+    image: node:24-alpine
+    working_dir: /src/frontend
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    environment:
+      API_URL: http://api:8080
+    volumes:
+      - .:/src
+      # node_modules do Linux, separado do disco do Windows
+      - node-modules:/src/frontend/node_modules
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  go-cache:
+  go-mod:
+  dados-dev:
+  node-modules:

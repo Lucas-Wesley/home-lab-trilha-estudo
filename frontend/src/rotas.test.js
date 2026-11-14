@@ -21,6 +21,10 @@ describe('lerRota', () => {
   it('decodifica acentos', () => {
     expect(lerRota('#/trilhas/hist%C3%B3ria').partes).toEqual(['história'])
   })
+
+  it('não quebra com "%" malformado', () => {
+    expect(lerRota('#/documentos/x%E2').secao).toBe('documentos')
+  })
 })
 
 describe('link', () => {

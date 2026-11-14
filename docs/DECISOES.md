@@ -211,6 +211,10 @@ próprias palavras; não copia o livro.
 | T16 | **Streaming: só o lugar na interface** (botão/área desativados) até ele ter subpastas e legendas | Pedido do Lucas. |
 | T17 | **Infra:** VM `apps` (`192.168.1.20`), Docker Compose, Caddy, nome `trilha.internal`; LAN-only; PWA com lições offline | Igual às outras apps. |
 | T18 | **Trilha piloto: "Home lab: rede"**, a partir dos docs de `estudo/` (entrada C) | Conteúdo já existe; testa a entrada a partir de material. |
+| T19 | **Onde mora cada coisa (fase 2):** estrutura das trilhas, meta, cronograma e progresso no **SQLite**; lições (`trilhas/<slug>/licoes/<chave>.md`) e documentos (`documentos/<slug>.md`) em **Markdown no git local** (`/data/conteudo`), com um commit por mudança; a estrutura também é exportada em `trilhas/<slug>/trilha.json` a cada mudança | Consultas do Hoje e do cronograma precisam do banco; o texto precisa de histórico, diff e backup simples. O `trilha.json` dá o histórico da estrutura sem depender do banco. |
+| T20 | **Criar trilha é um processo iterativo com critérios** (C1–C15): versão → revisão automática (`scripts/revisar_trilha.py`) + leitura manual → correção → nova rodada, até passar. Método em `regras/criar-trilha.md` (vira a regra da IA na fase 4); histórico e lições em `docs/CRIACAO-DE-TRILHAS.md` | Pedido do Lucas em 14/11/2026: criar, analisar, revisar contra critérios e refazer, documentando para a próxima trilha não repetir os erros. |
+| T21 | **Importação por pacote JSON** (`POST /api/importar`): trilha + documentos + lições num arquivo; com `substituir`, a nova versão troca a estrutura e **mantém o progresso** das etapas com a mesma `chave`. A ordem dos pré-requisitos é conferida (requisito sempre antes) | Uma trilha feita fora do app (a piloto, e na fase 4 a resposta da IA) entra inteira; refazer a trilha não apaga o que já foi estudado. |
+| T22 | **Desenvolvimento 100% em containers** (`compose.dev.yaml`: Go e Node em imagens oficiais; testes e build também); nada instalado no Windows | Pedido do Lucas em 14/11/2026. |
 
 ---
 
@@ -234,7 +238,7 @@ próprias palavras; não copia o livro.
 |---|---|---|
 | **0. Documentação** | este arquivo, PEDAGOGIA, DESIGN-SYSTEM, `CLAUDE.md` | ✅ 14/11/2026 |
 | **1. Esqueleto** | Go + Vue + PWA + **design system novo**, compose, Dockerfile, deploy; `/api/health`; vitrine do design em `#/design` | ✅ 14/11/2026 (deploy pendente: falta o `trilha.internal` no Caddy) |
-| **2. Trilha manual** | criar trilha, módulos e etapas à mão; ler lições em Markdown; progresso; **meta, cronograma e tela Hoje**; importar `estudo/` | |
+| **2. Trilha manual** | criar trilha, módulos e etapas à mão; ler lições em Markdown; progresso; **meta, cronograma e tela Hoje**; documentos e importação por pacote; **trilha piloto criada com o processo iterativo** (T20) | ✅ 14/11/2026 (deploy pendente: acesso à VM) |
 | **3. IA básica** | fila + Claude + regras editáveis; **propostas com pedidos e comentários**; lição sob demanda com profundidade e conceitos anteriores | |
 | **4. Criação com IA** | entradas A e B: pré-pesquisa, entrevista, mapa, recorte, nível, aprovação | |
 | **5. Estudar a etapa** | exercícios, simulado, critério de conclusão, envio ao Flashcards | |
@@ -255,6 +259,10 @@ antes de automatizar, como no Acervo).
   WAN, NAT/CGNAT, SQM, IP fixo). Aplicações e containers ficam fora.
 - **Em aberto:** entram também as partes de rede que estão no Hub (DNS do AdGuard, `*.internal`,
   Caddy com CA própria, Tailscale)?
+- **Feita (v3, 14/11/2026):** 15 etapas em 5 módulos (Fundamentos, Wi-Fi, Redes separadas e
+  firewall, Internet, Diagnóstico), 6,7 h; 4 lições próprias onde o material tinha lacunas
+  (roteamento, DNS, NAT, diagnóstico). Três rodadas de revisão; o histórico está em
+  [CRIACAO-DE-TRILHAS.md](CRIACAO-DE-TRILHAS.md).
 
 A documentação do homelab **continua sendo escrita em `estudo/`**, como antes.
 
@@ -277,5 +285,8 @@ A documentação do homelab **continua sendo escrita em `estudo/`**, como antes.
 
 - [ ] Partes de rede do Hub entram na trilha piloto? (§10)
 - [ ] Nota no `TRILHAS.md` do Acervo e entrada do app no Hub (§8).
-- [ ] Entrada `trilha.internal` no Caddy do homelab e porta de produção.
+- [ ] Entrada `trilha.internal` no Caddy do homelab e porta de produção; acesso de deploy a partir
+      do PC Windows (a chave `id_ed25519_homelab` não está nele).
+- [ ] Aplicar nos documentos de `estudo/` as três correções propostas pela trilha piloto
+      ([CRIACAO-DE-TRILHAS.md](CRIACAO-DE-TRILHAS.md)).
 - [ ] Endpoints de leitura do Acervo que a Trilha vai usar (confirmar na fase 6).

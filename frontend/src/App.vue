@@ -3,18 +3,20 @@ import { computed, onBeforeUnmount, onMounted, provide, ref } from 'vue'
 import Icone from './Icone.vue'
 import Hoje from './telas/Hoje.vue'
 import Trilhas from './telas/Trilhas.vue'
+import Documentos from './telas/Documentos.vue'
 import Vitrine from './telas/Vitrine.vue'
 import { lerRota, link } from './rotas.js'
 import { aplicarTema, lerTema, proximoTema } from './tema.js'
 
 const hash = ref(location.hash)
 const rota = computed(() => lerRota(hash.value))
-const telas = { hoje: Hoje, trilhas: Trilhas, design: Vitrine }
+const telas = { hoje: Hoje, trilhas: Trilhas, documentos: Documentos, design: Vitrine }
 
 const abas = [
-  { secao: 'hoje', nome: 'Hoje' },
-  { secao: 'trilhas', nome: 'Trilhas' },
-  { secao: 'design', nome: 'Design' },
+  { secao: 'hoje', nome: 'Hoje', icone: 'hoje' },
+  { secao: 'trilhas', nome: 'Trilhas', icone: 'trilhas' },
+  { secao: 'documentos', nome: 'Documentos', icone: 'livro' },
+  { secao: 'design', nome: 'Design', icone: 'design' },
 ]
 
 const tema = ref(lerTema())
@@ -29,11 +31,13 @@ function trocarTema() {
 const gaveta = ref(false)
 provide('gaveta', gaveta)
 
+// Outra página (não só outra âncora da mesma página) começa do topo.
+const pagina = (r) => [r.secao, ...r.partes].join('/')
 function aoMudarHash() {
-  const anterior = rota.value.secao
+  const anterior = pagina(rota.value)
   hash.value = location.hash
   gaveta.value = false
-  if (rota.value.secao !== anterior) window.scrollTo(0, 0)
+  if (pagina(rota.value) !== anterior && !rota.value.ancora) window.scrollTo(0, 0)
 }
 
 onMounted(() => {
@@ -82,7 +86,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
       :class="{ ativa: rota.secao === aba.secao }"
       :aria-current="rota.secao === aba.secao ? 'page' : undefined"
     >
-      <Icone :nome="aba.secao" :tamanho="20" />
+      <Icone :nome="aba.icone" :tamanho="20" />
       <span>{{ aba.nome }}</span>
     </a>
   </nav>
@@ -133,7 +137,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
     bottom: 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     padding: var(--e1) var(--e2) calc(var(--e1) + env(safe-area-inset-bottom));
     background: var(--fundo);
     border-top: 1px solid var(--borda);

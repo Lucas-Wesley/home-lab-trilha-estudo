@@ -27,10 +27,18 @@ App **independente** (banco + API próprios) que conversa com os outros **por AP
 Homelab **LAN-only**: VM `apps` (`192.168.1.20`) no Proxmox do M920q, Docker Compose + Caddy, nome
 `trilha.internal`. A conta do Claude vem do Hub (`CLAUDE_TOKEN_ARQUIVO`, H11 de lá).
 
-## Rodar
-- `make dev-api` (API em `:8080`, dados em `./data`) e `make dev-web` (Vite com proxy de `/api`).
-- `make test` roda os testes do Go e do front.
-- `docker compose up --build` sobe a imagem de produção localmente.
+## Rodar (sempre em containers, T22; nada de Go ou Node no Windows)
+- `docker compose -f compose.dev.yaml up` → API em `:8080` e Vite em `:5173` (`PORTA=8093` se a
+  8080 estiver ocupada no Windows).
+- Testes: `docker compose -f compose.dev.yaml run --rm api go test ./...` e
+  `docker compose -f compose.dev.yaml run --rm web npm test`.
+- Imagem de produção local: `PORTA=8093 docker compose up -d --build`.
+- Revisar uma trilha: `scripts/revisar_trilha.py` num container Python (ver `docs/CRIACAO-DE-TRILHAS.md`).
+
+## Criar trilhas
+Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,
+critérios C1–C15) → correção → nova rodada, até passar; registre cada rodada e acrescente as lições
+novas na seção 6 das regras. A trilha entra no app por `POST /api/importar` (pacote JSON).
 
 ## Regras e convenções (IMPORTANTE)
 - **Conteúdo (lições, trilhas, propostas) NÃO sobe pro GitHub** — fica no git local do homelab
