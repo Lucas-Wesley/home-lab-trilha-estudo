@@ -24,6 +24,9 @@ func (a *app) ligarIA() {
 		a.ia.chamar = a.ia.chamarClaude
 	}
 	a.fila.executores["licao"] = a.gerarLicao
+	for _, tipo := range tiposCriacao {
+		a.fila.executores[tipo] = a.gerarCriacao
+	}
 	a.fila.aoTerminar = a.aoTerminarTarefa
 }
 
@@ -69,6 +72,9 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/propostas/{id}/aprovar", a.handleAprovar)
 	mux.HandleFunc("POST /api/propostas/{id}/descartar", a.handleDescartar)
 	mux.HandleFunc("DELETE /api/comentarios/{id}", a.handleExcluirComentario)
+	mux.HandleFunc("POST /api/criacoes", a.handleCriarComIA)
+	mux.HandleFunc("GET /api/trilhas/{id}/criacao", a.handleCriacao)
+	mux.HandleFunc("POST /api/trilhas/{id}/criacao/gerar", a.handleGerarPasso)
 	mux.HandleFunc("GET /api/tarefas", a.handleTarefas)
 	mux.HandleFunc("POST /api/tarefas/{id}/cancelar", a.handleCancelarTarefa)
 	mux.HandleFunc("GET /api/ajustes", a.handleAjustes)

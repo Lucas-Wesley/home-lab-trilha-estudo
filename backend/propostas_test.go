@@ -237,7 +237,7 @@ func TestAjustesERegras(t *testing.T) {
 
 	var regras []regra
 	c.ok("GET", "/api/regras", nil, &regras)
-	if len(regras) != 2 || regras[0].Arquivo != "licao.md" || regras[0].Editada || regras[0].Texto != "" {
+	if len(regras) != len(regrasDoApp) || regras[0].Arquivo != "licao.md" || regras[0].Editada || regras[0].Texto != "" {
 		t.Fatalf("regras: %+v", regras)
 	}
 	var rg regra

@@ -169,4 +169,22 @@ CREATE TABLE IF NOT EXISTS tarefas (
 	terminado_em TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS tarefas_estado ON tarefas (estado, id);
+
+-- Fase 4 (T25): a criação com IA de uma trilha (que nasce como rascunho). entrada: ia (entrevista
+-- → mapa → plano) · lista (validação → plano). entrevista: rapida · padrao · profunda.
+-- passo: entrevista · mapa · validacao · plano · pronta. rodadas: JSON das rodadas da entrevista
+-- (perguntas e respostas); escolhas: JSON do recorte do mapa ou das sugestões aceitas.
+CREATE TABLE IF NOT EXISTS criacoes (
+	trilha_id     INTEGER PRIMARY KEY REFERENCES trilhas(id) ON DELETE CASCADE,
+	entrada       TEXT NOT NULL,
+	tema          TEXT NOT NULL,
+	pedido        TEXT NOT NULL DEFAULT '',
+	entrevista    TEXT NOT NULL DEFAULT '',
+	lista         TEXT NOT NULL DEFAULT '',
+	passo         TEXT NOT NULL,
+	rodadas       TEXT NOT NULL DEFAULT '[]',
+	escolhas      TEXT NOT NULL DEFAULT '{}',
+	criado_em     TEXT NOT NULL,
+	atualizado_em TEXT NOT NULL
+);
 `

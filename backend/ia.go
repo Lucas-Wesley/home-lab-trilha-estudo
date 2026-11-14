@@ -139,7 +139,11 @@ type regra struct {
 // As regras que o app usa. criar-trilha.md é o método da fase 4 (já editável).
 var regrasDoApp = []regra{
 	{Arquivo: "licao.md", Titulo: "Lição da etapa", Para: "Gerar lição e pedir mudança numa lição"},
-	{Arquivo: "criar-trilha.md", Titulo: "Criar trilha", Para: "Montar e revisar trilhas (fase 4)"},
+	{Arquivo: "entrevista.md", Titulo: "Entrevista", Para: "Criar trilha (a IA monta): pré-pesquisa e perguntas"},
+	{Arquivo: "mapa.md", Titulo: "Mapa do assunto", Para: "Criar trilha (a IA monta): o mapa completo e o recorte sugerido"},
+	{Arquivo: "validar-lista.md", Titulo: "Validar a lista", Para: "Criar trilha (eu tenho a lista): o que falta na lista"},
+	{Arquivo: "plano.md", Titulo: "Plano da trilha", Para: "Criar trilha: módulos e etapas (vai junto com o método abaixo)"},
+	{Arquivo: "criar-trilha.md", Titulo: "Criar trilha (método)", Para: "O método e os critérios C1–C15, que vão junto com o plano"},
 }
 
 func regraConhecida(arquivo string) bool {
@@ -261,12 +265,14 @@ func (a *app) handleRestaurarRegra(w http.ResponseWriter, r *http.Request) {
 type ajustes struct {
 	InstrucoesGlobais string `json:"instrucoes_globais"`
 	ModeloLicao       string `json:"modelo_licao"`
+	ModeloCriacao     string `json:"modelo_criacao"`
 	ModeloPadrao      string `json:"modelo_padrao"` // só leitura: CLAUDE_MODEL
 }
 
 var chavesAjustes = map[string]func(*ajustes) *string{
 	"instrucoes_globais": func(x *ajustes) *string { return &x.InstrucoesGlobais },
 	"modelo_licao":       func(x *ajustes) *string { return &x.ModeloLicao },
+	"modelo_criacao":     func(x *ajustes) *string { return &x.ModeloCriacao },
 }
 
 func (a *app) lerAjustes(ctx context.Context) (ajustes, error) {
@@ -305,10 +311,12 @@ func (a *app) handleSalvarAjustes(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
-	x.ModeloLicao = strings.TrimSpace(x.ModeloLicao)
-	if !contem(modelosAceitos, x.ModeloLicao) && !strings.HasPrefix(x.ModeloLicao, "claude-") {
-		a.responderErro(w, erroDeEntrada{fmt.Errorf("modelo desconhecido: %q (use opus, sonnet, haiku ou o nome completo)", x.ModeloLicao)})
-		return
+	for _, m := range []*string{&x.ModeloLicao, &x.ModeloCriacao} {
+		*m = strings.TrimSpace(*m)
+		if !contem(modelosAceitos, *m) && !strings.HasPrefix(*m, "claude-") {
+			a.responderErro(w, erroDeEntrada{fmt.Errorf("modelo desconhecido: %q (use opus, sonnet, haiku ou o nome completo)", *m)})
+			return
+		}
 	}
 	tx, err := a.db.BeginTx(r.Context(), nil)
 	if err != nil {
@@ -331,8 +339,11 @@ func (a *app) handleSalvarAjustes(w http.ResponseWriter, r *http.Request) {
 	a.handleAjustes(w, r)
 }
 
-// modeloPara: o do tipo de tarefa em Ajustes, senão o padrão.
+// modeloPara: o do tipo de tarefa em Ajustes, senão o padrão. Os passos da criação usam um só.
 func (a *app) modeloPara(ctx context.Context, tipo string) string {
+	if ehCriacao(tipo) {
+		tipo = "criacao"
+	}
 	var valor string
 	a.db.QueryRowContext(ctx, `SELECT valor FROM ajustes WHERE chave = ?`, "modelo_"+tipo).Scan(&valor)
 	return primeiro(valor, a.ia.modelo)

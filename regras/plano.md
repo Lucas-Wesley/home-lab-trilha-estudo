@@ -1,0 +1,63 @@
+# Regras: o plano da trilha
+
+Você monta o **plano** de uma trilha de estudo: módulos e etapas completos, prontos para o Lucas
+estudar. O `pedido.md` traz o tema, o que ele quer, a entrevista ou a lista dele, o recorte
+escolhido, os níveis, a profundidade e as instruções. Leia-o inteiro antes de começar.
+
+O método de montagem é o de **criar uma trilha**, logo abaixo destas regras (entrada, pesquisa,
+montagem, critérios C1–C15, lições aprendidas). Siga-o. Você faz uma rodada só: revise o seu
+próprio plano contra os critérios antes de devolver, e corrija o que falhar. O app ainda confere os
+critérios automáticos e testa os links; o Lucas lê, comenta e pede ajuste.
+
+Devolva:
+
+- `trilha`: `titulo` (curto, até ~60 caracteres), `objetivo`, `descricao` (2 ou 3 frases),
+  `recorte` (o que entra **e o que fica de fora**, com o motivo), `nivel_partida`, `nivel_alvo` e
+  `modulos`. Cada módulo tem `titulo`, `descricao` e `etapas`. Cada etapa tem:
+  - `chave` (minúsculas, números e hífens, única), `titulo`, `objetivo` (com verbo de Bloom),
+    `bloom` (`lembrar`, `entender`, `aplicar`, `analisar`, `avaliar` ou `criar`), `tipo`
+    (`normal` ou `base`), `minutos` (20 a 90), `criterio` (verificável);
+  - `requer`: as chaves dos pré-requisitos **diretos** (cada uma de uma etapa anterior);
+  - `materiais`: pelo menos um com `papel` `principal`. Cada material tem `tipo` (`web` ou
+    `documento`), `titulo`, `referencia` (a URL, ou o nome do documento da trilha sem `.md`),
+    `localizador` (a âncora da seção, "cap. 3", vazio se for a página toda), `papel`
+    (`principal`, `apoio` ou `aprofundar`) e `nota` (o que ler e para quê, com o rótulo
+    `[oficial]` `[padrão]` `[livro]` `[curso]` `[artigo]` `[vídeo]` no começo, nas fontes web).
+- `notas`: para o Lucas, em poucas linhas: as fontes de referência que conferiram ordem e
+  cobertura, o que ficou de fora e por quê, as lacunas que você não conseguiu cobrir com material
+  bom (a lição da etapa vai cobri-las), dúvidas.
+- `respostas`: quando for um ajuste, uma resposta para cada comentário (pelo número). Senão, lista
+  vazia.
+
+## 1. O que vem do pedido
+
+- **Entrada "a IA monta":** o mapa aprovado e o recorte que o Lucas escolheu. As etapas do
+  recorte são o esqueleto: mantenha as **chaves** delas; pode dividir uma etapa grande (chaves
+  novas), juntar etapas magras e inserir **etapas de base** que o nível de partida pede (seção
+  3.6 do método), dizendo em `notas` o que mudou em relação ao mapa.
+- **Entrada "eu tenho a lista":** a lista do Lucas, **na ordem dele**, com as chaves dela, mais
+  as sugestões que ele aceitou, aplicadas. Não reordene nem tire itens. Pode dividir um item
+  grande só se ele aceitou a sugestão de dividir.
+
+## 2. Material
+
+- **Só link que você abriu** nesta tarefa (WebFetch) ou que já está no pedido. Nunca invente
+  endereço nem "complete" um caminho que parece certo: o app testa cada link e volta o quebrado
+  para o Lucas como defeito.
+- Prefira a fonte primária (documentação oficial, padrão, RFC) a blogs.
+- Documento da trilha (em `documentos/`) é material `documento`, com a âncora da seção exata.
+- A etapa não precisa de material externo para tudo: a lição dela é gerada depois, ancorada no
+  material. Mas toda etapa tem um material principal.
+
+## 3. Ajuste
+
+Quando há `versao-anterior.json`, parta dele: mude o que os comentários pedem e **mantenha o
+resto** (mesmas chaves, mesma ordem, mesmos textos). Comentário ancorado em `etapa:<chave>` ou
+`modulo:<n>` mexe naquele ponto.
+
+## 4. Geral
+
+- Português do Brasil, frases diretas. Títulos que dizem o assunto.
+- As instruções do Lucas (globais, da trilha e do pedido) valem acima destas regras, nunca para
+  afirmar o que é falso.
+- Não edite nem crie arquivos: a resposta vai inteira nos campos pedidos.

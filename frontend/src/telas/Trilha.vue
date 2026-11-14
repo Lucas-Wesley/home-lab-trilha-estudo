@@ -19,10 +19,17 @@ const t = ref(null)
 const cronograma = ref([])
 const erro = ref('')
 const aviso = ref('')
+// Trilha em criação com a IA (fase 4): a página leva de volta ao passo em que ela está.
+const passoCriacao = ref('')
 
 async function carregar() {
   try {
+    api(`/api/trilhas/${props.trilhaId}/criacao`).then(
+      (r) => (passoCriacao.value = r.criacao.passo),
+      () => (passoCriacao.value = ''),
+    )
     t.value = await api(`/api/trilhas/${props.trilhaId}`)
+    t.value.modulos ||= [] // trilha sem módulo: a API omite a lista
     cronograma.value = t.value.meta.dias.length ? await api(`/api/trilhas/${props.trilhaId}/cronograma`) : []
   } catch (e) {
     erro.value = e.status === 404 ? 'Trilha não encontrada.' : e.message
@@ -210,6 +217,9 @@ function irPara(id) {
       </div>
       <p v-if="t.objetivo" class="lead">{{ t.objetivo }}</p>
       <p v-if="aviso" class="aviso topo">{{ aviso }}</p>
+      <p v-if="passoCriacao && passoCriacao !== 'pronta'" class="aviso neutro topo">
+        Esta trilha está sendo criada com a IA. <a :href="link('trilhas', t.id, 'criar')">Continuar a criação</a>
+      </p>
 
       <!-- Sobre -->
       <section id="sobre" class="secao">

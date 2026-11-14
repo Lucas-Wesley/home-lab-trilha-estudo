@@ -8,6 +8,71 @@ import { existsSync, readFileSync } from 'node:fs'
 await new Promise((r) => setTimeout(r, Number(process.env.CLAUDE_FALSO_ESPERA || 4000)))
 
 const pedido = readFileSync('pedido.md', 'utf8')
+const comentariosDoPedido = [...pedido.matchAll(/^- Comentário (\d+)(?: \(em [^)]*\))?(?:, sobre o trecho: «[\s\S]*?»)?: (.*)$/gm)].map((m) => ({ id: Number(m[1]), texto: m[2] }))
+const responder = (dados) => {
+  const respostas = comentariosDoPedido.map((c) => ({ comentario: c.id, resposta: `Ajuste de teste para: ${c.texto}` }))
+  process.stdout.write(JSON.stringify({ type: 'result', is_error: false, result: '', structured_output: { ...dados, respostas } }))
+  process.exit(0)
+}
+
+// Criação com IA (fase 4): uma resposta de teste para cada passo.
+const passo = (pedido.match(/^# Pedido: (entrevista|mapa do assunto|validação da lista|plano da trilha)$/m) || [])[1]
+if (passo === 'entrevista') {
+  const rodada = Number((pedido.match(/rodada (\d+) de no máximo/) || [, 1])[1])
+  responder({
+    perfil: 'tecnologia', eixos: ['objetivo', 'nível atual'],
+    panorama: rodada === 1 ? 'Panorama de teste: o assunto se divide em **fundamentos**, **serviços** e **operação**.' : '',
+    perguntas: [
+      { id: `q${rodada}a`, texto: `Pergunta de teste ${rodada}A: para que você quer isto?`, por_que: 'muda o foco do mapa', opcoes: ['trabalho', 'certificação', 'curiosidade'], multipla: false },
+      { id: `q${rodada}b`, texto: `Pergunta de teste ${rodada}B: que partes interessam?`, por_que: 'muda o recorte', opcoes: ['fundamentos', 'serviços', 'operação'], multipla: true },
+    ],
+    suficiente: rodada > 1, notas: 'Entrevista de teste (scripts/claude-falso.mjs).',
+  })
+}
+if (passo === 'mapa do assunto') {
+  const etapa = (chave, titulo, nivel) => ({ chave, titulo, resumo: `Resumo de teste de ${titulo}.`, nivel })
+  responder({
+    objetivo: 'Ao final, você será capaz de explicar o assunto de teste.',
+    mapa: [
+      { titulo: 'Fundamentos', descricao: 'a base', etapas: [etapa('o-que-e', 'O que é', 'basico'), etapa('como-funciona', 'Como funciona', 'basico')] },
+      { titulo: 'Serviços', descricao: 'o centro', etapas: [etapa('servico-a', 'Serviço A', 'intermediario'), etapa('servico-b', 'Serviço B', 'intermediario')] },
+      { titulo: 'Avançado', descricao: 'fora do recorte sugerido', etapas: [etapa('otimizacao', 'Otimização', 'avancado'), etapa('casos', 'Casos-limite', 'avancado')] },
+    ],
+    recorte_sugerido: ['o-que-e', 'como-funciona', 'servico-a', 'servico-b'],
+    por_que_recorte: 'o avançado fica para depois.', nivel_partida: 'iniciante', nivel_alvo: 'intermediário', notas: 'Mapa de teste.',
+  })
+}
+if (passo === 'validação da lista') {
+  const itens = [...pedido.matchAll(/^\d+\. (.*)$/gm)].map((m, i) => ({ chave: `item-${i + 1}`, titulo: m[1], nota: '' }))
+  responder({
+    itens,
+    sugestoes: [
+      { id: 's1', acao: 'inserir', antes_de: itens.at(-1)?.chave || '', titulo: 'Pré-requisito de teste', motivo: 'o último item supõe isto.' },
+      { id: 's2', acao: 'observar', item: itens[0]?.chave || '', titulo: 'Item amplo', motivo: 'talvez seja grande para uma sessão.' },
+    ],
+    nivel_partida: 'iniciante', nivel_alvo: 'intermediário', notas: 'Validação de teste.',
+  })
+}
+if (passo === 'plano da trilha') {
+  const chaves = [...pedido.matchAll(/^\s*- (?:✔ )?`([a-z0-9-]+)`/gm)].map((m) => m[1]).slice(0, 4)
+  const lista = chaves.length >= 2 ? chaves : ['etapa-1', 'etapa-2']
+  responder({
+    trilha: {
+      titulo: 'Trilha de teste', objetivo: 'Ao final, você será capaz de explicar o assunto de teste.', descricao: 'Plano de teste.',
+      recorte: 'Só o de teste; fica de fora o resto.', nivel_partida: 'iniciante', nivel_alvo: 'intermediário',
+      modulos: [{
+        titulo: 'Módulo de teste', descricao: '',
+        etapas: lista.map((chave, i) => ({
+          chave, titulo: `Etapa ${i + 1}`, objetivo: 'Explicar a etapa de teste.', bloom: 'entender', tipo: 'normal',
+          minutos: i === 0 ? 120 : 30, criterio: 'Responder às perguntas.', requer: i ? [lista[i - 1]] : [],
+          materiais: [{ tipo: 'web', titulo: 'RFC 1918', referencia: 'https://www.rfc-editor.org/rfc/rfc1918', localizador: '', papel: 'principal', nota: '[padrão] teste' }],
+        })),
+      }],
+    },
+    notas: 'Plano de teste.',
+  })
+}
+
 const titulo = (pedido.match(/^# Pedido: lição da etapa "(.*)"$/m) || [])[1] || 'Etapa'
 const deste = (pedido.match(/^- Deste pedido: (.*)$/m) || [])[1] || ''
 const comentarios = [...pedido.matchAll(/^- Comentário (\d+)(?: \(em [^)]*\))?(?:, sobre o trecho: «[\s\S]*?»)?: (.*)$/gm)].map((m) => ({ id: Number(m[1]), texto: m[2] }))

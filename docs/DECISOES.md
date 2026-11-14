@@ -217,6 +217,7 @@ próprias palavras; não copia o livro.
 | T22 | **Desenvolvimento 100% em containers** (`compose.dev.yaml`: Go e Node em imagens oficiais; testes e build também); nada instalado no Windows | Pedido do Lucas em 14/11/2026. |
 | T23 | **Documentos pertencem à trilha**, não há seção Documentos: ficam em `trilhas/<slug>/documentos/`, aparecem na página da trilha (seção e navegação lateral) e saem junto quando ela é excluída. Entram **à mão**, em qualquer forma de criar a trilha (A, B, C ou D) ou depois. Links entre eles (`02-wifi.md#canais`) abrem dentro da trilha. O topo do app tem só **Hoje** e **Trilhas**; a vitrine do design system continua em `#/design`, sem aba | Pedido do Lucas em 14/11/2026: os documentos que existiam eram só da trilha de rede. |
 | T24 | **Fase 3 como foi feita:** a proposta aponta para a etapa pela **chave** (sobrevive a uma nova importação); a lição da IA traz os **conceitos anteriores dentro dela** (seção com `base`/`vizinho` em `<details>`), não num arquivo à parte; a IA só lê (material da trilha, lições dos pré-requisitos) e pesquisa na web, e devolve JSON (`licao`, `notas`, `respostas` a cada comentário); o servidor **testa os links** da lição (quebrado × não confirmado, lição 4 de `regras/criar-trilha.md`); comentário ancorado numa **seção** ou num **trecho selecionado**; mudanças entre versões por linha; aprovar grava a lição no git do conteúdo. Regra em `regras/licao.md`, editável em **Ajustes** (ícone no topo), junto com as instruções globais, o modelo da lição e a fila | Fatia fina da §5 que já serve à trilha piloto: o tipo "lição" exercita todo o ciclo pedido → proposta → comentários → ajuste → aprovação, que as fases 4 e 5 reaproveitam. |
+| T25 | **Fase 4 como foi feita:** a trilha nasce **rascunho** já no começo (tabela `criacoes` guarda tema, pedido, tamanho da entrevista, lista, passo, rodadas e escolhas), e cada passo da IA é uma **proposta da trilha** (sem etapa): **A** = `entrevista` (1 a 4 rodadas conforme o tamanho; o Lucas responde com opções, "outro", "não sei, sugira" e um comentário; a IA faz a pré-pesquisa na 1ª rodada e diz quando basta) → `mapa` (o assunto inteiro; o Lucas marca o recorte, confirma objetivo, níveis e profundidade) → `plano`; **B** = `validacao` (a lista dele, na ordem dele; sugestões `inserir`/`dividir`/`observar` que ele aceita uma a uma) → `plano`. O **plano é um pacote de importação** (T21): aprovar importa na própria trilha em criação. O servidor roda a **revisão automática** dos critérios A (C2, C3, C4, C9, C10, C11, C15) e a validação do pacote (grave = não deixa aprovar). Mapa, validação e plano aceitam comentários (gerais ou ancorados em `etapa:<chave>`/`modulo:<n>`) e ajuste, como a lição. Os **perfis de domínio** ficam numa regra só (`regras/entrevista.md`), não em `regras/perfis/`. Regras novas: `entrevista.md`, `mapa.md`, `validar-lista.md`, `plano.md` (o plano leva junto `criar-trilha.md`); um **modelo da criação** em Ajustes. **Mini-teste de nível (T9) ainda não**: o nível é o que a IA deduz da entrevista, e o Lucas confirma | A fatia que deixa criar uma trilha nova inteira sem montar à mão, reaproveitando proposta, fila, importação e o método da trilha piloto. Uma rodada de revisão só (a da IA + a automática + a leitura do Lucas), em vez das três rodadas da piloto: o "Pedir ajuste" é a rodada seguinte. |
 
 ---
 
@@ -241,8 +242,8 @@ próprias palavras; não copia o livro.
 | **0. Documentação** | este arquivo, PEDAGOGIA, DESIGN-SYSTEM, `CLAUDE.md` | ✅ 14/11/2026 |
 | **1. Esqueleto** | Go + Vue + PWA + **design system novo**, compose, Dockerfile, deploy; `/api/health`; vitrine do design em `#/design` | ✅ 14/11/2026 (no ar em https://trilha.internal desde 14/11/2026) |
 | **2. Trilha manual** | criar trilha, módulos e etapas à mão; ler lições em Markdown; progresso; **meta, cronograma e tela Hoje**; documentos e importação por pacote; **trilha piloto criada com o processo iterativo** (T20) | ✅ 14/11/2026 (trilha piloto importada no homelab em 14/11/2026) |
-| **3. IA básica** | fila + Claude + regras editáveis; **propostas com pedidos e comentários**; lição sob demanda com profundidade e conceitos anteriores (T24) | ✅ 14/11/2026 (testada com o Claude de mentira; falta a primeira lição com o Claude de verdade, no homelab) |
-| **4. Criação com IA** | entradas A e B: pré-pesquisa, entrevista, mapa, recorte, nível, aprovação | |
+| **3. IA básica** | fila + Claude + regras editáveis; **propostas com pedidos e comentários**; lição sob demanda com profundidade e conceitos anteriores (T24) | ✅ 14/11/2026 (primeira lição com o Claude de verdade gerada no homelab em 14/11/2026, a da etapa 1 da piloto: 83 s, ~2.800 palavras, no molde, links ok) |
+| **4. Criação com IA** | entradas A e B: pré-pesquisa, entrevista, mapa, recorte, nível, aprovação | ✅ 14/11/2026 (T25; testada com o Claude de mentira; falta a primeira trilha com o Claude de verdade e o mini-teste de nível) |
 | **5. Estudar a etapa** | exercícios, simulado, critério de conclusão, envio ao Flashcards | |
 | **6. Material de apoio** | Biblioteca (com a entrada C), Acervo, web, PDF; área do Streaming desativada | |
 | **7. Domínio e revisão** | revisão espaçada das etapas, simulado intercalado, reforço, pontos fracos, painel | |
@@ -291,7 +292,13 @@ A documentação do homelab **continua sendo escrita em `estudo/`**, como antes.
       deploy, do Mac, em 14/11/2026. Trilha piloto importada; os arquivos de criação dela ficam em
       `/srv/data/trilha/piloto` na VM (fora do GitHub, com backup diário).
 - [ ] Primeiras lições com o Claude de verdade na trilha piloto; ajustar `regras/licao.md` pelo
-      que sair (validar à mão antes de automatizar).
+      que sair (validar à mão antes de automatizar). *A da etapa 1 ("Camadas e endereços") está
+      gerada e aguardando a leitura do Lucas (14/11/2026). As notas dela apontam dois pontos do
+      documento 01: o flashcard da seção 9 diz "4 camadas" e a tabela da 2.1 tem 5; a seção 2.1
+      põe a falta de IP pelo DHCP na "camada 3" (o DHCP é aplicação sobre UDP).*
+- [ ] Primeira trilha criada com a IA de verdade (fase 4), para ajustar `entrevista.md`, `mapa.md`
+      e `plano.md` pelo que sair.
+- [ ] Mini-teste de nível (T9), opcional na criação.
 - [ ] Aplicar nos documentos de `estudo/` as três correções propostas pela trilha piloto
       ([CRIACAO-DE-TRILHAS.md](CRIACAO-DE-TRILHAS.md)).
 - [ ] Endpoints de leitura do Acervo que a Trilha vai usar (confirmar na fase 6).

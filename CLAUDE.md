@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T18), fases, riscos e o que está em aberto.
+  (T1–T25), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — o design **próprio** desta app (estilo Claude
@@ -46,7 +46,14 @@ Homelab **LAN-only**: VM `apps` (`192.168.1.20`) no Proxmox do M920q, Docker Com
 - Regras da IA em `regras/` (vão para `/regras` na imagem; as editadas em Ajustes ficam em
   `/data/regras`). Mudou o que a IA recebe ou devolve, atualize a regra e os testes de `propostas_test.go`.
 
-## Criar trilhas
+## Criação com IA (fase 4, T25)
+`backend/criacao.go`: a trilha nasce rascunho e cada passo é uma proposta dela (sem etapa):
+entrevista → mapa → plano (entrada A) ou validação → plano (entrada B). Aprovar o plano importa o
+pacote na própria trilha. Regras em `regras/entrevista.md`, `mapa.md`, `validar-lista.md` e
+`plano.md` (+ `criar-trilha.md`). Tela: `frontend/src/telas/Criacao.vue` (`#/trilhas/<id>/criar`).
+O `scripts/claude-falso.mjs` responde também aos quatro passos.
+
+## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,
 critérios C1–C15) → correção → nova rodada, até passar; registre cada rodada e acrescente as lições
 novas na seção 6 das regras. A trilha entra no app por `POST /api/importar` (pacote JSON).

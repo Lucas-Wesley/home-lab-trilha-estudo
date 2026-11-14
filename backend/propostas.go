@@ -357,7 +357,9 @@ func (a *app) handleAjustar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	titulo := "Ajuste da lição"
-	if e, err := a.etapaPorChave(r.Context(), p.TrilhaID, p.EtapaChave); err == nil {
+	if ehCriacao(p.Tipo) {
+		titulo = titulosCriacao[p.Tipo] + ": " + a.tituloDaTrilha(r.Context(), p.TrilhaID)
+	} else if e, err := a.etapaPorChave(r.Context(), p.TrilhaID, p.EtapaChave); err == nil {
 		titulo = "Lição: " + e.Titulo
 	}
 	nova, err := a.novaProposta(r.Context(), p.TrilhaID, p.EtapaChave, p.Tipo, corpo.Pedido, p.ID, titulo)
@@ -372,6 +374,10 @@ func (a *app) handleAprovar(w http.ResponseWriter, r *http.Request) {
 	p, err := a.propostaAguardando(r)
 	if err != nil {
 		a.responderErro(w, err)
+		return
+	}
+	if ehCriacao(p.Tipo) {
+		a.aprovarCriacao(w, r, p)
 		return
 	}
 	var gerando int
@@ -728,6 +734,12 @@ func (a *app) montarPedidoLicao(ctx context.Context, tr trilha, p proposta) (map
 	}
 	arquivos["pedido.md"] = s.String()
 	return arquivos, comentarios, nil
+}
+
+func (a *app) tituloDaTrilha(ctx context.Context, id int64) string {
+	var titulo string
+	a.db.QueryRowContext(ctx, `SELECT titulo FROM trilhas WHERE id = ?`, id).Scan(&titulo)
+	return titulo
 }
 
 func sufixo(sep, texto string) string {

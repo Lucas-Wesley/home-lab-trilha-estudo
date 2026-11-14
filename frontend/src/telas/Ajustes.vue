@@ -127,6 +127,11 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
           </datalist>
           <p class="ajuda">opus, sonnet, haiku ou o nome completo (ex.: claude-opus-5-5). Vazio: o padrão da conta.</p>
         </div>
+        <div>
+          <label class="rotulo" for="a-modelo-criacao">Modelo da criação de trilhas</label>
+          <input id="a-modelo-criacao" v-model="ajustes.modelo_criacao" class="campo" list="modelos" :placeholder="ajustes.modelo_padrao ? `padrão: ${ajustes.modelo_padrao}` : 'padrão do Claude Code'" />
+          <p class="ajuda">Entrevista, mapa, validação da lista e plano. O plano decide a trilha inteira: vale o opus, se o limite permitir.</p>
+        </div>
         <div class="linha">
           <button class="botao primario" type="submit">Salvar</button>
           <span v-if="salvo" class="pequeno">{{ salvo }}</span>

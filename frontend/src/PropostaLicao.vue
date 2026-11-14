@@ -330,6 +330,8 @@ defineExpose({ abrir: () => (abrirPedido.value = true) })
 <style scoped>
 .sem-margem { margin: 0; }
 .pre { white-space: pre-wrap; }
+/* O .cartao p global corta em duas linhas (é para as vitrines); as notas da IA são para ler inteiras. */
+.cartao p { display: block; overflow: visible; }
 .cabeca { margin-top: var(--e2); }
 .versoes .botao { height: 26px; padding: 0 8px; }
 .botao.ativa { background: var(--superficie-2); color: var(--texto); }
