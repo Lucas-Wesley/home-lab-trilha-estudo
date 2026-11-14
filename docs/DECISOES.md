@@ -245,7 +245,7 @@ próprias palavras; não copia o livro.
 | **2. Trilha manual** | criar trilha, módulos e etapas à mão; ler lições em Markdown; progresso; **meta, cronograma e tela Hoje**; documentos e importação por pacote; **trilha piloto criada com o processo iterativo** (T20) | ✅ 14/11/2026 (trilha piloto importada no homelab em 14/11/2026) |
 | **3. IA básica** | fila + Claude + regras editáveis; **propostas com pedidos e comentários**; lição sob demanda com profundidade e conceitos anteriores (T24) | ✅ 14/11/2026 (primeira lição com o Claude de verdade gerada no homelab em 14/11/2026, a da etapa 1 da piloto: 83 s, ~2.800 palavras, no molde, links ok) |
 | **4. Criação com IA** | entradas A e B: pré-pesquisa, entrevista, mapa, recorte, nível, aprovação | ✅ 14/11/2026 (T25; testada com o Claude de mentira; falta a primeira trilha com o Claude de verdade e o mini-teste de nível) |
-| **5. Estudar a etapa** | exercícios, simulado, critério de conclusão, envio ao Flashcards | ✅ 14/11/2026 (T26; testada com o Claude de mentira e um Flashcards de mentira; falta usar com o Claude de verdade) |
+| **5. Estudar a etapa** | exercícios, simulado, critério de conclusão, envio ao Flashcards | ✅ 14/11/2026 (T26; testada com o Claude de verdade numa trilha de teste, apagada depois: 9 exercícios em 30 s, 5 perguntas em 20 s, correção de 3 respostas em 15 s com notas 95/35/5 que separaram certo, incompleto e erro de conceito; o envio ao Flashcards foi testado com um Flashcards de mentira e a ligação real conferida pela lista de baralhos) |
 | **6. Material de apoio** | Biblioteca (com a entrada C), Acervo, web, PDF; área do Streaming desativada | |
 | **7. Domínio e revisão** | revisão espaçada das etapas, simulado intercalado, reforço, pontos fracos, painel | |
 | **Depois** | Streaming de verdade; ferramentas práticas por trilha | |
@@ -300,8 +300,9 @@ A documentação do homelab **continua sendo escrita em `estudo/`**, como antes.
 - [ ] Primeira trilha criada com a IA de verdade (fase 4), para ajustar `entrevista.md`, `mapa.md`
       e `plano.md` pelo que sair.
 - [ ] Mini-teste de nível (T9), opcional na criação.
-- [ ] Primeiros exercícios e simulado com o Claude de verdade (fase 5), para ajustar `exercicios.md`,
-      `simulado.md` e `corrigir-simulado.md` pelo que sair; ver se a nota mínima de 80% faz sentido.
+- [ ] Exercícios e simulado da trilha piloto no uso real (fase 5), para ajustar `exercicios.md`,
+      `simulado.md` e `corrigir-simulado.md`; ver se a nota mínima de 80% faz sentido e mandar a
+      primeira lição ao Flashcards de verdade.
 - [ ] Aplicar nos documentos de `estudo/` as três correções propostas pela trilha piloto
       ([CRIACAO-DE-TRILHAS.md](CRIACAO-DE-TRILHAS.md)).
 - [ ] Endpoints de leitura do Acervo que a Trilha vai usar (confirmar na fase 6).

@@ -260,6 +260,9 @@ func TestSecoesDaLicaoComoOLeitor(t *testing.T) {
 	if len(s) != 3 || s[0]["link"] != "L#21-reserva-de-ip-ip-fora--static" || s[2]["link"] != "L#como-funciona-1" {
 		t.Fatalf("seções: %+v", s)
 	}
+	if textoDaIA(` Revise a seção \"CGNAT\". `) != "Revise a seção \"CGNAT\"." {
+		t.Fatalf("aspas escapadas: %q", textoDaIA(` Revise a seção \"CGNAT\". `))
+	}
 	if normalizarResposta("  Endereço  de ORIGEM. ") != "endereco de origem" || normalizarResposta("50%") != "50%" {
 		t.Fatalf("normalizar")
 	}

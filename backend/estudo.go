@@ -908,7 +908,7 @@ func (a *app) corrigirSimulado(ctx context.Context, t *tarefa) error {
 		it := itemCorrigido{respondidaSimulado: x, Veredito: "errado", Comentario: "A IA não corrigiu esta resposta."}
 		if j, ok := porPergunta[i+1]; ok {
 			cc := c.Correcoes[j]
-			it.Nota, it.Veredito, it.Comentario, it.Faltou = min(100, max(0, cc.Nota)), cc.Veredito, strings.TrimSpace(cc.Comentario), strings.TrimSpace(cc.Faltou)
+			it.Nota, it.Veredito, it.Comentario, it.Faltou = min(100, max(0, cc.Nota)), cc.Veredito, textoDaIA(cc.Comentario), textoDaIA(cc.Faltou)
 		}
 		soma += it.Nota
 		if it.Veredito == "certo" {
@@ -916,7 +916,7 @@ func (a *app) corrigirSimulado(ctx context.Context, t *tarefa) error {
 		}
 		itens = append(itens, it)
 	}
-	resultado, _ := json.Marshal(map[string]any{"itens": itens, "resumo": strings.TrimSpace(c.Resumo)})
+	resultado, _ := json.Marshal(map[string]any{"itens": itens, "resumo": textoDaIA(c.Resumo)})
 	_, err = a.db.ExecContext(ctx, `UPDATE tentativas SET estado = ?, nota = ?, acertos = ?, resultado = ?, atualizado_em = ? WHERE id = ?`,
 		tentCorrigida, soma/len(respondidas), certas, string(resultado), agora(), tid)
 	return err
@@ -1077,4 +1077,10 @@ func ancoraDoTitulo(texto string) string {
 		}
 	}
 	return b.String()
+}
+
+// textoDaIA: às vezes a IA escapa as aspas dentro do texto do JSON (\"seção\"); na tela
+// apareceria a barra.
+func textoDaIA(s string) string {
+	return strings.TrimSpace(strings.ReplaceAll(s, `\"`, `"`))
 }
