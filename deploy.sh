@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Publica o commit atual de origin/main no homelab.
+# Uso: ./deploy.sh [--sem-testes]
+# Pendente antes do primeiro deploy: a entrada trilha.internal no Caddy (DECISOES.md §12).
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+DEPLOY_HOST="${DEPLOY_HOST:-lucas@192.168.1.20}"
+DEPLOY_KEY="${DEPLOY_KEY:-$HOME/.ssh/id_ed25519_homelab}"
+APP_URL="${APP_URL:-https://trilha.internal}"
+CA_CERT="${CA_CERT:-../certs/homelab-ca.crt}"
+
+falhar() { echo "ERRO: $*" >&2; exit 1; }
+
+git fetch -q origin main
+SHA=$(git rev-parse HEAD)
+[ "$SHA" = "$(git rev-parse origin/main)" ] \
+  || falhar "o commit atual não é origin/main. Faça o push para a main antes de publicar."
+[ -z "$(git status --porcelain)" ] \
+  || echo "AVISO: há alterações locais; elas não serão publicadas."
+
+if [ "${1:-}" != "--sem-testes" ]; then
+  echo "==> Rodando os testes"
+  make test
+fi
+
+echo "==> Publicando ${SHA:0:7}"
+ssh -i "$DEPLOY_KEY" -o IdentitiesOnly=yes -o BatchMode=yes "$DEPLOY_HOST" \
+  'bash -s --' "$SHA" < scripts/remote-deploy.sh
+
+echo "==> Conferindo a versão no ar"
+HEALTH=$(curl -fsS --max-time 15 --cacert "$CA_CERT" "$APP_URL/api/health") \
+  || falhar "a API não respondeu em $APP_URL."
+case "$HEALTH" in
+  *"\"version\":\"$SHA\""*) echo "OK: $APP_URL está em ${SHA:0:7}" ;;
+  *) falhar "a versão no ar não é a publicada: $HEALTH" ;;
+esac

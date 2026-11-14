@@ -1,0 +1,15 @@
+// Rotas no hash (#/trilhas/aws), como nas outras apps: o "voltar" do celular volta para a tela
+// anterior e o servidor só precisa servir o index.html.
+export const SECOES = ['hoje', 'trilhas', 'design']
+
+export function lerRota(hash) {
+  const caminho = decodeURIComponent(String(hash || '').replace(/^#\/?/, ''))
+  const [caminhoSemAncora, ancora = ''] = caminho.split('#')
+  const partes = caminhoSemAncora.split('/').filter(Boolean)
+  const secao = SECOES.includes(partes[0]) ? partes[0] : 'hoje'
+  return { secao, partes: SECOES.includes(partes[0]) ? partes.slice(1) : [], ancora }
+}
+
+export function link(secao, ...partes) {
+  return '#/' + [secao, ...partes].map(encodeURIComponent).join('/')
+}

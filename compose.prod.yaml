@@ -1,0 +1,19 @@
+services:
+  trilha:
+    ports: !reset []
+    volumes:
+      - /srv/data/trilha:/data
+      # A conta do Claude escolhida no Hub (H11 do Hub), lida a cada chamada; só leitura.
+      - /srv/data/claude/ativa:/claude:ro
+    environment:
+      CLAUDE_TOKEN_ARQUIVO: /claude/token
+      # Material de apoio (fase 6) e flashcards (fase 5), pela rede interna do Docker.
+      BIBLIOTECA_URL: http://biblioteca:8080
+      ACERVO_URL: http://acervo:8080
+      FLASHCARDS_URL: http://flashcards:8080
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
