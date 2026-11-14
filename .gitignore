@@ -15,3 +15,9 @@ backend/web/dist/*
 
 backend/home-lab-trilha-estudo
 backend/*.exe
+
+# Saída da conferência no celular (scripts/conferir_celular.mjs)
+scripts/cel-*.png
+scripts/package.json
+scripts/package-lock.json
+scripts/node_modules/
