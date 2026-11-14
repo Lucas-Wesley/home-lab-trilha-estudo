@@ -239,8 +239,8 @@ próprias palavras; não copia o livro.
 | Fase | Entrega | Estado |
 |---|---|---|
 | **0. Documentação** | este arquivo, PEDAGOGIA, DESIGN-SYSTEM, `CLAUDE.md` | ✅ 14/11/2026 |
-| **1. Esqueleto** | Go + Vue + PWA + **design system novo**, compose, Dockerfile, deploy; `/api/health`; vitrine do design em `#/design` | ✅ 14/11/2026 (deploy pendente: falta o `trilha.internal` no Caddy) |
-| **2. Trilha manual** | criar trilha, módulos e etapas à mão; ler lições em Markdown; progresso; **meta, cronograma e tela Hoje**; documentos e importação por pacote; **trilha piloto criada com o processo iterativo** (T20) | ✅ 14/11/2026 (deploy pendente: acesso à VM) |
+| **1. Esqueleto** | Go + Vue + PWA + **design system novo**, compose, Dockerfile, deploy; `/api/health`; vitrine do design em `#/design` | ✅ 14/11/2026 (no ar em https://trilha.internal desde 14/11/2026) |
+| **2. Trilha manual** | criar trilha, módulos e etapas à mão; ler lições em Markdown; progresso; **meta, cronograma e tela Hoje**; documentos e importação por pacote; **trilha piloto criada com o processo iterativo** (T20) | ✅ 14/11/2026 (trilha piloto importada no homelab em 14/11/2026) |
 | **3. IA básica** | fila + Claude + regras editáveis; **propostas com pedidos e comentários**; lição sob demanda com profundidade e conceitos anteriores (T24) | ✅ 14/11/2026 (testada com o Claude de mentira; falta a primeira lição com o Claude de verdade, no homelab) |
 | **4. Criação com IA** | entradas A e B: pré-pesquisa, entrevista, mapa, recorte, nível, aprovação | |
 | **5. Estudar a etapa** | exercícios, simulado, critério de conclusão, envio ao Flashcards | |
@@ -287,8 +287,9 @@ A documentação do homelab **continua sendo escrita em `estudo/`**, como antes.
 
 - [ ] Partes de rede do Hub entram na trilha piloto? (§10)
 - [ ] Nota no `TRILHAS.md` do Acervo e entrada do app no Hub (§8).
-- [ ] Entrada `trilha.internal` no Caddy do homelab e primeiro deploy: o Lucas faz do Mac (o PC
-      Windows só desenvolve).
+- [x] Entrada `trilha.internal` (e https://192.168.1.20:8452) no Caddy do homelab e primeiro
+      deploy, do Mac, em 14/11/2026. Trilha piloto importada; os arquivos de criação dela ficam em
+      `/srv/data/trilha/piloto` na VM (fora do GitHub, com backup diário).
 - [ ] Primeiras lições com o Claude de verdade na trilha piloto; ajustar `regras/licao.md` pelo
       que sair (validar à mão antes de automatizar).
 - [ ] Aplicar nos documentos de `estudo/` as três correções propostas pela trilha piloto

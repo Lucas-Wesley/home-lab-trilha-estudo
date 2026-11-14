@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Publica o commit atual de origin/main no homelab.
 # Uso: ./deploy.sh [--sem-testes]
-# Pendente antes do primeiro deploy: a entrada trilha.internal no Caddy (DECISOES.md §12).
 set -euo pipefail
 
 cd "$(dirname "$0")"
