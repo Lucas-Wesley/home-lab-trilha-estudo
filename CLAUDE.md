@@ -34,6 +34,17 @@ Homelab **LAN-only**: VM `apps` (`192.168.1.20`) no Proxmox do M920q, Docker Com
   `docker compose -f compose.dev.yaml run --rm web npm test`.
 - Imagem de produção local: `PORTA=8093 docker compose up -d --build`.
 - Revisar uma trilha: `scripts/revisar_trilha.py` num container Python (ver `docs/CRIACAO-DE-TRILHAS.md`).
+- **IA sem token** (testar propostas sem gastar a assinatura): `CLAUDE_BIN=/falso/claude-falso.mjs`
+  com `scripts/` montado em `/falso`; ele lê o `pedido.md` e devolve uma lição de teste. Com token
+  de verdade: `CLAUDE_CODE_OAUTH_TOKEN` no `.env` (fora do Git); no homelab, vem do Hub.
+- Deploy: o Lucas faz do Mac (`./deploy.sh`), a partir da `main` no GitHub.
+
+## IA (fase 3)
+- `backend/ia.go` chama `claude -p` com a regra do tipo de tarefa, `--json-schema` e só ferramentas
+  de leitura e web; `fila.go` roda uma tarefa por vez; `propostas.go` tem propostas, comentários e a
+  montagem do `pedido.md` (etapa, lugar na trilha, material, instruções globais → trilha → pedido).
+- Regras da IA em `regras/` (vão para `/regras` na imagem; as editadas em Ajustes ficam em
+  `/data/regras`). Mudou o que a IA recebe ou devolve, atualize a regra e os testes de `propostas_test.go`.
 
 ## Criar trilhas
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

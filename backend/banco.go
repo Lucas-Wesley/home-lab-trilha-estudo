@@ -118,4 +118,55 @@ CREATE TABLE IF NOT EXISTS cronograma (
 	PRIMARY KEY (etapa_id, data)
 );
 CREATE INDEX IF NOT EXISTS cronograma_data ON cronograma (trilha_id, data);
+
+-- Fase 3 (T4, T13). Tudo o que a IA produz vira uma proposta versionada que espera o Lucas
+-- (DECISOES.md §5). O alvo é a etapa pela chave (sobrevive a uma nova importação da trilha).
+-- estado: gerando · aguardando · aprovada · descartada · substituida (veio uma versão nova) ·
+-- falhou. conteudo: o JSON devolvido pela IA (ex.: {"licao": "...", "notas": "..."}).
+CREATE TABLE IF NOT EXISTS propostas (
+	id            INTEGER PRIMARY KEY AUTOINCREMENT,
+	trilha_id     INTEGER NOT NULL REFERENCES trilhas(id) ON DELETE CASCADE,
+	etapa_chave   TEXT NOT NULL DEFAULT '',
+	tipo          TEXT NOT NULL,
+	versao        INTEGER NOT NULL,
+	anterior_id   INTEGER REFERENCES propostas(id) ON DELETE SET NULL,
+	estado        TEXT NOT NULL,
+	pedido        TEXT NOT NULL DEFAULT '',
+	conteudo      TEXT NOT NULL DEFAULT '',
+	erro          TEXT NOT NULL DEFAULT '',
+	criado_em     TEXT NOT NULL,
+	atualizado_em TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS propostas_alvo ON propostas (trilha_id, etapa_chave, tipo, versao);
+
+-- Comentários numa proposta (§5.3): gerais (ancora vazia) ou ancorados numa seção
+-- ("secao:<id do título>") ou num trecho selecionado (citacao). autor: lucas · ia; a resposta da
+-- IA a um comentário fica na versão seguinte, com responde_a apontando para ele.
+CREATE TABLE IF NOT EXISTS comentarios (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	proposta_id INTEGER NOT NULL REFERENCES propostas(id) ON DELETE CASCADE,
+	ancora      TEXT NOT NULL DEFAULT '',
+	citacao     TEXT NOT NULL DEFAULT '',
+	autor       TEXT NOT NULL,
+	texto       TEXT NOT NULL,
+	responde_a  INTEGER REFERENCES comentarios(id) ON DELETE SET NULL,
+	criado_em   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS comentarios_proposta ON comentarios (proposta_id, id);
+
+-- Fila (T4): uma chamada ao Claude por vez. estado: na_fila · rodando · concluida · falhou ·
+-- cancelada.
+CREATE TABLE IF NOT EXISTS tarefas (
+	id           INTEGER PRIMARY KEY AUTOINCREMENT,
+	tipo         TEXT NOT NULL,
+	proposta_id  INTEGER REFERENCES propostas(id) ON DELETE CASCADE,
+	titulo       TEXT NOT NULL DEFAULT '',
+	estado       TEXT NOT NULL,
+	erro         TEXT NOT NULL DEFAULT '',
+	modelo       TEXT NOT NULL DEFAULT '',
+	criado_em    TEXT NOT NULL,
+	iniciado_em  TEXT NOT NULL DEFAULT '',
+	terminado_em TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS tarefas_estado ON tarefas (estado, id);
 `

@@ -4,6 +4,7 @@ import Icone from '../Icone.vue'
 import Leitor from '../Leitor.vue'
 import NavTrilhas from '../NavTrilhas.vue'
 import Pagina from '../Pagina.vue'
+import PropostaLicao from '../PropostaLicao.vue'
 import { api } from '../api.js'
 import { link } from '../rotas.js'
 import { textoComCodigo } from '../markdown.js'
@@ -20,6 +21,12 @@ const e = ref(null)
 const erro = ref('')
 const aviso = ref('')
 const titulos = ref([])
+const proposta = ref(null)
+const propostaAberta = ref(false)
+async function aoAprovar() {
+  e.value = await api(`/api/etapas/${props.etapaId}`)
+  t.value = await api(`/api/trilhas/${props.trilhaId}`)
+}
 
 async function carregar() {
   try {
@@ -181,12 +188,14 @@ async function excluir() {
           </div>
         </section>
 
-        <section class="secao">
-          <h2>Lição</h2>
-          <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancora" :base-docs="baseDocs" @titulos="titulos = $event" />
-          <div v-else class="cartao">
-            <p class="suave sem-margem">Esta etapa ainda não tem lição própria: estude pela leitura principal acima. A lição gerada pela IA, na profundidade da etapa, chega na fase 3; até lá, dá para escrever uma em Editar.</p>
+        <section id="licao" class="secao">
+          <div class="linha entre">
+            <h2>Lição</h2>
+            <button v-if="e.licao" class="botao discreto" @click="proposta?.abrir()">Pedir mudança</button>
           </div>
+          <p v-if="!e.licao && !propostaAberta" class="suave">Esta etapa ainda não tem lição. A IA escreve uma na profundidade da etapa ({{ PROFUNDIDADES[profundidade] }}), a partir do material acima; ela chega como proposta, você comenta e aprova. Também dá para escrever à mão em Editar.</p>
+          <PropostaLicao ref="proposta" :key="e.id" :etapa-id="e.id" :licao-atual="e.licao || ''" :base-docs="baseDocs" @aprovada="aoAprovar" @aberta="propostaAberta = $event" />
+          <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancora" :base-docs="baseDocs" @titulos="titulos = $event" />
         </section>
 
         <nav class="vizinhas" aria-label="Etapas vizinhas">

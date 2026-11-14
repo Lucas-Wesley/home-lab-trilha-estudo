@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -22,7 +24,16 @@ func novoApp(t *testing.T) *app {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &app{db: db, conteudo: c}
+	a := &app{db: db, conteudo: c, fila: novaFila(db), ia: &configIA{
+		regras:        filepath.Join("..", "regras"),
+		regrasEditada: filepath.Join(pasta, "regras"),
+		tarefas:       filepath.Join(pasta, "tarefas"),
+		chamar: func(context.Context, pedidoClaude) (respostaClaude, error) {
+			return respostaClaude{}, errors.New("sem IA neste teste")
+		},
+	}}
+	a.ligarIA()
+	return a
 }
 
 func novoTeste(t *testing.T) http.Handler {

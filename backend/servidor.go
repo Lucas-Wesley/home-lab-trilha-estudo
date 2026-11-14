@@ -14,6 +14,17 @@ import (
 type app struct {
 	db       *sql.DB
 	conteudo *conteudo
+	ia       *configIA
+	fila     *fila
+}
+
+// ligarIA registra os tipos de tarefa na fila (fase 3).
+func (a *app) ligarIA() {
+	if a.ia.chamar == nil {
+		a.ia.chamar = a.ia.chamarClaude
+	}
+	a.fila.executores["licao"] = a.gerarLicao
+	a.fila.aoTerminar = a.aoTerminarTarefa
 }
 
 func novoServidor(a *app, web fs.FS, versao string) http.Handler {
@@ -49,6 +60,23 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("DELETE /api/trilhas/{id}/documentos/{doc}", a.handleExcluirDocumento)
 
 	mux.HandleFunc("POST /api/importar", a.handleImportar)
+
+	// Fase 3: IA, propostas e comentários (DECISOES.md §5).
+	mux.HandleFunc("POST /api/etapas/{id}/licao", a.handleGerarLicao)
+	mux.HandleFunc("GET /api/etapas/{id}/propostas", a.handlePropostasDaEtapa)
+	mux.HandleFunc("POST /api/propostas/{id}/comentarios", a.handleComentar)
+	mux.HandleFunc("POST /api/propostas/{id}/ajustar", a.handleAjustar)
+	mux.HandleFunc("POST /api/propostas/{id}/aprovar", a.handleAprovar)
+	mux.HandleFunc("POST /api/propostas/{id}/descartar", a.handleDescartar)
+	mux.HandleFunc("DELETE /api/comentarios/{id}", a.handleExcluirComentario)
+	mux.HandleFunc("GET /api/tarefas", a.handleTarefas)
+	mux.HandleFunc("POST /api/tarefas/{id}/cancelar", a.handleCancelarTarefa)
+	mux.HandleFunc("GET /api/ajustes", a.handleAjustes)
+	mux.HandleFunc("PUT /api/ajustes", a.handleSalvarAjustes)
+	mux.HandleFunc("GET /api/regras", a.handleRegras)
+	mux.HandleFunc("GET /api/regras/{arquivo}", a.handleRegra)
+	mux.HandleFunc("PUT /api/regras/{arquivo}", a.handleSalvarRegra)
+	mux.HandleFunc("DELETE /api/regras/{arquivo}", a.handleRestaurarRegra)
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		erroJSON(w, http.StatusNotFound, "rota não encontrada")

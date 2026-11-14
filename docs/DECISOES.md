@@ -216,6 +216,7 @@ próprias palavras; não copia o livro.
 | T21 | **Importação por pacote JSON** (`POST /api/importar`): trilha + documentos + lições num arquivo; com `substituir`, a nova versão troca a estrutura e **mantém o progresso** das etapas com a mesma `chave`. A ordem dos pré-requisitos é conferida (requisito sempre antes) | Uma trilha feita fora do app (a piloto, e na fase 4 a resposta da IA) entra inteira; refazer a trilha não apaga o que já foi estudado. |
 | T22 | **Desenvolvimento 100% em containers** (`compose.dev.yaml`: Go e Node em imagens oficiais; testes e build também); nada instalado no Windows | Pedido do Lucas em 14/11/2026. |
 | T23 | **Documentos pertencem à trilha**, não há seção Documentos: ficam em `trilhas/<slug>/documentos/`, aparecem na página da trilha (seção e navegação lateral) e saem junto quando ela é excluída. Entram **à mão**, em qualquer forma de criar a trilha (A, B, C ou D) ou depois. Links entre eles (`02-wifi.md#canais`) abrem dentro da trilha. O topo do app tem só **Hoje** e **Trilhas**; a vitrine do design system continua em `#/design`, sem aba | Pedido do Lucas em 14/11/2026: os documentos que existiam eram só da trilha de rede. |
+| T24 | **Fase 3 como foi feita:** a proposta aponta para a etapa pela **chave** (sobrevive a uma nova importação); a lição da IA traz os **conceitos anteriores dentro dela** (seção com `base`/`vizinho` em `<details>`), não num arquivo à parte; a IA só lê (material da trilha, lições dos pré-requisitos) e pesquisa na web, e devolve JSON (`licao`, `notas`, `respostas` a cada comentário); o servidor **testa os links** da lição (quebrado × não confirmado, lição 4 de `regras/criar-trilha.md`); comentário ancorado numa **seção** ou num **trecho selecionado**; mudanças entre versões por linha; aprovar grava a lição no git do conteúdo. Regra em `regras/licao.md`, editável em **Ajustes** (ícone no topo), junto com as instruções globais, o modelo da lição e a fila | Fatia fina da §5 que já serve à trilha piloto: o tipo "lição" exercita todo o ciclo pedido → proposta → comentários → ajuste → aprovação, que as fases 4 e 5 reaproveitam. |
 
 ---
 
@@ -240,7 +241,7 @@ próprias palavras; não copia o livro.
 | **0. Documentação** | este arquivo, PEDAGOGIA, DESIGN-SYSTEM, `CLAUDE.md` | ✅ 14/11/2026 |
 | **1. Esqueleto** | Go + Vue + PWA + **design system novo**, compose, Dockerfile, deploy; `/api/health`; vitrine do design em `#/design` | ✅ 14/11/2026 (deploy pendente: falta o `trilha.internal` no Caddy) |
 | **2. Trilha manual** | criar trilha, módulos e etapas à mão; ler lições em Markdown; progresso; **meta, cronograma e tela Hoje**; documentos e importação por pacote; **trilha piloto criada com o processo iterativo** (T20) | ✅ 14/11/2026 (deploy pendente: acesso à VM) |
-| **3. IA básica** | fila + Claude + regras editáveis; **propostas com pedidos e comentários**; lição sob demanda com profundidade e conceitos anteriores | |
+| **3. IA básica** | fila + Claude + regras editáveis; **propostas com pedidos e comentários**; lição sob demanda com profundidade e conceitos anteriores (T24) | ✅ 14/11/2026 (testada com o Claude de mentira; falta a primeira lição com o Claude de verdade, no homelab) |
 | **4. Criação com IA** | entradas A e B: pré-pesquisa, entrevista, mapa, recorte, nível, aprovação | |
 | **5. Estudar a etapa** | exercícios, simulado, critério de conclusão, envio ao Flashcards | |
 | **6. Material de apoio** | Biblioteca (com a entrada C), Acervo, web, PDF; área do Streaming desativada | |
@@ -286,8 +287,10 @@ A documentação do homelab **continua sendo escrita em `estudo/`**, como antes.
 
 - [ ] Partes de rede do Hub entram na trilha piloto? (§10)
 - [ ] Nota no `TRILHAS.md` do Acervo e entrada do app no Hub (§8).
-- [ ] Entrada `trilha.internal` no Caddy do homelab e porta de produção; acesso de deploy a partir
-      do PC Windows (a chave `id_ed25519_homelab` não está nele).
+- [ ] Entrada `trilha.internal` no Caddy do homelab e primeiro deploy: o Lucas faz do Mac (o PC
+      Windows só desenvolve).
+- [ ] Primeiras lições com o Claude de verdade na trilha piloto; ajustar `regras/licao.md` pelo
+      que sair (validar à mão antes de automatizar).
 - [ ] Aplicar nos documentos de `estudo/` as três correções propostas pela trilha piloto
       ([CRIACAO-DE-TRILHAS.md](CRIACAO-DE-TRILHAS.md)).
 - [ ] Endpoints de leitura do Acervo que a Trilha vai usar (confirmar na fase 6).

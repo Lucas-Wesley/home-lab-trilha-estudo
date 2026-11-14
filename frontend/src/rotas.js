@@ -1,7 +1,8 @@
 // Rotas no hash (#/trilhas/aws), como nas outras apps: o "voltar" do celular volta para a tela
 // anterior e o servidor só precisa servir o index.html.
-// "design" (a vitrine do design system) não tem aba: só se chega pelo endereço.
-export const SECOES = ['hoje', 'trilhas', 'design']
+// "design" (a vitrine do design system) não tem aba: só se chega pelo endereço. "ajustes" abre
+// pelo ícone no topo.
+export const SECOES = ['hoje', 'trilhas', 'ajustes', 'design']
 
 // Um "%" malformado no endereço (link copiado pela metade, outra codificação) não pode derrubar o
 // app: o trecho fica como veio.

@@ -20,10 +20,13 @@ RUN apk add --no-cache git ripgrep libgcc libstdc++ \
  && npm install -g @anthropic-ai/claude-code \
  && npm cache clean --force
 COPY --from=api /app /app
+# Regras da IA (T6); as editadas em Ajustes ficam em /data/regras e valem por cima destas.
+COPY regras/ /regras/
 # Sem volume montado, o app ainda sobe (os dados ficam no container).
 RUN mkdir -p /data && chown 1000:1000 /data
 USER 1000:1000
 ENV DATA_DIR=/data \
+    REGRAS_DIR=/regras \
     HOME=/data/home \
     USE_BUILTIN_RIPGREP=0 \
     DISABLE_AUTOUPDATER=1

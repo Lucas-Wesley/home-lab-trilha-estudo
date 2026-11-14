@@ -49,9 +49,23 @@ func main() {
 		log.Fatal(err)
 	}
 
+	a := &app{db: db, conteudo: c, fila: novaFila(db), ia: &configIA{
+		claude:        env("CLAUDE_BIN", "claude"),
+		modelo:        os.Getenv("CLAUDE_MODEL"),
+		regras:        env("REGRAS_DIR", "../regras"),
+		regrasEditada: filepath.Join(dataDir, "regras"),
+		tarefas:       filepath.Join(dataDir, "tarefas"),
+		conferirLinks: conferirLinks,
+	}}
+	a.ligarIA()
+	if err := a.fila.recuperar(ctx); err != nil {
+		log.Fatal(err)
+	}
+	go a.fila.rodar(ctx)
+
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           novoServidor(&app{db: db, conteudo: c}, web, version),
+		Handler:           novoServidor(a, web, version),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

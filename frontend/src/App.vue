@@ -4,12 +4,13 @@ import Icone from './Icone.vue'
 import Hoje from './telas/Hoje.vue'
 import Trilhas from './telas/Trilhas.vue'
 import Vitrine from './telas/Vitrine.vue'
+import Ajustes from './telas/Ajustes.vue'
 import { lerRota, link } from './rotas.js'
 import { aplicarTema, lerTema, proximoTema } from './tema.js'
 
 const hash = ref(location.hash)
 const rota = computed(() => lerRota(hash.value))
-const telas = { hoje: Hoje, trilhas: Trilhas, design: Vitrine }
+const telas = { hoje: Hoje, trilhas: Trilhas, ajustes: Ajustes, design: Vitrine }
 
 const abas = [
   { secao: 'hoje', nome: 'Hoje', icone: 'hoje' },
@@ -63,6 +64,9 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
       >{{ aba.nome }}</a>
     </nav>
     <div class="barra-direita">
+      <a class="botao discreto icone" :class="{ ativa: rota.secao === 'ajustes' }" :href="link('ajustes')" title="Ajustes" aria-label="Ajustes">
+        <Icone nome="ajustes" />
+      </a>
       <button class="botao discreto icone" :title="NOMES_TEMA[tema]" :aria-label="NOMES_TEMA[tema]" @click="trocarTema">
         <Icone :nome="ICONES_TEMA[tema]" />
       </button>
@@ -116,6 +120,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
 .marca-icone { display: inline-flex; color: var(--ambar); }
 .abas-topo { margin: 0 auto; }
 .barra-direita { display: flex; align-items: center; gap: var(--e2); margin-left: auto; }
+.barra-direita .botao.ativa { background: var(--superficie-2); color: var(--texto); }
 .so-celular { display: none; }
 
 .abas-celular { display: none; }
