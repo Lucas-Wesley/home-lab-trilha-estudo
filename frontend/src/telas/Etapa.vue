@@ -187,26 +187,43 @@ async function excluir() {
           </div>
         </div>
 
+        <section id="licao" class="secao">
+          <div class="linha entre">
+            <h2>Lição</h2>
+            <button v-if="e.licao" class="botao discreto" @click="proposta?.abrir()">Pedir mudança</button>
+          </div>
+          <p v-if="!e.licao && !propostaAberta" class="suave">Esta etapa ainda não tem lição. A IA escreve uma na profundidade da etapa ({{ PROFUNDIDADES[profundidade] }}), a partir das fontes (abaixo), trazendo para dentro dela tudo o que importa; ela chega como proposta, você comenta e aprova. Também dá para escrever à mão em Editar.</p>
+          <PropostaLicao ref="proposta" :key="e.id" :etapa-id="e.id" :licao-atual="e.licao || ''" :base-docs="baseDocs" @aprovada="aoAprovar" @aberta="propostaAberta = $event" />
+          <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancora" :base-docs="baseDocs" @titulos="titulos = $event" />
+        </section>
+
+        <EstudoEtapa :key="`estudo-${e.id}-${!!e.licao}`" :etapa="e" :trilha="t" @concluir="mudarStatus('concluida')" @mudou="recarregarEtapa" />
+        <DominioEtapa :key="`dominio-${e.id}-${e.status}-${versaoEstudo}`" :etapa="e" :trilha-id="t.id" @mudou="recarregarEtapa" />
+
         <section id="material" class="secao">
           <div class="linha entre">
-            <h2>Material</h2>
+            <h2>Fontes</h2>
             <button v-if="!sugestaoAberta" class="botao discreto" @click="sugerir?.abrir()">Sugerir material</button>
           </div>
-          <p v-if="!materiaisPorPapel.length" class="suave">Sem material ainda. A IA pode sugerir (web, os seus livros, o Acervo e os documentos da trilha), ou adicione em Editar.</p>
-          <div v-for="[papel, lista] in materiaisPorPapel" :key="papel" class="grupo-material">
-            <span class="rotulo">{{ PAPEIS[papel] }}</span>
-            <ul class="materiais">
-              <li v-for="(m, i) in lista" :key="i">
-                <span class="etiqueta">{{ TIPOS_MATERIAL[m.tipo] }}</span>
-                <div>
-                  <a v-if="hrefMaterial(m, t.id)" :href="hrefMaterial(m, t.id)" :target="abreEmOutraAba(m) ? '_blank' : undefined" :rel="abreEmOutraAba(m) ? 'noopener noreferrer' : undefined">{{ m.titulo }}</a>
-                  <span v-else>{{ m.titulo }}</span>
-                  <span v-if="m.localizador && m.tipo !== 'documento'" class="fraco"> · {{ m.localizador }}</span>
-                  <div v-if="m.nota" class="suave nota">{{ m.nota }}</div>
-                </div>
-              </li>
-            </ul>
-          </div>
+          <p class="suave">De onde a lição sai. A lição já traz o que importa: não precisa abrir nada daqui.</p>
+          <p v-if="!materiaisPorPapel.length" class="suave">Sem fonte ainda. A IA pode sugerir (web, os seus livros, o Acervo e os documentos da trilha), ou adicione em Editar.</p>
+          <details v-if="materiaisPorPapel.length" class="fontes" :open="!e.licao">
+            <summary>{{ e.materiais.length }} fonte(s)</summary>
+            <div v-for="[papel, lista] in materiaisPorPapel" :key="papel" class="grupo-material">
+              <span class="rotulo">{{ PAPEIS[papel] }}</span>
+              <ul class="materiais">
+                <li v-for="(m, i) in lista" :key="i">
+                  <span class="etiqueta">{{ TIPOS_MATERIAL[m.tipo] }}</span>
+                  <div>
+                    <a v-if="hrefMaterial(m, t.id)" :href="hrefMaterial(m, t.id)" :target="abreEmOutraAba(m) ? '_blank' : undefined" :rel="abreEmOutraAba(m) ? 'noopener noreferrer' : undefined">{{ m.titulo }}</a>
+                    <span v-else>{{ m.titulo }}</span>
+                    <span v-if="m.localizador && m.tipo !== 'documento'" class="fraco"> · {{ m.localizador }}</span>
+                    <div v-if="m.nota" class="suave nota">{{ m.nota }}</div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </details>
           <div class="streaming">
             <button class="botao discreto" disabled title="Quando o Streaming tiver subpastas e legendas">
               <Icone nome="video" :tamanho="16" /> Vincular pasta de Meus vídeos
@@ -215,19 +232,6 @@ async function excluir() {
           </div>
           <PropostaMaterial ref="sugerir" :key="`material-${e.id}`" :etapa-id="e.id" :trilha-id="t.id" @aprovada="recarregarEtapa" @aberta="sugestaoAberta = $event" />
         </section>
-
-        <section id="licao" class="secao">
-          <div class="linha entre">
-            <h2>Lição</h2>
-            <button v-if="e.licao" class="botao discreto" @click="proposta?.abrir()">Pedir mudança</button>
-          </div>
-          <p v-if="!e.licao && !propostaAberta" class="suave">Esta etapa ainda não tem lição. A IA escreve uma na profundidade da etapa ({{ PROFUNDIDADES[profundidade] }}), a partir do material acima; ela chega como proposta, você comenta e aprova. Também dá para escrever à mão em Editar.</p>
-          <PropostaLicao ref="proposta" :key="e.id" :etapa-id="e.id" :licao-atual="e.licao || ''" :base-docs="baseDocs" @aprovada="aoAprovar" @aberta="propostaAberta = $event" />
-          <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancora" :base-docs="baseDocs" @titulos="titulos = $event" />
-        </section>
-
-        <EstudoEtapa :key="`estudo-${e.id}-${!!e.licao}`" :etapa="e" :trilha="t" @concluir="mudarStatus('concluida')" @mudou="recarregarEtapa" />
-        <DominioEtapa :key="`dominio-${e.id}-${e.status}-${versaoEstudo}`" :etapa="e" :trilha-id="t.id" @mudou="recarregarEtapa" />
 
         <nav class="vizinhas" aria-label="Etapas vizinhas">
           <a v-if="anterior" class="cartao" :href="link('trilhas', t.id, 'etapas', anterior.id)">
@@ -369,6 +373,7 @@ async function excluir() {
 .lista-simples { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e1); }
 .lista-simples li { display: flex; gap: var(--e2); align-items: center; flex-wrap: wrap; }
 .grupo-material + .grupo-material { margin-top: var(--e4); }
+.fontes > summary { cursor: pointer; color: var(--texto-suave); margin-bottom: var(--e3); }
 .streaming { display: flex; align-items: center; gap: var(--e2); margin-top: var(--e4); }
 .streaming .botao:disabled { cursor: not-allowed; opacity: 0.6; }
 .materiais { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e3); }

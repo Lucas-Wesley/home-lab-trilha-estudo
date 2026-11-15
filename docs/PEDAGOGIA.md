@@ -70,9 +70,14 @@ explicação curta, fontes conferidas, link para Tema do Acervo):
 Herdado da `metodologia.md` do estudo do homelab. A profundidade decide quais seções entram e o
 tamanho de cada uma.
 
+**A lição é completa por si (T29).** O material da etapa (documentos, livros, Acervo, web) é a
+fonte de onde a IA extrai o conteúdo, não uma leitura do Lucas: tudo o que importa entra na lição,
+sem "leia a seção X" nem link para o documento. O material só aparece em "Referências", para
+registro. O tamanho segue o conteúdo.
+
 | Seção | Conteúdo | Níveis |
 |---|---|---|
-| Cabeçalho | objetivo (Bloom), pré-requisitos, tempo estimado, materiais | todos |
+| Cabeçalho | objetivo (Bloom), pré-requisitos, tempo estimado | todos |
 | Conceitos anteriores | base e vizinho | todos (curto em 1–2) |
 | Fundamentos | o que precisa saber antes, do zero | 2–5 |
 | Conceitos principais | o centro da etapa, de forma geral | todos |
@@ -82,7 +87,7 @@ tamanho de cada uma.
 | Aplicação | no contexto do Lucas (instruções da trilha) | todos |
 | Teste seu entendimento | perguntas com resposta escondida | todos |
 | Flashcards sugeridos | pares pergunta/resposta | todos |
-| Referências | com rótulo `[oficial]` `[padrão]` `[livro]` `[curso]` `[artigo]` `[vídeo]` | todos |
+| Referências | de onde a lição saiu (o material da etapa, sem link), com rótulo `[oficial]` `[padrão]` `[livro]` `[curso]` `[artigo]` `[vídeo]` `[material]` | todos |
 | Para aprofundar | caminhos opcionais | 3–5 |
 
 Cada conceito leva a prioridade 🔴 precisa saber · 🟡 bom saber · ⚪ curiosidade.

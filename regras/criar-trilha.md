@@ -48,12 +48,14 @@ Antes de escrever qualquer etapa, deixe por escrito:
    - objetivo com verbo de Bloom coerente com o nível marcado;
    - pré-requisitos (só os diretos; nada transitivo);
    - **material principal** (pelo menos um, apontando a **seção exata**, não o documento inteiro
-     quando só uma parte serve);
-   - critério de conclusão **verificável** ("responder às perguntas X sem olhar", "explicar Y com
-     um diagrama", "achar Z na LuCI");
+     quando só uma parte serve). Ele é a **fonte da lição**, não leitura do Lucas: a lição da
+     etapa extrai tudo dele e o substitui, e o Lucas estuda só pela trilha;
+   - critério de conclusão **verificável** ("explicar Y com um diagrama", "achar Z na LuCI",
+     "classificar estes sintomas pela camada"), **sem citar o material** ("as perguntas do 01
+     §8"): o Lucas não lê o material;
    - tempo estimado = leitura (cerca de 120 palavras por minuto em texto técnico) + teste + prática
      de observação;
-   - nota no material dizendo **o que ler e para quê** quando a seção não é óbvia.
+   - nota no material dizendo **o que a lição tira dali** quando a seção não é óbvia.
 5. **Lacuna**: preencha com fonte primária confiável ou com uma lição curta escrita para a etapa,
    citando as fontes. Não deixe etapa sem material principal.
 6. **Etapa de base** (tipo `base`): pré-requisito que o material próprio supõe sem ensinar.

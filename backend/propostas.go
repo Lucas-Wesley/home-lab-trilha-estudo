@@ -650,7 +650,7 @@ func (a *app) montarPedidoLicao(ctx context.Context, tr trilha, p proposta) (map
 		escreva("- Foco pedido para esta lição: %s\n", e.Foco)
 	}
 	if e.Minutos > 0 {
-		escreva("- Tempo previsto para a etapa: %d min (leitura da lição + material principal + teste)\n", e.Minutos)
+		escreva("- Tempo previsto para a etapa: %d min (leitura da lição + teste; a lição substitui a leitura do material)\n", e.Minutos)
 	}
 	if e.Criterio != "" {
 		escreva("- Critério de conclusão: %s\n", e.Criterio)
@@ -688,13 +688,13 @@ func (a *app) montarPedidoLicao(ctx context.Context, tr trilha, p proposta) (map
 	doMaterial := map[string]string{}
 	if len(e.Materiais) > 0 {
 		lidos := a.arquivosDoMaterial(ctx, e.Materiais, doMaterial)
-		escreva("\n## Material da etapa\n\nA lição se apoia nele (é a fonte principal); cite-o onde usar.\n\n")
+		escreva("\n## Material da etapa\n\nÉ a fonte da lição, não leitura do Lucas: extraia dele tudo o que importa e traga para dentro da lição. Não mande ler o material nem ponha link para ele; ele só aparece em Referências.\n\n")
 		for i, m := range e.Materiais {
 			escreva("%s", descreverMaterial(m, lidos[i]))
 		}
 		escreva("\nOs documentos da trilha estão na pasta `documentos` (adicionada ao seu acesso; procure-a com Glob se o caminho relativo não abrir).")
 		if len(doMaterial) > 0 {
-			escreva(" O texto dos livros e do Acervo está em `material/`, nesta pasta: num livro, cite o capítulo e a página (o número entre colchetes); ele é protegido, então explique com as suas palavras e mande ler o trecho, sem copiar.")
+			escreva(" O texto dos livros e do Acervo está em `material/`, nesta pasta: num livro, cite o capítulo e a página (o número entre colchetes); ele é protegido, então explique tudo com as suas palavras, sem copiar trechos longos.")
 		}
 		escreva("\n")
 	}

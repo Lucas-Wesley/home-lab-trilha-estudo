@@ -16,13 +16,14 @@ Devolva:
   `modulos`. Cada módulo tem `titulo`, `descricao` e `etapas`. Cada etapa tem:
   - `chave` (minúsculas, números e hífens, única), `titulo`, `objetivo` (com verbo de Bloom),
     `bloom` (`lembrar`, `entender`, `aplicar`, `analisar`, `avaliar` ou `criar`), `tipo`
-    (`normal` ou `base`), `minutos` (20 a 90), `criterio` (verificável);
+    (`normal` ou `base`), `minutos` (20 a 90), `criterio` (verificável e sem citar o material:
+    o Lucas estuda pela lição, que substitui o material);
   - `requer`: as chaves dos pré-requisitos **diretos** (cada uma de uma etapa anterior);
   - `materiais`: pelo menos um com `papel` `principal`. Cada material tem `tipo` (`web`,
     `documento`, `livro` ou `acervo`), `titulo`, `referencia` (a URL; o nome do documento da
     trilha sem `.md`; o id do livro na Biblioteca; a pasta do Tema do Acervo),
     `localizador` (a âncora da seção; no livro, `cap. N` ou `p. A–B`; vazio se for tudo), `papel`
-    (`principal`, `apoio` ou `aprofundar`) e `nota` (o que ler e para quê, com o rótulo
+    (`principal`, `apoio` ou `aprofundar`) e `nota` (o que a lição tira dali, com o rótulo
     `[oficial]` `[padrão]` `[livro]` `[curso]` `[artigo]` `[vídeo]` no começo, nas fontes web).
 - `notas`: para o Lucas, em poucas linhas: as fontes de referência que conferiram ordem e
   cobertura, o que ficou de fora e por quê, as lacunas que você não conseguiu cobrir com material
@@ -54,8 +55,9 @@ Devolva:
 - Documento da trilha (em `documentos/`) é material `documento`, com a âncora da seção exata.
 - Livro da Biblioteca é material `livro` com o capítulo **do sumário** (`cap. 3`) ou as páginas;
   Tema do Acervo é material `acervo`. Só os que estão no pedido.
-- A etapa não precisa de material externo para tudo: a lição dela é gerada depois, ancorada no
-  material. Mas toda etapa tem um material principal.
+- A etapa não precisa de material externo para tudo: a lição dela é gerada depois, **a partir do
+  material, e o substitui** (o Lucas estuda só pela trilha, sem abrir documento). Mas toda etapa
+  tem um material principal, que é a fonte da lição.
 
 ## 3. Ajuste
 

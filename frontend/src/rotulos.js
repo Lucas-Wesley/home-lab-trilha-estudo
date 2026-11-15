@@ -39,7 +39,7 @@ export const TIPOS_MATERIAL = {
 }
 
 export const PAPEIS = {
-  principal: 'Leitura principal',
+  principal: 'Fonte principal',
   apoio: 'Apoio',
   aprofundar: 'Para aprofundar',
 }

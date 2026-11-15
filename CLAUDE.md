@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T28), fases, riscos e o que está em aberto.
+  (T1–T29), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — o design **próprio** desta app (estilo Claude
@@ -80,6 +80,12 @@ painel. `backend/reforco.go`: proposta `reforco` (regra `reforco.md`) que insere
 `reforco` com `foco`. `backend/nivelamento.go`: mini-teste de nível (T9) na criação, sem proposta
 (`criacoes.nivelamento`, regra `nivelamento.md`). Telas: `Painel.vue`, `Revisao.vue`,
 `DominioEtapa.vue`, `PropostaReforco.vue`, `MiniTeste.vue`; revisões do dia no Hoje.
+
+## A lição substitui o material (T29)
+O material da etapa é a **fonte** da lição, não leitura do Lucas: a lição extrai tudo o que importa
+e não manda abrir documento (sem "leia a seção X", sem link para ele); o material só aparece em
+"Referências" e, na tela, em "Fontes", recolhido no fim. Vale para as regras `licao.md`,
+`plano.md` e `criar-trilha.md` e para o pedido em `propostas.go`.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,
