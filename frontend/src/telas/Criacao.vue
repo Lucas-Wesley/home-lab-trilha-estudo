@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icone from '../Icone.vue'
 import Leitor from '../Leitor.vue'
+import MiniTeste from '../MiniTeste.vue'
 import NavTrilhas from '../NavTrilhas.vue'
 import Pagina from '../Pagina.vue'
 import { api } from '../api.js'
@@ -161,6 +162,21 @@ function alternarModulo(m) {
 }
 const NIVEIS = { basico: 'básico', intermediario: 'intermediário', avancado: 'avançado' }
 const ordemDoMapa = computed(() => (conteudo.value.mapa || []).flatMap((m) => m.etapas.map((e) => e.chave)))
+// Mini-teste de nível (T9): os títulos dos itens, e "usar a sugestão" (nível; no mapa, tira do
+// recorte o que ele já domina). Ele confere antes de aprovar.
+const titulosDosItens = computed(() => {
+  const c = conteudo.value
+  const lista = c.mapa ? c.mapa.flatMap((m) => m.etapas) : c.itens || []
+  return Object.fromEntries(lista.map((x) => [x.chave, x.titulo]))
+})
+function usarNivelamento(r) {
+  niveis.value.nivel_partida = r.nivel_sugerido
+  if (vista.value?.tipo === 'mapa') {
+    const s = new Set(recorte.value)
+    r.dominados.forEach((k) => s.delete(k))
+    recorte.value = s
+  }
+}
 function aprovarMapa() {
   aprovar({ ...niveis.value, recorte: ordemDoMapa.value.filter((k) => recorte.value.has(k)), pedido: pedidoProximo.value })
 }
@@ -444,6 +460,16 @@ const rodadasFeitas = computed(() =>
             </select>
           </div>
         </div>
+
+        <MiniTeste
+          v-if="vista.tipo === 'mapa' || vista.tipo === 'validacao'"
+          :trilha-id="trilhaId"
+          :nivelamento="dados.nivelamento"
+          :titulos="titulosDosItens"
+          :no-mapa="vista.tipo === 'mapa'"
+          @atualizado="dados = $event"
+          @usar="usarNivelamento"
+        />
 
         <!-- Plano -->
         <section v-if="vista.tipo === 'plano' && plano" class="pilha">

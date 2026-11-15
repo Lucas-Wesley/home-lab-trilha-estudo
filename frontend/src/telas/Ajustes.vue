@@ -130,12 +130,12 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
         <div>
           <label class="rotulo" for="a-modelo-criacao">Modelo da criação de trilhas</label>
           <input id="a-modelo-criacao" v-model="ajustes.modelo_criacao" class="campo" list="modelos" :placeholder="ajustes.modelo_padrao ? `padrão: ${ajustes.modelo_padrao}` : 'padrão do Claude Code'" />
-          <p class="ajuda">Entrevista, mapa, validação da lista e plano. O plano decide a trilha inteira: vale o opus, se o limite permitir.</p>
+          <p class="ajuda">Entrevista, mapa, validação da lista, mini-teste de nível, plano e reforço. O plano decide a trilha inteira: vale o opus, se o limite permitir.</p>
         </div>
         <div>
           <label class="rotulo" for="a-modelo-estudo">Modelo dos exercícios e do simulado</label>
           <input id="a-modelo-estudo" v-model="ajustes.modelo_estudo" class="campo" list="modelos" :placeholder="ajustes.modelo_padrao ? `padrão: ${ajustes.modelo_padrao}` : 'padrão do Claude Code'" />
-          <p class="ajuda">Gerar os exercícios, as perguntas do simulado e corrigir as respostas do simulado. O sonnet costuma bastar.</p>
+          <p class="ajuda">Gerar os exercícios, as perguntas do simulado e corrigir as respostas do simulado (também o intercalado). O sonnet costuma bastar.</p>
         </div>
         <div>
           <label class="rotulo" for="a-nota">Nota mínima nos exercícios</label>

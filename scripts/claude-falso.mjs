@@ -130,10 +130,34 @@ if (/^# Pedido: material da etapa/m.test(pedido)) {
   responder({ materiais, notas: 'Material de teste (scripts/claude-falso.mjs).' })
 }
 if (/^# Pedido: correção do simulado/m.test(pedido)) {
-  const respostas = [...pedido.matchAll(/^## Pergunta (\d+)$/gm)].map((m) => Number(m[1]))
+  const respostas = [...pedido.matchAll(/^## Pergunta (\d+)(?: \(etapa .*\))?$/gm)].map((m) => Number(m[1]))
   responder({
     correcoes: respostas.map((p) => ({ pergunta: p, nota: p % 2 ? 85 : 50, veredito: p % 2 ? 'certo' : 'parcial', comentario: `Correção de teste da pergunta ${p}.`, faltou: p % 2 ? '' : 'Faltou o exemplo.' })),
     resumo: 'Resumo de teste: revise a seção de teste.',
+  })
+}
+
+// Fase 7: o reforço (uma etapa antes e uma depois) e o mini-teste de nível.
+if (/^# Pedido: reforço da etapa/m.test(pedido)) {
+  const etapa = (pedido.match(/^# Pedido: reforço da etapa "(.*)"$/m) || [])[1] || 'Etapa'
+  const fracos = [...pedido.matchAll(/^\d+\. \*\*(.*?)\*\*/gm)].map((m) => m[1])
+  responder({
+    diagnostico: `Diagnóstico de teste: errou ${fracos.length} ponto(s)${fracos.length ? ' (' + fracos.join('; ') + ')' : ''}.`,
+    etapas: [
+      { titulo: `Base de ${etapa}`, objetivo: 'Entender a base de teste.', bloom: 'entender', minutos: 20, posicao: 'antes', foco: 'Foco de teste: a base.', motivo: 'Motivo de teste (antes).' },
+      { titulo: `Prática de ${etapa}`, objetivo: 'Aplicar o conceito de teste.', bloom: 'aplicar', minutos: 30, posicao: 'depois', foco: `Foco de teste: ${fracos[0] || 'o pedido'}.`, motivo: 'Motivo de teste (depois).' },
+    ],
+    notas: 'Reforço de teste (scripts/claude-falso.mjs).',
+  })
+}
+if (/^# Pedido: mini-teste de nível/m.test(pedido)) {
+  const itens = [...pedido.matchAll(/^- `([^`]+)` — /gm)].map((m) => m[1])
+  const niveis = ['basico', 'basico', 'basico', 'intermediario', 'intermediario', 'intermediario', 'avancado', 'avancado']
+  responder({
+    perguntas: niveis.map((nivel, i) => ({
+      enunciado: `Pergunta de teste ${i + 1} (${nivel})?`, alternativas: ['Certa', 'Errada A', 'Errada B'], correta: 0,
+      explicacao: 'Explicação de teste.', item: itens[Math.min(i, itens.length - 1)] || 'x', nivel,
+    })),
   })
 }
 

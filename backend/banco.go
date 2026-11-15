@@ -32,6 +32,10 @@ func abrirBanco(caminho string) (*sql.DB, error) {
 var migracoes = []string{
 	// Fase 6 (T27): o material escolhido na entrada C ("a partir de material").
 	`ALTER TABLE criacoes ADD COLUMN material TEXT NOT NULL DEFAULT '[]'`,
+	// Fase 7 (T28): o foco de uma etapa (o que a lição deve trabalhar; a etapa de reforço nasce
+	// com ele) e o mini-teste de nível da criação (T9).
+	`ALTER TABLE etapas ADD COLUMN foco TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE criacoes ADD COLUMN nivelamento TEXT NOT NULL DEFAULT ''`,
 }
 
 // O esquema cresce fase a fase (DECISOES.md §9).
@@ -231,5 +235,18 @@ CREATE TABLE IF NOT EXISTS criacoes (
 	escolhas      TEXT NOT NULL DEFAULT '{}',
 	criado_em     TEXT NOT NULL,
 	atualizado_em TEXT NOT NULL
+);
+
+-- Fase 7 (T28): revisão espaçada das etapas concluídas, pela chave (como as tentativas). nivel =
+-- o degrau na escada de intervalos (dominio.go); proxima = o dia da próxima revisão (AAAA-MM-DD,
+-- no fuso do Lucas); ultima_nota = -1 enquanto não houve revisão.
+CREATE TABLE IF NOT EXISTS revisoes (
+	trilha_id     INTEGER NOT NULL REFERENCES trilhas(id) ON DELETE CASCADE,
+	etapa_chave   TEXT NOT NULL,
+	nivel         INTEGER NOT NULL DEFAULT 0,
+	proxima       TEXT NOT NULL,
+	ultima        TEXT NOT NULL DEFAULT '',
+	ultima_nota   INTEGER NOT NULL DEFAULT -1,
+	PRIMARY KEY (trilha_id, etapa_chave)
 );
 `

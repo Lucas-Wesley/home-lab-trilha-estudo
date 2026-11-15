@@ -392,6 +392,10 @@ func (a *app) handleAprovar(w http.ResponseWriter, r *http.Request) {
 		a.aprovarMateriais(w, r, p)
 		return
 	}
+	if p.Tipo == tipoReforco {
+		a.aprovarReforco(w, r, p)
+		return
+	}
 	if err := a.semVersaoGerando(r.Context(), p); err != nil {
 		a.responderErro(w, err)
 		return
@@ -458,6 +462,10 @@ func (a *app) etapaPorChave(ctx context.Context, trilhaID int64, chave string) (
 // se houver, continua aguardando).
 func (a *app) aoTerminarTarefa(t *tarefa) {
 	if t.Estado != falhou && t.Estado != cancelada {
+		return
+	}
+	if t.Tipo == tipoNivelamento {
+		a.aoTerminarNivelamento(t)
 		return
 	}
 	if t.PropostaID == 0 {
@@ -634,6 +642,12 @@ func (a *app) montarPedidoLicao(ctx context.Context, tr trilha, p proposta) (map
 	escreva("- Profundidade: %s\n", nomesProfundidade[profundidade])
 	if e.Tipo == "base" {
 		escreva("- Tipo: etapa de base (fundamento de que outras etapas dependem)\n")
+	}
+	if e.Tipo == "reforco" {
+		escreva("- Tipo: etapa de **reforço** (o Lucas errou estes pontos nos exercícios, no simulado ou na revisão; explique de outro jeito, com outros exemplos, e não repita a lição da etapa reforçada)\n")
+	}
+	if e.Foco != "" {
+		escreva("- Foco pedido para esta lição: %s\n", e.Foco)
 	}
 	if e.Minutos > 0 {
 		escreva("- Tempo previsto para a etapa: %d min (leitura da lição + material principal + teste)\n", e.Minutos)

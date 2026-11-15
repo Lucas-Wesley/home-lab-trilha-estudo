@@ -313,10 +313,10 @@ func (a *app) propostasDaCriacao(ctx context.Context, trilhaID int64) ([]propost
 // ---------- começar ----------
 
 type pedidoCriacao struct {
-	Entrada      string `json:"entrada"`
-	Tema         string `json:"tema"`
-	Pedido       string `json:"pedido"`
-	Entrevista   string `json:"entrevista"`
+	Entrada      string     `json:"entrada"`
+	Tema         string     `json:"tema"`
+	Pedido       string     `json:"pedido"`
+	Entrevista   string     `json:"entrevista"`
 	Lista        string     `json:"lista"`
 	Material     []material `json:"material"`
 	Profundidade int        `json:"profundidade"`
@@ -409,9 +409,10 @@ func itensDaLista(lista string) []string {
 }
 
 type respostaCriacao struct {
-	Criacao   criacao    `json:"criacao"`
-	Propostas []proposta `json:"propostas"`
-	Limite    struct {
+	Criacao     criacao      `json:"criacao"`
+	Propostas   []proposta   `json:"propostas"`
+	Nivelamento *nivelamento `json:"nivelamento"` // mini-teste de nível (T9), sem o gabarito até ele responder
+	Limite      struct {
 		Rodadas   int `json:"rodadas"`
 		Perguntas int `json:"perguntas"`
 	} `json:"limite"`
@@ -428,7 +429,7 @@ func (a *app) responderCriacao(w http.ResponseWriter, r *http.Request, trilhaID 
 		a.responderErro(w, err)
 		return
 	}
-	res := respostaCriacao{Criacao: c, Propostas: ps}
+	res := respostaCriacao{Criacao: c, Propostas: ps, Nivelamento: a.nivelamentoDa(r.Context(), trilhaID).paraTela()}
 	if l, ok := tamanhosEntrevista[c.Entrevista]; ok {
 		res.Limite.Rodadas, res.Limite.Perguntas = l.Rodadas, l.Perguntas
 	}
@@ -1065,6 +1066,7 @@ func (a *app) montarPedidoCriacao(ctx context.Context, tr trilha, c criacao, p p
 		if err := a.escreverBaseDoPlano(ctx, &s, c); err != nil {
 			return nil, nil, err
 		}
+		escreverNivelamento(&s, a.nivelamentoDa(ctx, c.TrilhaID))
 		if len(tr.Modulos) > 0 {
 			escreva("\nA trilha já tem estrutura (em `trilha-atual.json`): este plano vai substituí-la; mantenha as chaves das etapas que continuarem.\n")
 		}

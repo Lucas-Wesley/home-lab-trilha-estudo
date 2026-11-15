@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import EscolherMaterial from '../EscolherMaterial.vue'
+import DominioEtapa from '../DominioEtapa.vue'
 import EstudoEtapa from '../EstudoEtapa.vue'
 import Icone from '../Icone.vue'
 import Leitor from '../Leitor.vue'
@@ -28,7 +29,9 @@ const titulos = ref([])
 const proposta = ref(null)
 const propostaAberta = ref(false)
 // Fazer exercícios ou simulado começa a etapa: o status muda no servidor.
+const versaoEstudo = ref(0)
 async function recarregarEtapa() {
+  versaoEstudo.value++
   e.value = await api(`/api/etapas/${props.etapaId}`)
   t.value = await api(`/api/trilhas/${props.trilhaId}`)
 }
@@ -89,6 +92,7 @@ function editar() {
     tipo: x.tipo,
     minutos: x.minutos,
     criterio: x.criterio,
+    foco: x.foco || '',
     requer: [...x.requer],
     materiais: x.materiais.map((m) => ({ ...m })),
     licao: x.licao || '',
@@ -148,6 +152,7 @@ async function excluir() {
         <div class="linha etiquetas-topo">
           <span class="etiqueta" :class="STATUS[e.status].cor">{{ STATUS[e.status].nome }}</span>
           <span v-if="e.tipo === 'base'" class="etiqueta ambar">Etapa de base</span>
+          <span v-if="e.tipo === 'reforco'" class="etiqueta ambar">Reforço</span>
           <span v-if="e.bloom" class="etiqueta">{{ BLOOM[e.bloom] }}</span>
           <span class="etiqueta">{{ PROFUNDIDADES[profundidade] }}</span>
           <span class="etiqueta">{{ duracao(e.minutos) }}</span>
@@ -162,7 +167,7 @@ async function excluir() {
           <button v-if="e.status === 'concluida' || e.status === 'pulada'" class="botao discreto" @click="mudarStatus('disponivel')">Reabrir</button>
         </div>
 
-        <div v-if="e.requer.length || e.criterio" class="cartao cheio pilha bloco">
+        <div v-if="e.requer.length || e.criterio || e.foco" class="cartao cheio pilha bloco">
           <div v-if="e.requer.length">
             <span class="rotulo">Antes desta etapa</span>
             <ul class="lista-simples">
@@ -175,6 +180,10 @@ async function excluir() {
           <div v-if="e.criterio">
             <span class="rotulo">Para concluir</span>
             <p class="sem-margem criterio" v-html="textoComCodigo(e.criterio)" />
+          </div>
+          <div v-if="e.foco">
+            <span class="rotulo">Foco da lição</span>
+            <p class="sem-margem criterio" v-html="textoComCodigo(e.foco)" />
           </div>
         </div>
 
@@ -218,6 +227,7 @@ async function excluir() {
         </section>
 
         <EstudoEtapa :key="`estudo-${e.id}-${!!e.licao}`" :etapa="e" :trilha="t" @concluir="mudarStatus('concluida')" @mudou="recarregarEtapa" />
+        <DominioEtapa :key="`dominio-${e.id}-${e.status}-${versaoEstudo}`" :etapa="e" :trilha-id="t.id" @mudou="recarregarEtapa" />
 
         <nav class="vizinhas" aria-label="Etapas vizinhas">
           <a v-if="anterior" class="cartao" :href="link('trilhas', t.id, 'etapas', anterior.id)">
@@ -263,6 +273,7 @@ async function excluir() {
             <select id="e-tipo" v-model="edicao.tipo" class="campo">
               <option value="normal">Normal</option>
               <option value="base">Etapa de base</option>
+              <option value="reforco">Reforço</option>
             </select>
           </div>
           <div>
@@ -273,6 +284,10 @@ async function excluir() {
         <div>
           <label class="rotulo" for="e-crit">Critério de conclusão</label>
           <input id="e-crit" v-model="edicao.criterio" class="campo" placeholder="Ex.: responder às 5 perguntas sem olhar" />
+        </div>
+        <div>
+          <label class="rotulo" for="e-foco">Foco da lição <span class="fraco">(opcional; vai para a IA ao gerar a lição)</span></label>
+          <textarea id="e-foco" v-model="edicao.foco" class="campo" rows="2" placeholder="Ex.: a diferença entre NAT e CGNAT, com a tabela de tradução do OpenWrt" />
         </div>
 
         <fieldset class="caixa">

@@ -81,6 +81,7 @@ type etapa struct {
 	Tipo         string     `json:"tipo"`
 	Minutos      int        `json:"minutos"`
 	Criterio     string     `json:"criterio"`
+	Foco         string     `json:"foco"` // o que a lição deve trabalhar (a etapa de reforço nasce com ele, T28)
 	Status       string     `json:"status"`
 	IniciadoEm   string     `json:"iniciado_em"`
 	ConcluidoEm  string     `json:"concluido_em"`
@@ -96,7 +97,7 @@ var (
 	estadosTrilha   = []string{"rascunho", "ativa", "pausada", "concluida"}
 	tiposMaterial   = []string{"documento", "web", "livro", "acervo", "streaming"}
 	papeisMaterial  = []string{"principal", "apoio", "aprofundar"}
-	tiposEtapa      = []string{"normal", "base"}
+	tiposEtapa      = []string{"normal", "base", "reforco"}
 	errNaoEncontrou = errors.New("não encontrado")
 )
 
@@ -257,12 +258,12 @@ func (a *app) trilhaCompleta(ctx context.Context, id int64) (trilha, error) {
 }
 
 const colunasEtapa = `e.id, e.trilha_id, e.modulo_id, e.ordem, e.chave, e.titulo, e.objetivo, e.bloom,
-	e.profundidade, e.tipo, e.minutos, e.criterio, e.status, e.iniciado_em, e.concluido_em`
+	e.profundidade, e.tipo, e.minutos, e.criterio, e.status, e.iniciado_em, e.concluido_em, e.foco`
 
 func lerEtapaLinha(row interface{ Scan(...any) error }) (etapa, error) {
 	var e etapa
 	err := row.Scan(&e.ID, &e.TrilhaID, &e.ModuloID, &e.Ordem, &e.Chave, &e.Titulo, &e.Objetivo, &e.Bloom,
-		&e.Profundidade, &e.Tipo, &e.Minutos, &e.Criterio, &e.Status, &e.IniciadoEm, &e.ConcluidoEm)
+		&e.Profundidade, &e.Tipo, &e.Minutos, &e.Criterio, &e.Status, &e.IniciadoEm, &e.ConcluidoEm, &e.Foco)
 	e.Requer, e.Materiais = []int64{}, []material{}
 	return e, err
 }
@@ -354,6 +355,7 @@ func (a *app) exportar(ctx context.Context, trilhaID int64, mensagem string, ext
 		Tipo         string     `json:"tipo"`
 		Minutos      int        `json:"minutos"`
 		Criterio     string     `json:"criterio,omitempty"`
+		Foco         string     `json:"foco,omitempty"`
 		Requer       []string   `json:"requer,omitempty"`
 		Materiais    []material `json:"materiais,omitempty"`
 	}
@@ -377,7 +379,7 @@ func (a *app) exportar(ctx context.Context, trilhaID int64, mensagem string, ext
 				req = append(req, chaves[r])
 			}
 			me.Etapas = append(me.Etapas, etapaExportada{e.Chave, e.Titulo, e.Objetivo, e.Bloom, e.Profundidade,
-				e.Tipo, e.Minutos, e.Criterio, req, e.Materiais})
+				e.Tipo, e.Minutos, e.Criterio, e.Foco, req, e.Materiais})
 		}
 		mods = append(mods, me)
 	}
@@ -515,8 +517,8 @@ func (a *app) tocarTrilha(ctx context.Context, id int64) {
 // salvarEtapa grava os campos, requisitos e materiais de uma etapa já existente.
 func (a *app) salvarEtapa(ctx context.Context, tx *sql.Tx, e etapa) error {
 	if _, err := tx.ExecContext(ctx, `UPDATE etapas SET titulo = ?, objetivo = ?, bloom = ?, profundidade = ?, tipo = ?,
-		minutos = ?, criterio = ? WHERE id = ?`,
-		e.Titulo, e.Objetivo, e.Bloom, e.Profundidade, e.Tipo, e.Minutos, e.Criterio, e.ID); err != nil {
+		minutos = ?, criterio = ?, foco = ? WHERE id = ?`,
+		e.Titulo, e.Objetivo, e.Bloom, e.Profundidade, e.Tipo, e.Minutos, e.Criterio, strings.TrimSpace(e.Foco), e.ID); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM etapa_requisitos WHERE etapa_id = ?`, e.ID); err != nil {

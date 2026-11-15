@@ -7,11 +7,12 @@ import { STATUS, dataCurta, duracao, percentual } from '../rotulos.js'
 
 // Ao abrir o app: o que há para hoje em cada trilha ativa, o que atrasou e o progresso (T10).
 const dados = ref(null)
+const revisoes = ref([])
 const erro = ref('')
 
 async function carregar() {
   try {
-    dados.value = await api('/api/hoje')
+    ;[dados.value, { revisoes: revisoes.value }] = await Promise.all([api('/api/hoje'), api('/api/revisoes')])
   } catch (e) {
     erro.value = e.message
   }
@@ -47,6 +48,21 @@ async function recalcular(th) {
     <h1>Hoje</h1>
     <p class="lead">{{ hojeTexto }}</p>
     <p v-if="erro" class="aviso">{{ erro }}</p>
+
+    <!-- Revisão espaçada (fase 7): as etapas concluídas que voltaram hoje, de todas as trilhas ativas. -->
+    <section v-if="revisoes.length" class="trilha-hoje">
+      <h2>Revisões de hoje</h2>
+      <p class="suave">Perguntas rápidas das etapas que você já concluiu, no dia de cada uma voltar.</p>
+      <div class="pilha bloco">
+        <a v-for="r in revisoes" :key="`${r.trilha_id}-${r.chave}`" class="cartao item" :href="link('trilhas', r.trilha_id, 'etapas', r.etapa_id, 'revisao')">
+          <div>
+            <strong>{{ r.etapa_titulo }}</strong>
+            <div class="fraco">{{ r.trilha_titulo }}<template v-if="r.atraso > 0"> · atrasada {{ r.atraso }} dia(s)</template></div>
+          </div>
+          <span class="etiqueta ambar">revisar</span>
+        </a>
+      </div>
+    </section>
 
     <template v-if="dados && dados.trilhas.length">
       <section v-for="th in dados.trilhas" :key="th.id" class="trilha-hoje">

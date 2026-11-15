@@ -33,6 +33,8 @@ func (a *app) ligarIA() {
 	}
 	a.fila.executores[tipoCorrecao] = a.corrigirSimulado
 	a.fila.executores[tipoMateriais] = a.gerarMateriais
+	a.fila.executores[tipoReforco] = a.gerarReforco
+	a.fila.executores[tipoNivelamento] = a.gerarNivelamento
 	a.fila.aoTerminar = a.aoTerminarTarefa
 }
 
@@ -96,6 +98,16 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("GET /api/acervo/referencias", a.handleReferenciasAcervo)
 	mux.HandleFunc("GET /api/material/abrir", a.handleAbrirMaterial)
 	mux.HandleFunc("POST /api/etapas/{id}/materiais", a.handleSugerirMaterial)
+	// Fase 7 (T28): domínio e revisão.
+	mux.HandleFunc("GET /api/revisoes", a.handleRevisoes)
+	mux.HandleFunc("GET /api/etapas/{id}/revisao", a.handleRevisaoDaEtapa)
+	mux.HandleFunc("POST /api/etapas/{id}/revisao", a.handleFazerRevisao)
+	mux.HandleFunc("POST /api/etapas/{id}/reforco", a.handleReforco)
+	mux.HandleFunc("GET /api/trilhas/{id}/painel", a.handlePainel)
+	mux.HandleFunc("GET /api/trilhas/{id}/intercalado", a.handleIntercalado)
+	mux.HandleFunc("POST /api/trilhas/{id}/intercalado", a.handleTentativaIntercalado)
+	mux.HandleFunc("POST /api/trilhas/{id}/criacao/nivelamento", a.handlePedirNivelamento)
+	mux.HandleFunc("POST /api/trilhas/{id}/criacao/nivelamento/respostas", a.handleResponderNivelamento)
 	mux.HandleFunc("POST /api/criacoes", a.handleCriarComIA)
 	mux.HandleFunc("GET /api/trilhas/{id}/criacao", a.handleCriacao)
 	mux.HandleFunc("POST /api/trilhas/{id}/criacao/gerar", a.handleGerarPasso)

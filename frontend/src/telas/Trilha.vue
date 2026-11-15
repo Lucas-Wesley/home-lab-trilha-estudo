@@ -208,7 +208,10 @@ function irPara(id) {
       </nav>
       <div class="cabecalho">
         <h1>{{ t.titulo }}</h1>
-        <button class="botao discreto" @click="abrirEdicao">Editar</button>
+        <div class="linha">
+          <a v-if="t.progresso.concluidas || t.progresso.em_andamento" class="botao" :href="link('trilhas', t.id, 'painel')">Painel</a>
+          <button class="botao discreto" @click="abrirEdicao">Editar</button>
+        </div>
       </div>
       <div class="linha etiquetas-topo">
         <span class="etiqueta" :class="ESTADOS[t.estado].cor">{{ ESTADOS[t.estado].nome }}</span>

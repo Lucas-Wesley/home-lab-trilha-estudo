@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T27), fases, riscos e o que está em aberto.
+  (T1–T28), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — o design **próprio** desta app (estilo Claude
@@ -71,6 +71,15 @@ chamar a IA e vai para `material/` na pasta da tarefa (lição e espinha dorsal)
 espinha dorsal é uma validação com a regra `espinha.md`. Telas: `EscolherMaterial.vue` (seletor, com
 "Enviar PDF" para a Biblioteca) e `PropostaMaterial.vue`. Mudar uma API da Biblioteca ou do Acervo
 que a Trilha usa é mudar a Trilha também (`BIBLIOTECA_URL`, `ACERVO_URL`).
+
+## Domínio e revisão (fase 7, T28)
+`backend/dominio.go`: revisão espaçada (tabela `revisoes`; escada 1–120 dias; perguntas dos
+exercícios, sem IA), simulado intercalado (tentativa `intercalado` com `etapa_chave` vazia; a
+correção em `estudo.go` junta as lições em `licoes/`), pontos fracos (contagem por conceito) e o
+painel. `backend/reforco.go`: proposta `reforco` (regra `reforco.md`) que insere etapas do tipo
+`reforco` com `foco`. `backend/nivelamento.go`: mini-teste de nível (T9) na criação, sem proposta
+(`criacoes.nivelamento`, regra `nivelamento.md`). Telas: `Painel.vue`, `Revisao.vue`,
+`DominioEtapa.vue`, `PropostaReforco.vue`, `MiniTeste.vue`; revisões do dia no Hoje.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

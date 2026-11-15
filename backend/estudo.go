@@ -37,6 +37,7 @@ var titulosEstudo = map[string]string{
 	tipoExercicios: "Exercícios",
 	tipoSimulado:   "Simulado",
 	tipoMateriais:  "Material sugerido",
+	tipoReforco:    "Reforço",
 }
 
 type exercicio struct {
@@ -234,7 +235,11 @@ func (a *app) handleEstudo(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
+	pontos, sinais := a.pontosFracosDaEtapa(r.Context(), e)
+	a.garantirRevisoes(r.Context(), e.TrilhaID)
+	rv, _ := a.revisaoDa(r.Context(), e.TrilhaID, e.Chave)
 	responderJSON(w, http.StatusOK, map[string]any{
+		"pontos_fracos": pontos, "sinais": sinais, "revisao": rv,
 		"exercicios": exs, "simulado": pergs, "tentativas": lista,
 		"nota_minima": minima, "criterio_atingido": atingido,
 		"flashcards": map[string]any{"disponivel": a.integra.flashcards != "", "link": a.integra.flashcardsLink, "envios": envios},
@@ -740,6 +745,9 @@ type respondidaSimulado struct {
 	Esperado string `json:"esperado"`
 	Conceito string `json:"conceito"`
 	Resposta string `json:"resposta"`
+	// Simulado intercalado (fase 7): de que etapa veio a pergunta.
+	EtapaChave  string `json:"etapa_chave,omitempty"`
+	EtapaTitulo string `json:"etapa_titulo,omitempty"`
 }
 
 type correcaoSimulado struct {
@@ -784,7 +792,7 @@ func (a *app) handleTentativaSimulado(w http.ResponseWriter, r *http.Request) {
 		}
 		usadas[x.Pergunta] = true
 		q := banco[x.Pergunta]
-		respondidas = append(respondidas, respondidaSimulado{q.Pergunta, q.Esperado, q.Conceito, x.Resposta})
+		respondidas = append(respondidas, respondidaSimulado{Pergunta: q.Pergunta, Esperado: q.Esperado, Conceito: q.Conceito, Resposta: x.Resposta})
 	}
 	if len(respondidas) == 0 {
 		a.responderErro(w, erroDeEntrada{errors.New("responda ao menos uma pergunta")})
@@ -847,29 +855,45 @@ func (a *app) corrigirSimulado(ctx context.Context, t *tarefa) error {
 	if err != nil {
 		return err
 	}
-	e, err := a.etapaPorChave(ctx, trilhaID, chave)
-	if err != nil {
-		return errors.New("a etapa desta correção não existe mais")
-	}
 	pasta := filepath.Join(a.ia.tarefas, strconv.FormatInt(t.ID, 10))
 	if err := os.MkdirAll(pasta, 0o755); err != nil {
 		return err
 	}
 	defer os.RemoveAll(pasta)
-	licao, _ := a.conteudo.ler(caminhoLicao(tr.Slug, chave))
+	arquivos := map[string]string{}
 	var s strings.Builder
-	fmt.Fprintf(&s, "# Pedido: correção do simulado da etapa \"%s\"\n\n- Trilha: %s\n", e.Titulo, tr.Titulo)
-	if e.Objetivo != "" {
-		fmt.Fprintf(&s, "- Objetivo da etapa: %s\n", e.Objetivo)
+	instrucao := "Corrija as respostas do Lucas a um simulado. Tudo está em `pedido.md` e `licao.md`, nesta pasta: leia os dois inteiros primeiro."
+	if chave == "" {
+		// Simulado intercalado (fase 7): perguntas de várias etapas, cada uma com a sua lição.
+		fmt.Fprintf(&s, "# Pedido: correção do simulado intercalado da trilha \"%s\"\n\n", tr.Titulo)
+		fmt.Fprintf(&s, "As perguntas vêm de etapas diferentes, misturadas (para treinar a lembrança fora da ordem da trilha). A lição de cada etapa está em `licoes/<chave>.md`. Corrija cada resposta pela pergunta e pelo gabarito, e use a lição da etapa dela para conferir o que o Lucas escreveu além do gabarito.\n")
+		for i, x := range respondidas {
+			if _, ok := arquivos["licoes/"+x.EtapaChave+".md"]; !ok {
+				licao, _ := a.conteudo.ler(caminhoLicao(tr.Slug, x.EtapaChave))
+				arquivos["licoes/"+x.EtapaChave+".md"] = licao
+			}
+			fmt.Fprintf(&s, "\n## Pergunta %d (etapa \"%s\", lição em `licoes/%s.md`)\n\n%s\n\n**Gabarito:** %s\n\n**Resposta do Lucas:**\n\n%s\n",
+				i+1, x.EtapaTitulo, x.EtapaChave, x.Pergunta, x.Esperado, x.Resposta)
+		}
+		instrucao = "Corrija as respostas do Lucas a um simulado intercalado. Tudo está em `pedido.md`, nesta pasta, e as lições em `licoes/`: leia o pedido inteiro primeiro."
+	} else {
+		e, err := a.etapaPorChave(ctx, trilhaID, chave)
+		if err != nil {
+			return errors.New("a etapa desta correção não existe mais")
+		}
+		licao, _ := a.conteudo.ler(caminhoLicao(tr.Slug, chave))
+		arquivos["licao.md"] = licao
+		fmt.Fprintf(&s, "# Pedido: correção do simulado da etapa \"%s\"\n\n- Trilha: %s\n", e.Titulo, tr.Titulo)
+		if e.Objetivo != "" {
+			fmt.Fprintf(&s, "- Objetivo da etapa: %s\n", e.Objetivo)
+		}
+		fmt.Fprintf(&s, "\nA lição da etapa está em `licao.md`. Corrija cada resposta abaixo pela pergunta e pelo gabarito (o que uma boa resposta traz), e use a lição para conferir o que o Lucas escreveu além do gabarito.\n")
+		for i, x := range respondidas {
+			fmt.Fprintf(&s, "\n## Pergunta %d\n\n%s\n\n**Gabarito:** %s\n\n**Resposta do Lucas:**\n\n%s\n", i+1, x.Pergunta, x.Esperado, x.Resposta)
+		}
 	}
-	fmt.Fprintf(&s, "\nA lição da etapa está em `licao.md`. Corrija cada resposta abaixo pela pergunta e pelo gabarito (o que uma boa resposta traz), e use a lição para conferir o que o Lucas escreveu além do gabarito.\n")
-	for i, x := range respondidas {
-		fmt.Fprintf(&s, "\n## Pergunta %d\n\n%s\n\n**Gabarito:** %s\n\n**Resposta do Lucas:**\n\n%s\n", i+1, x.Pergunta, x.Esperado, x.Resposta)
-	}
-	if err := os.WriteFile(filepath.Join(pasta, "pedido.md"), []byte(s.String()), 0o644); err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(pasta, "licao.md"), []byte(licao), 0o644); err != nil {
+	arquivos["pedido.md"] = s.String()
+	if err := gravarNaPasta(pasta, arquivos); err != nil {
 		return err
 	}
 	rg, err := a.ia.lerRegra("corrigir-simulado.md")
@@ -877,8 +901,8 @@ func (a *app) corrigirSimulado(ctx context.Context, t *tarefa) error {
 		return err
 	}
 	resp, err := a.ia.chamar(ctx, pedidoClaude{
-		pasta: pasta, regra: rg.Texto, ferramentas: "Read", esquema: esquemaCorrecao, modelo: t.Modelo,
-		instrucao: "Corrija as respostas do Lucas a um simulado. Tudo está em `pedido.md` e `licao.md`, nesta pasta: leia os dois inteiros primeiro.",
+		pasta: pasta, regra: rg.Texto, ferramentas: "Read,Glob", esquema: esquemaCorrecao, modelo: t.Modelo,
+		instrucao: instrucao,
 	})
 	if err != nil {
 		return err

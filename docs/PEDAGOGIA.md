@@ -13,10 +13,10 @@
 | **Planejamento reverso** (*backward design*) | Wiggins & McTighe | O plano começa pelo "ao final você será capaz de…" e só depois define as etapas |
 | **Objetivos com Bloom** | Taxonomia de Bloom revisada | Cada etapa tem um verbo-alvo (lembrar, entender, aplicar, analisar, avaliar, criar), que define a profundidade e o tipo de checagem |
 | **Nível real ≠ nível declarado** | testes de nivelamento | Mini-teste opcional, à escolha do Lucas (T9) |
-| **Domínio antes de avançar** (*mastery learning*) | Bloom | Critério por etapa; errou muito, a IA **propõe** uma etapa de reforço. Pular é sempre permitido |
+| **Domínio antes de avançar** (*mastery learning*) | Bloom | Critério por etapa; errou muito, a IA **propõe** etapas de reforço ("Pedir reforço", com o diagnóstico; fase 7). Pular é sempre permitido |
 | **Prática de recuperação** | ciência cognitiva | "Teste seu entendimento" antes da resposta; exercícios e simulado |
-| **Repetição espaçada** | FSRS / Anki | Flashcards de cada etapa vão ao app Flashcards; etapas concluídas voltam depois com perguntas rápidas (fase 7) |
-| **Intercalar** | ciência cognitiva | O simulado da trilha mistura etapas feitas (fase 7) |
+| **Repetição espaçada** | FSRS / Anki | Flashcards de cada etapa vão ao app Flashcards; etapas concluídas voltam com perguntas rápidas em 1, 3, 7, 14, 30, 60 e 120 dias (acertou, sobe o degrau; errou, recomeça; fase 7) |
+| **Intercalar** | ciência cognitiva | O simulado intercalado do painel mistura perguntas das etapas já estudadas, as fracas primeiro (fase 7) |
 | **Aprender em camadas** | `metodologia.md` do estudo do homelab | O molde de toda lição (§4) |
 | **Explicar com as próprias palavras** | técnica de Feynman | Futuro: o Lucas explica, a IA aponta o que faltou |
 
