@@ -82,7 +82,7 @@ lendo, e o resultado vai para o registro da rodada.
 | C11 | Todo link web responde (proteção anti-robô = "não verificável", registrar) | A |
 | C12 | Fontes externas preferem primárias e trazem o rótulo `[oficial]` `[padrão]` `[livro]` `[artigo]` `[vídeo]` na nota | A + M |
 | C13 | Afirmações 🔴 conferidas; errata registrada | M |
-| C14 | Tempo declarado coerente com a leitura medida (diferença de até 50%) | A |
+| C14 | Tempo declarado coerente com a leitura (diferença de até 50%). Aviso, não falha: a lição substitui o material (T29), então o tempo de verdade se confere na lição gerada | A (aviso) |
 | C15 | Critério de conclusão presente e verificável | A + M |
 
 Uma rodada **passa** quando não há falha em C1–C15. Avisos (ex.: link que bloqueia robô) podem
@@ -126,3 +126,13 @@ Ver `docs/CRIACAO-DE-TRILHAS.md` para o contexto de cada uma.
 9. **Errata visível, nunca silenciosa.** O erro achado no material (NAT entre redes internas) virou
    nota no material da etapa + explicação correta numa lição + correção proposta ao dono do
    documento. Correção mecânica e inequívoca (links quebrados) pode ser aplicada direto, avisando.
+10. **Trilha de certificação nasce do guia oficial do exame.** Na trilha AWS (CLF-C02), o guia
+    (domínios, pesos, tarefas, serviços no escopo e fora dele) virou o documento-fonte, e cada etapa
+    aponta a tarefa exata. O guia muda (a v1.3 é de 29/10/2026, com planos de suporte novos): baixe
+    a versão do dia, não confie na memória.
+11. **Curso em vídeo vira trilha pela transcrição.** Cada aula transcrita (Whisper) entra como
+    documento e é a fonte da lição; o vídeo fica em Fontes. A numeração do canal pode não ser a
+    ordem ensinada: no curso de gramática, a aula "28" dizia que a "29" já tinha sido dada. Leia o
+    começo de cada transcrição ("na aula passada…") para achar a ordem real.
+12. **Diga o que o material não cobre.** Curso incompleto (o canal acabava no começo de
+    pontuação) ganha recorte explícito e uma etapa final que mapeia o que falta e onde estudar.

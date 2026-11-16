@@ -51,3 +51,26 @@ OpenWrt.
 conceito; "citado" ≠ "ensinado"; regra de rádio depende do país; bloqueio de robô depende do
 cliente; etapa magra infla o tempo; critério mede o nível do objetivo; reler a ordem depois de
 mexer; práticas e testes do material são material; errata visível.
+
+## Trilha 2: AWS Cloud Practitioner (CLF-C02) (15/11/2026)
+
+**Entrada:** pedido do Lucas para passar no exame estudando só pela trilha. Fonte: o guia oficial do
+exame v1.3 (29/10/2026) e a página da certificação, transformados num documento; documentação
+oficial da AWS como material de cada etapa. Profundidade 3, foco em reconhecer e escolher o serviço.
+
+**Resultado:** 30 etapas em 9 módulos (os quatro domínios, na ordem em que um conceito apoia o
+próximo, e uma reta final com revisão e a prova), ~19 h. O revisor passou em tudo menos C14, que
+virou aviso: as fontes são páginas da web, e o tempo de leitura sai da lição, não do material.
+
+## Trilha 3: Gramática normativa (15–16/11/2026)
+
+**Entrada:** um curso em vídeo (54 aulas num canal do Telegram), baixado pelo Streaming (Meus
+vídeos) e transcrito com o Whisper do Mac mini. Cada transcrição virou documento, fonte de uma
+etapa; o vídeo ficou em Fontes, com link para o player do Streaming.
+
+**Resultado:** 48 etapas em 12 módulos, ~26 h. Achados: duas aulas com numeração trocada no canal
+(a ordem da trilha segue a ensinada) e o curso termina no começo de pontuação, então o recorte diz o
+que fica de fora e a última etapa mapeia o resto da norma.
+
+**Generalização** (lições 10 a 12 em `regras/criar-trilha.md` §6).
+

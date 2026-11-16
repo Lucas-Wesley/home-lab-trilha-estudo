@@ -151,7 +151,9 @@ def main():
                         falha("C12", f"`{chave}`: link \"{x['titulo']}\" sem rótulo de tipo na nota")
             estimado = round(leitura / PALAVRAS_POR_MINUTO) + MINUTOS_DE_TESTE + MINUTOS_DE_PRATICA
             if leitura and not (0.6 * estimado <= minutos <= 1.6 * estimado):
-                falha("C14", f"`{chave}`: declarado {minutos} min, leitura medida pede ~{estimado} min (0,6× a 1,6×)")
+                # Aviso, não falha: desde a T29 quem o Lucas lê é a lição, que substitui o material; o
+                # tempo real sai da lição gerada (fonte da web ou transcrição de vídeo mede outra coisa).
+                aviso("C14", f"`{chave}`: declarado {minutos} min, leitura do material pede ~{estimado} min (0,6× a 1,6×); confira na lição")
             if leitura and leitura < PALAVRAS_MINIMAS:
                 aviso("C3", f"`{chave}` é magra: {leitura} palavras de leitura principal; junte com a vizinha ou complete o material")
             linhas_tabela.append(f"| {m['titulo'][:28]} | `{chave}` | {bloom} | {minutos} | {leitura} | ~{estimado} |")
