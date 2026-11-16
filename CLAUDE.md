@@ -87,6 +87,13 @@ e não manda abrir documento (sem "leia a seção X", sem link para ele); o mate
 "Referências" e, na tela, em "Fontes", recolhido no fim. Vale para as regras `licao.md`,
 `plano.md` e `criar-trilha.md` e para o pedido em `propostas.go`.
 
+## Videoaula (T30)
+`backend/videoaula.go`: material `streaming` principal toca no topo da etapa (`Videoaula.vue`, com as
+notas); `ResumoEtapa.vue` no fim da lição; "Conferir com a aula" = tarefa `conferir_resumo` (regra
+`conferir-resumo.md`) que lê os documentos da etapa (a transcrição) e a lição. Notas e resumo na
+tabela `anotacoes`; cada conferência é uma `tentativas` do tipo `resumo`. O vídeo vem direto do
+Streaming (`/api/video/proprio/<id>.mp4`): mudar essa rota lá é mudar a Trilha também.
+
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,
 critérios C1–C15) → correção → nova rodada, até passar; registre cada rodada e acrescente as lições

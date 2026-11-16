@@ -9,6 +9,9 @@ import NavTrilhas from '../NavTrilhas.vue'
 import Pagina from '../Pagina.vue'
 import PropostaLicao from '../PropostaLicao.vue'
 import PropostaMaterial from '../PropostaMaterial.vue'
+import ResumoEtapa from '../ResumoEtapa.vue'
+import Videoaula from '../Videoaula.vue'
+import { videosDaEtapa } from '../videoaula.js'
 import { api } from '../api.js'
 import { abreEmOutraAba, hrefMaterial } from '../material.js'
 import { link } from '../rotas.js'
@@ -62,6 +65,11 @@ const materiaisPorPapel = computed(() => {
   for (const m of e.value?.materiais || []) (grupos[m.papel] || grupos.apoio).push(m)
   return Object.entries(grupos).filter(([, lista]) => lista.length)
 })
+
+// Videoaula (T30): numa trilha de curso em vídeo, o vídeo é o principal e vem no topo.
+const videos = computed(() => videosDaEtapa(e.value?.materiais))
+const player = ref(null)
+const irNoVideo = (parte, segundos) => player.value?.ir(parte, segundos)
 
 const baseDocs = computed(() => `#/trilhas/${props.trilhaId}/documentos/`)
 
@@ -167,6 +175,8 @@ async function excluir() {
           <button v-if="e.status === 'concluida' || e.status === 'pulada'" class="botao discreto" @click="mudarStatus('disponivel')">Reabrir</button>
         </div>
 
+        <Videoaula v-if="videos.length" ref="player" :key="`video-${e.id}`" :videos="videos" :etapa-id="e.id" />
+
         <div v-if="e.requer.length || e.criterio || e.foco" class="cartao cheio pilha bloco">
           <div v-if="e.requer.length">
             <span class="rotulo">Antes desta etapa</span>
@@ -189,13 +199,15 @@ async function excluir() {
 
         <section id="licao" class="secao">
           <div class="linha entre">
-            <h2>Lição</h2>
+            <h2>{{ videos.length ? 'Texto da aula' : 'Lição' }}</h2>
             <button v-if="e.licao" class="botao discreto" @click="proposta?.abrir()">Pedir mudança</button>
           </div>
           <p v-if="!e.licao && !propostaAberta" class="suave">Esta etapa ainda não tem lição. A IA escreve uma na profundidade da etapa ({{ PROFUNDIDADES[profundidade] }}), a partir das fontes (abaixo), trazendo para dentro dela tudo o que importa; ela chega como proposta, você comenta e aprova. Também dá para escrever à mão em Editar.</p>
           <PropostaLicao ref="proposta" :key="e.id" :etapa-id="e.id" :licao-atual="e.licao || ''" :base-docs="baseDocs" @aprovada="aoAprovar" @aberta="propostaAberta = $event" />
           <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancora" :base-docs="baseDocs" @titulos="titulos = $event" />
         </section>
+
+        <ResumoEtapa :key="`resumo-${e.id}`" :etapa-id="e.id" :tem-video="videos.length > 0" @ir="irNoVideo" />
 
         <EstudoEtapa :key="`estudo-${e.id}-${!!e.licao}`" :etapa="e" :trilha="t" @concluir="mudarStatus('concluida')" @mudou="recarregarEtapa" />
         <DominioEtapa :key="`dominio-${e.id}-${e.status}-${versaoEstudo}`" :etapa="e" :trilha-id="t.id" @mudou="recarregarEtapa" />
@@ -318,7 +330,7 @@ async function excluir() {
               v-model="m.referencia"
               class="campo"
               :list="m.tipo === 'documento' ? 'documentos-da-trilha' : undefined"
-              :placeholder="{ web: 'https://…', documento: 'documento da trilha (ex.: 03-redes-separadas-firewall)', livro: 'id do livro na Biblioteca', acervo: 'pasta do Tema (temas/…) ou id da Referência' }[m.tipo] || 'Referência'"
+              :placeholder="{ web: 'https://…', documento: 'documento da trilha (ex.: 03-redes-separadas-firewall)', livro: 'id do livro na Biblioteca', acervo: 'pasta do Tema (temas/…) ou id da Referência', streaming: 'vídeo do Streaming: https://streaming.internal/api/video/proprio/57.mp4' }[m.tipo] || 'Referência'"
             />
             <input v-model="m.localizador" class="campo" :placeholder="{ documento: 'âncora da seção (opcional)', livro: 'cap. 3, caps. 2–4 ou p. 45–60 (vazio = o livro todo)', acervo: 'arquivo do Tema (opcional)' }[m.tipo] || 'cap., página, tempo (opcional)'" />
             <input v-model="m.nota" class="campo" placeholder="Nota: o que ler e por quê (opcional)" />

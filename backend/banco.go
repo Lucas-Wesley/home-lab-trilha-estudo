@@ -249,4 +249,14 @@ CREATE TABLE IF NOT EXISTS revisoes (
 	ultima_nota   INTEGER NOT NULL DEFAULT -1,
 	PRIMARY KEY (trilha_id, etapa_chave)
 );
+
+-- T30 (videoaula): as notas que o Lucas toma assistindo e o resumo dele, pela chave da etapa.
+CREATE TABLE IF NOT EXISTS anotacoes (
+	trilha_id     INTEGER NOT NULL REFERENCES trilhas(id) ON DELETE CASCADE,
+	etapa_chave   TEXT NOT NULL,
+	notas         TEXT NOT NULL DEFAULT '',
+	resumo        TEXT NOT NULL DEFAULT '',
+	atualizado_em TEXT NOT NULL,
+	PRIMARY KEY (trilha_id, etapa_chave)
+);
 `

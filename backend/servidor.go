@@ -32,6 +32,7 @@ func (a *app) ligarIA() {
 		a.fila.executores[tipo] = a.gerarEstudo
 	}
 	a.fila.executores[tipoCorrecao] = a.corrigirSimulado
+	a.fila.executores[tipoConferirResumo] = a.conferirResumo
 	a.fila.executores[tipoMateriais] = a.gerarMateriais
 	a.fila.executores[tipoReforco] = a.gerarReforco
 	a.fila.executores[tipoNivelamento] = a.gerarNivelamento
@@ -86,6 +87,9 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/etapas/{id}/simulado", a.handleGerarEstudo(tipoSimulado))
 	mux.HandleFunc("POST /api/etapas/{id}/exercicios/tentativas", a.handleTentativaExercicios)
 	mux.HandleFunc("POST /api/etapas/{id}/simulado/tentativas", a.handleTentativaSimulado)
+	mux.HandleFunc("GET /api/etapas/{id}/anotacoes", a.handleAnotacoes)
+	mux.HandleFunc("PUT /api/etapas/{id}/anotacoes", a.handleSalvarAnotacoes)
+	mux.HandleFunc("POST /api/etapas/{id}/resumo/conferir", a.handleConferirResumo)
 	mux.HandleFunc("POST /api/etapas/{id}/flashcards", a.handleEnviarFlashcards)
 	mux.HandleFunc("GET /api/flashcards/baralhos", a.handleBaralhos)
 	// Fase 6: material de apoio da Biblioteca, do Acervo e da web (T27).

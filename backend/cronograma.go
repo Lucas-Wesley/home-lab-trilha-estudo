@@ -111,13 +111,16 @@ func distribuir(etapas []etapa, dias []int, porDia int, desde time.Time) []fatia
 	return fatias
 }
 
+// errSemDias: a trilha ainda não tem meta (dias de estudo).
+var errSemDias = erroDeEntrada{errors.New("escolha os dias da semana de estudo")}
+
 func (a *app) gerarCronograma(ctx context.Context, trilhaID int64, desde time.Time) error {
 	t, err := a.trilhaCompleta(ctx, trilhaID)
 	if err != nil {
 		return err
 	}
 	if len(t.Meta.Dias) == 0 {
-		return erroDeEntrada{errors.New("escolha os dias da semana de estudo")}
+		return errSemDias
 	}
 	etapas, err := a.etapasDaTrilha(ctx, trilhaID)
 	if err != nil {

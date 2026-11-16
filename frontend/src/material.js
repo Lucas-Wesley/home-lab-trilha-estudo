@@ -1,9 +1,12 @@
+import { linkNoStreaming } from './videoaula.js'
+
 // Material de apoio (fase 6, T27): o link de cada tipo e o localizador de um livro.
 
 // hrefMaterial: web abre a página; documento abre dentro da trilha; livro e Acervo passam pelo
 // servidor, que acha o ponto do livro e redireciona para a Biblioteca ou o Acervo.
 export function hrefMaterial(m, trilhaId) {
   if (m.tipo === 'web') return m.referencia
+  if (m.tipo === 'streaming') return linkNoStreaming(m.referencia)
   if (m.tipo === 'documento') return `#/trilhas/${trilhaId}/documentos/${encodeURIComponent(m.referencia)}${m.localizador ? '#' + m.localizador : ''}`
   if ((m.tipo === 'livro' || m.tipo === 'acervo') && m.referencia) {
     const q = new URLSearchParams({ tipo: m.tipo, referencia: m.referencia })

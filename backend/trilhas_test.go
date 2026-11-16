@@ -347,6 +347,9 @@ func TestImportar(t *testing.T) {
 	if es[0].Status != "concluida" || es[0].Titulo != "Camadas (revisto)" || es[1].Chave != "dhcp" || es[0].TemLicao {
 		t.Fatalf("depois da nova versão: %+v", es)
 	}
+	// Trilha ativa ainda sem meta: a nova versão entra sem erro (não há cronograma a refazer).
+	c.ok("POST", "/api/trilhas/1/estado", map[string]string{"estado": "ativa"}, nil)
+	c.ok("POST", "/api/importar", pacoteExemplo(true, map[string]any{"chave": "camadas", "titulo": "Camadas"}), &res)
 }
 
 func TestDocumentosDaTrilha(t *testing.T) {

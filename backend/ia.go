@@ -143,6 +143,7 @@ var regrasDoApp = []regra{
 	{Arquivo: "exercicios.md", Titulo: "Exercícios", Para: "Gerar os exercícios da etapa (escolha e completar)"},
 	{Arquivo: "simulado.md", Titulo: "Simulado", Para: "Gerar perguntas abertas para o banco do simulado"},
 	{Arquivo: "corrigir-simulado.md", Titulo: "Corrigir o simulado", Para: "Corrigir as respostas do simulado"},
+	{Arquivo: "conferir-resumo.md", Titulo: "Conferir o resumo", Para: "Comparar o meu resumo de uma videoaula com a transcrição dela"},
 	{Arquivo: "reforco.md", Titulo: "Reforço", Para: "Propor etapas de reforço para uma etapa em que errei"},
 	{Arquivo: "materiais.md", Titulo: "Sugerir material", Para: "Procurar material para uma etapa (web, Biblioteca, Acervo, documentos)"},
 	{Arquivo: "entrevista.md", Titulo: "Entrevista", Para: "Criar trilha (a IA monta): pré-pesquisa e perguntas"},
@@ -361,7 +362,7 @@ func (a *app) modeloPara(ctx context.Context, tipo string) string {
 	if ehCriacao(tipo) || tipo == tipoReforco || tipo == tipoNivelamento {
 		tipo = "criacao"
 	}
-	if ehEstudo(tipo) || tipo == tipoCorrecao {
+	if ehEstudo(tipo) || tipo == tipoCorrecao || tipo == tipoConferirResumo {
 		tipo = "estudo"
 	}
 	if tipo == tipoMateriais {

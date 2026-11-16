@@ -47,6 +47,7 @@ etiquetas com fundo escuro saturado e texto claro).
 | `--ativo` | `#2e2e2d` | `#e4e3dd` | item ativo da navegação, aba ativa |
 | `--borda` | `#2c2c2b` | `#e3e2dc` | bordas e divisórias |
 | `--borda-forte` | `#3d3d3b` | `#cfcec7` | campo em foco sem cor, borda de botão |
+| `--video` | `#000` | `#000` | fundo do player da videoaula (barras do vídeo) |
 | `--texto` | `#ececea` | `#1d1d1b` | texto principal |
 | `--texto-suave` | `#a3a29d` | `#5f5e59` | descrições, navegação inativa |
 | `--texto-fraco` | `#73726d` | `#8b8a84` | rótulos, datas, placeholders |

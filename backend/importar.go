@@ -233,7 +233,8 @@ func (a *app) importar(ctx context.Context, p pacote) (resultadoImportacao, erro
 		return res, err
 	}
 	if estado == "ativa" {
-		if err := a.gerarCronograma(ctx, id, hoje()); err != nil {
+		// Sem meta ainda, não há cronograma a refazer (a nova versão já está gravada).
+		if err := a.gerarCronograma(ctx, id, hoje()); err != nil && err != errSemDias {
 			return res, err
 		}
 	}
