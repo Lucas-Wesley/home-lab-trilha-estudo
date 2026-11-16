@@ -131,8 +131,16 @@ Ver `docs/CRIACAO-DE-TRILHAS.md` para o contexto de cada uma.
     aponta a tarefa exata. O guia muda (a v1.3 é de 29/10/2026, com planos de suporte novos): baixe
     a versão do dia, não confie na memória.
 11. **Curso em vídeo vira trilha pela transcrição.** Cada aula transcrita (Whisper) entra como
-    documento e é a fonte da lição; o vídeo fica em Fontes. A numeração do canal pode não ser a
+    documento e é a fonte da lição; o vídeo é o principal da etapa (videoaula, T30). A numeração do canal pode não ser a
     ordem ensinada: no curso de gramática, a aula "28" dizia que a "29" já tinha sido dada. Leia o
     começo de cada transcrição ("na aula passada…") para achar a ordem real.
 12. **Diga o que o material não cobre.** Curso incompleto (o canal acabava no começo de
     pontuação) ganha recorte explícito e uma etapa final que mapeia o que falta e onde estudar.
+13. **Em curso em partes, o objetivo da etapa sai do que a aula dela ensina.** No curso de
+    gramática, escrevi objetivos pelo nome da aula ("Adjetivo: … e flexões") e a IA da lição
+    completou com as gramáticas o que a aula seguinte ensinava (o grau do adjetivo, o gerúndio, os
+    particípios duplos), enquanto pulava o que a própria aula trazia. Antes de escrever objetivo e
+    critério, varra as transcrições por tema (onde cada assunto aparece e quanto) e ponha cada
+    assunto na etapa da aula que o ensina. Nas instruções da trilha: completar só o que nenhuma
+    aula do curso ensina, procurando antes nas outras transcrições, e avisar nas notas quando o
+    objetivo pedir o que a aula não traz.
