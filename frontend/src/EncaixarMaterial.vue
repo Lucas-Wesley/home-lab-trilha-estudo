@@ -171,7 +171,7 @@ const onde = (n) => porChave.value[n.depois_de] ? `depois de ${porChave.value[n.
           <label v-for="(e, i) in x.proposta.conteudo.encaixes" :key="'e' + i" class="opcao">
             <input type="checkbox" :checked="marcados[x.proposta.id]?.encaixes.has(i)" @change="alternar(x.proposta.id, 'encaixes', i)" />
             <span>
-              <strong>{{ e.numero }}</strong>
+              <strong class="num">{{ e.numero }}</strong>
               <a :href="link('trilhas', trilha.id, 'etapas', porChave[e.etapa_chave]?.id)" target="_blank">{{ e.titulo }}</a>
               <span class="fraco"> · {{ e.localizador || 'o material todo' }} · {{ PAPEIS[e.papel] }}</span>
               <span class="bloco-nota">{{ e.nota }}<span v-if="e.motivo" class="fraco"> — {{ e.motivo }}</span></span>
@@ -223,4 +223,5 @@ const onde = (n) => porChave.value[n.depois_de] ? `depois de ${porChave.value[n.
 .opcao input { margin-top: 4px; }
 .bloco-nota { display: block; color: var(--texto-suave); font-size: 13.5px; }
 .ajuste .campo { flex: 1 1 260px; }
+.num { margin-right: var(--e2); font-variant-numeric: tabular-nums; }
 </style>
