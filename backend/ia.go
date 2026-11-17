@@ -275,7 +275,8 @@ type ajustes struct {
 	InstrucoesGlobais string `json:"instrucoes_globais"`
 	ModeloLicao       string `json:"modelo_licao"`
 	ModeloCriacao     string `json:"modelo_criacao"`
-	ModeloEstudo      string `json:"modelo_estudo"` // exercícios, simulado e a correção (fase 5)
+	ModeloEstudo      string `json:"modelo_estudo"`   // gerar exercícios e simulado (fase 5)
+	ModeloCorrecao    string `json:"modelo_correcao"` // corrigir o simulado e conferir o resumo; vazio = o dos exercícios
 	NotaMinima        string `json:"nota_minima"`   // critério automático: % nos exercícios (vazio = 80)
 	ModeloPadrao      string `json:"modelo_padrao"` // só leitura: CLAUDE_MODEL
 }
@@ -285,6 +286,7 @@ var chavesAjustes = map[string]func(*ajustes) *string{
 	"modelo_licao":       func(x *ajustes) *string { return &x.ModeloLicao },
 	"modelo_criacao":     func(x *ajustes) *string { return &x.ModeloCriacao },
 	"modelo_estudo":      func(x *ajustes) *string { return &x.ModeloEstudo },
+	"modelo_correcao":    func(x *ajustes) *string { return &x.ModeloCorrecao },
 	"nota_minima":        func(x *ajustes) *string { return &x.NotaMinima },
 }
 
@@ -329,7 +331,7 @@ func (a *app) handleSalvarAjustes(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, erroDeEntrada{fmt.Errorf("a nota mínima vai de 1 a 100 (%%), não %q", x.NotaMinima)})
 		return
 	}
-	for _, m := range []*string{&x.ModeloLicao, &x.ModeloCriacao, &x.ModeloEstudo} {
+	for _, m := range []*string{&x.ModeloLicao, &x.ModeloCriacao, &x.ModeloEstudo, &x.ModeloCorrecao} {
 		*m = strings.TrimSpace(*m)
 		if !contem(modelosAceitos, *m) && !strings.HasPrefix(*m, "claude-") {
 			a.responderErro(w, erroDeEntrada{fmt.Errorf("modelo desconhecido: %q (use opus, sonnet, haiku ou o nome completo)", *m)})
@@ -359,18 +361,22 @@ func (a *app) handleSalvarAjustes(w http.ResponseWriter, r *http.Request) {
 
 // modeloPara: o do tipo de tarefa em Ajustes, senão o padrão. Os passos da criação usam um só.
 func (a *app) modeloPara(ctx context.Context, tipo string) string {
-	if ehCriacao(tipo) || tipo == tipoReforco || tipo == tipoNivelamento {
-		tipo = "criacao"
+	ler := func(chave string) string {
+		var valor string
+		a.db.QueryRowContext(ctx, `SELECT valor FROM ajustes WHERE chave = ?`, "modelo_"+chave).Scan(&valor)
+		return valor
 	}
-	if ehEstudo(tipo) || tipo == tipoCorrecao || tipo == tipoConferirResumo {
-		tipo = "estudo"
+	switch {
+	case ehCriacao(tipo) || tipo == tipoReforco || tipo == tipoNivelamento:
+		return primeiro(ler("criacao"), a.ia.modelo)
+	case tipo == tipoCorrecao || tipo == tipoConferirResumo:
+		// A correção (simulado, intercalado) e a conferência do resumo; vazio = o dos exercícios.
+		return primeiro(ler("correcao"), ler("estudo"), a.ia.modelo)
+	case ehEstudo(tipo):
+		return primeiro(ler("estudo"), a.ia.modelo)
+	default: // lição e "sugerir material"
+		return primeiro(ler("licao"), a.ia.modelo)
 	}
-	if tipo == tipoMateriais {
-		tipo = "licao"
-	}
-	var valor string
-	a.db.QueryRowContext(ctx, `SELECT valor FROM ajustes WHERE chave = ?`, "modelo_"+tipo).Scan(&valor)
-	return primeiro(valor, a.ia.modelo)
 }
 
 func primeiro(valores ...string) string {

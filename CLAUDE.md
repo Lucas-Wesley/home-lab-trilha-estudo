@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T29), fases, riscos e o que está em aberto.
+  (T1–T31), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — o design **próprio** desta app (estilo Claude
@@ -93,6 +93,12 @@ notas); `ResumoEtapa.vue` no fim da lição; "Conferir com a aula" = tarefa `con
 `conferir-resumo.md`) que lê os documentos da etapa (a transcrição) e a lição. Notas e resumo na
 tabela `anotacoes`; cada conferência é uma `tentativas` do tipo `resumo`. O vídeo vem direto do
 Streaming (`/api/video/proprio/<id>.mp4`): mudar essa rota lá é mudar a Trilha também.
+
+## Modelos (T31)
+`modeloPara` (`ia.go`): lição e "sugerir material" → `modelo_licao`; criação, reforço e mini-teste →
+`modelo_criacao`; exercícios e simulado → `modelo_estudo`; correção do simulado e conferência do
+resumo → `modelo_correcao` (vazio = o dos exercícios). Recomendados na tela `Ajustes.vue` (página
+Modelos): Sonnet, Opus, Haiku, Haiku.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

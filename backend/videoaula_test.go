@@ -79,3 +79,35 @@ func TestVideoaulaNotasResumoEConferencia(t *testing.T) {
 		t.Fatalf("falha: %+v", an.Conferencias[0])
 	}
 }
+
+func TestModeloDaCorrecao(t *testing.T) {
+	f := &iaFalsa{}
+	f.resposta = func(int, map[string]string) (string, error) { return `{}`, nil }
+	c := clienteComIA(t, f)
+	nat := trilhaComEtapa(c)
+	modeloDaConferencia := func() string {
+		var tt tentativa
+		c.ok("POST", fmt.Sprintf("/api/etapas/%d/resumo/conferir", nat), map[string]any{"resumo": "O NAT troca o endereço de origem dos pacotes na saída para a internet."}, &tt)
+		var ts []tarefa
+		c.ok("GET", "/api/tarefas", nil, &ts)
+		c.a.fila.esvaziar(context.Background())
+		for _, x := range ts {
+			if x.ID == tt.TarefaID {
+				return x.Modelo
+			}
+		}
+		return "?"
+	}
+	// Sem modelo da correção, vale o dos exercícios; com ele, o dele.
+	c.ok("PUT", "/api/ajustes", map[string]any{"modelo_estudo": "haiku"}, nil)
+	if m := modeloDaConferencia(); m != "haiku" {
+		t.Fatalf("sem modelo da correção: %q", m)
+	}
+	c.ok("PUT", "/api/ajustes", map[string]any{"modelo_estudo": "haiku", "modelo_correcao": "sonnet"}, nil)
+	if m := modeloDaConferencia(); m != "sonnet" {
+		t.Fatalf("com modelo da correção: %q", m)
+	}
+	if s := c.chamar("PUT", "/api/ajustes", map[string]any{"modelo_correcao": "gpt"}, nil); s != 400 {
+		t.Fatalf("modelo desconhecido: %d", s)
+	}
+}

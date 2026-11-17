@@ -1,12 +1,44 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Pagina from '../Pagina.vue'
 import { api } from '../api.js'
 import { link } from '../rotas.js'
 
-// Ajustes da IA (DECISOES.md §5.1, T5, T6): instruções globais, modelo por tipo de tarefa, as
-// regras que a IA segue (editáveis, com "restaurar") e a fila de tarefas.
+// Ajustes da IA (DECISOES.md §5.1, T5, T6, T31), uma página para cada assunto: Geral (instruções
+// globais e nota mínima), Modelos (um por tipo de tarefa, com o recomendado), Regras da IA e Fila.
 const props = defineProps({ rota: { type: Object, required: true } })
+
+const PAGINAS = [
+  { id: 'geral', nome: 'Geral' },
+  { id: 'modelos', nome: 'Modelos' },
+  { id: 'regras', nome: 'Regras da IA' },
+  { id: 'fila', nome: 'Fila' },
+]
+// #/ajustes/modelos; os endereços antigos (#/ajustes#regras) continuam abrindo a página certa.
+const pagina = computed(() => {
+  const p = props.rota.partes[0] || { instrucoes: 'geral' }[props.rota.ancora] || props.rota.ancora || 'geral'
+  return PAGINAS.some((x) => x.id === p) ? p : 'geral'
+})
+
+// Modelos (T31): recomendação medida em 17/11/2026 (teste Haiku × Sonnet nos exercícios, no
+// simulado e na correção): qualidade equivalente, o Haiku gasta bem menos do limite da conta.
+const MODELOS = [
+  { campo: 'modelo_licao', nome: 'Lição', recomendado: 'sonnet', para: 'Escrever a lição e pedir mudança nela; também "Sugerir material". Texto longo e didático: o Haiku perde qualidade, o Opus gasta muito mais para pouco ganho.' },
+  { campo: 'modelo_criacao', nome: 'Criação de trilhas', recomendado: 'opus', para: 'Entrevista, mapa, validação da lista, mini-teste de nível, plano e reforço. Roda poucas vezes e decide a trilha inteira: vale o mais cuidadoso.' },
+  { campo: 'modelo_estudo', nome: 'Exercícios e simulado', recomendado: 'haiku', para: 'Gerar os exercícios e as perguntas do simulado, a partir da lição aprovada. No teste, o Haiku acertou os gabaritos como o Sonnet.' },
+  { campo: 'modelo_correcao', nome: 'Correção e conferência', recomendado: 'haiku', para: 'Corrigir o simulado (também o intercalado) e conferir o resumo com a aula. Vazio: o mesmo dos exercícios.' },
+]
+const NOMES_MODELO = { haiku: 'Haiku', sonnet: 'Sonnet', opus: 'Opus' }
+function opcoes(m) {
+  const lista = [{ valor: '', nome: ajustes.value?.modelo_padrao ? `Padrão (${ajustes.value.modelo_padrao})` : 'Padrão da conta' }]
+  for (const v of ['haiku', 'sonnet', 'opus']) lista.push({ valor: v, nome: NOMES_MODELO[v] + (v === m.recomendado ? ' (recomendado)' : '') })
+  const atual = ajustes.value?.[m.campo]
+  if (atual && !NOMES_MODELO[atual]) lista.push({ valor: atual, nome: atual })
+  return lista
+}
+function usarRecomendados() {
+  for (const m of MODELOS) ajustes.value[m.campo] = m.recomendado
+}
 
 const ajustes = ref(null)
 const regras = ref([])
@@ -24,15 +56,11 @@ async function carregar() {
 
 // A fila muda sozinha enquanto há tarefa rodando.
 let relogio = 0
-// #/ajustes#regras: vai até a seção.
-async function irPara(id) {
-  await nextTick()
-  if (id) document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-watch(() => props.rota.ancora, irPara)
+watch(pagina, () => {
+  salvo.value = ''
+})
 onMounted(async () => {
   await carregar()
-  irPara(props.rota.ancora)
   relogio = setInterval(async () => {
     if (tarefas.value.some((t) => t.estado === 'na_fila' || t.estado === 'rodando')) tarefas.value = await api('/api/tarefas').catch(() => tarefas.value)
   }, 4000)
@@ -99,43 +127,24 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
     <template #nav>
       <div class="nav-grupo">
         <span class="nav-titulo">Ajustes</span>
-        <a class="nav-item" href="#/ajustes#instrucoes">Instruções e modelo</a>
-        <a class="nav-item" href="#/ajustes#regras">Regras da IA</a>
-        <a class="nav-item" href="#/ajustes#fila">Fila</a>
+        <a v-for="p in PAGINAS" :key="p.id" class="nav-item" :class="{ ativo: pagina === p.id }" :href="link('ajustes', p.id)">{{ p.nome }}</a>
       </div>
     </template>
 
-    <h1>Ajustes</h1>
-    <p class="lead">Como a IA trabalha em todas as trilhas.</p>
+    <nav class="abas paginas" aria-label="Páginas de ajustes">
+      <a v-for="p in PAGINAS" :key="p.id" class="aba" :class="{ ativa: pagina === p.id }" :href="link('ajustes', p.id)">{{ p.nome }}</a>
+    </nav>
     <p v-if="aviso" class="aviso">{{ aviso }}</p>
 
-    <section v-if="ajustes" id="instrucoes" class="secao">
-      <h2>Instruções e modelo</h2>
-      <form class="pilha formulario" @submit.prevent="salvarAjustes">
+    <!-- Geral -->
+    <section v-if="pagina === 'geral' && ajustes">
+      <h1>Geral</h1>
+      <p class="lead">Como a IA trabalha em todas as trilhas.</p>
+      <form class="pilha formulario secao-curta" @submit.prevent="salvarAjustes">
         <div>
           <label class="rotulo" for="a-instr">Instruções globais</label>
-          <textarea id="a-instr" v-model="ajustes.instrucoes_globais" class="campo" rows="4" placeholder="Ex.: Português do Brasil; fontes em inglês podem; nada de jargão sem explicar." />
+          <textarea id="a-instr" v-model="ajustes.instrucoes_globais" class="campo" rows="5" placeholder="Ex.: Português do Brasil; fontes em inglês podem; nada de jargão sem explicar." />
           <p class="ajuda">Vão em toda chamada à IA, antes das instruções da trilha e do pedido de cada ação. Em conflito, vale a mais específica.</p>
-        </div>
-        <div>
-          <label class="rotulo" for="a-modelo">Modelo da lição</label>
-          <input id="a-modelo" v-model="ajustes.modelo_licao" class="campo" list="modelos" :placeholder="ajustes.modelo_padrao ? `padrão: ${ajustes.modelo_padrao}` : 'padrão do Claude Code'" />
-          <datalist id="modelos">
-            <option value="opus">mais cuidadoso, gasta o limite mais rápido</option>
-            <option value="sonnet">equilibrado</option>
-            <option value="haiku">rápido e econômico</option>
-          </datalist>
-          <p class="ajuda">opus, sonnet, haiku ou o nome completo (ex.: claude-opus-5-5). Vazio: o padrão da conta.</p>
-        </div>
-        <div>
-          <label class="rotulo" for="a-modelo-criacao">Modelo da criação de trilhas</label>
-          <input id="a-modelo-criacao" v-model="ajustes.modelo_criacao" class="campo" list="modelos" :placeholder="ajustes.modelo_padrao ? `padrão: ${ajustes.modelo_padrao}` : 'padrão do Claude Code'" />
-          <p class="ajuda">Entrevista, mapa, validação da lista, mini-teste de nível, plano e reforço. O plano decide a trilha inteira: vale o opus, se o limite permitir.</p>
-        </div>
-        <div>
-          <label class="rotulo" for="a-modelo-estudo">Modelo dos exercícios e do simulado</label>
-          <input id="a-modelo-estudo" v-model="ajustes.modelo_estudo" class="campo" list="modelos" :placeholder="ajustes.modelo_padrao ? `padrão: ${ajustes.modelo_padrao}` : 'padrão do Claude Code'" />
-          <p class="ajuda">Gerar os exercícios, as perguntas do simulado e corrigir as respostas do simulado (também o intercalado). O sonnet costuma bastar.</p>
         </div>
         <div>
           <label class="rotulo" for="a-nota">Nota mínima nos exercícios</label>
@@ -149,10 +158,32 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
       </form>
     </section>
 
-    <section id="regras" class="secao">
-      <h2>Regras da IA</h2>
-      <p class="suave">O que a IA segue em cada tipo de tarefa. Editar aqui vale na próxima chamada, sem deploy; a original fica guardada.</p>
-      <table class="tabela">
+    <!-- Modelos -->
+    <section v-else-if="pagina === 'modelos' && ajustes">
+      <h1>Modelos</h1>
+      <p class="lead">Qual modelo do Claude faz cada tipo de tarefa. O recomendado está marcado; mude para testar.</p>
+      <form class="pilha formulario secao-curta" @submit.prevent="salvarAjustes">
+        <div v-for="m in MODELOS" :key="m.campo">
+          <label class="rotulo" :for="m.campo">{{ m.nome }} <span class="fraco">(recomendado: {{ NOMES_MODELO[m.recomendado] }})</span></label>
+          <select :id="m.campo" v-model="ajustes[m.campo]" class="campo">
+            <option v-for="o in opcoes(m)" :key="o.valor" :value="o.valor">{{ o.nome }}</option>
+          </select>
+          <p class="ajuda">{{ m.para }}</p>
+        </div>
+        <p class="ajuda">Haiku: rápido e econômico. Sonnet: equilibrado. Opus: o mais cuidadoso, gasta o limite da conta bem mais rápido. "Padrão" é o do Claude Code na conta ativa (hoje, o Sonnet).</p>
+        <div class="linha">
+          <button class="botao primario" type="submit">Salvar</button>
+          <button class="botao" type="button" @click="usarRecomendados">Usar os recomendados</button>
+          <span v-if="salvo" class="pequeno">{{ salvo }}</span>
+        </div>
+      </form>
+    </section>
+
+    <!-- Regras -->
+    <section v-else-if="pagina === 'regras'">
+      <h1>Regras da IA</h1>
+      <p class="lead">O que a IA segue em cada tipo de tarefa. Editar aqui vale na próxima chamada, sem deploy; a original fica guardada.</p>
+      <table class="tabela secao-curta">
         <tbody>
           <tr v-for="r in regras" :key="r.arquivo">
             <td>
@@ -177,10 +208,11 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
       </div>
     </section>
 
-    <section id="fila" class="secao">
-      <h2>Fila</h2>
-      <p class="suave">Uma tarefa por vez. As mais recentes primeiro.</p>
-      <table v-if="tarefas.length" class="tabela">
+    <!-- Fila -->
+    <section v-else-if="pagina === 'fila'">
+      <h1>Fila</h1>
+      <p class="lead">Uma tarefa por vez. As mais recentes primeiro, com o modelo de cada uma.</p>
+      <table v-if="tarefas.length" class="tabela secao-curta">
         <tbody>
           <tr v-for="t in tarefas" :key="t.id">
             <td>
@@ -200,14 +232,18 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
           </tr>
         </tbody>
       </table>
-      <p v-else class="suave">Nenhuma tarefa ainda.</p>
+      <p v-else class="suave secao-curta">Nenhuma tarefa ainda.</p>
     </section>
   </Pagina>
 </template>
 
 <style scoped>
-.secao { margin-top: var(--e7); }
-.secao > h2 { margin-bottom: var(--e3); }
+.paginas { margin-bottom: var(--e5); }
+.paginas .aba { padding: 6px var(--e3); border-radius: var(--raio-p); font-size: 14px; color: var(--texto-suave); text-decoration: none; }
+.paginas .aba.ativa { background: var(--ativo); color: var(--texto); }
+.secao-curta { margin-top: var(--e5); }
+/* No computador as páginas estão na navegação lateral; no celular, em abas no topo. */
+@media (min-width: 900px) { .paginas { display: none; } }
 .formulario { max-width: var(--leitura); }
 .curto { max-width: 120px; }
 .editor { margin-top: var(--e5); }
