@@ -12,6 +12,8 @@ import { PAPEIS } from './rotulos.js'
 const props = defineProps({
   documentos: { type: Array, default: () => [] },
   simples: { type: Boolean, default: false },
+  // Encaixar material (T32): todas as abas, sem papel nem nota (a IA decide por etapa).
+  semPapel: { type: Boolean, default: false },
 })
 const emit = defineEmits(['escolher', 'fechar'])
 
@@ -52,7 +54,7 @@ watch(aba, () => {
 })
 
 function escolher(m) {
-  emit('escolher', { localizador: '', ...m, papel: props.simples ? 'principal' : papel.value, nota: props.simples ? '' : nota.value.trim() })
+  emit('escolher', { localizador: '', ...m, papel: props.simples || props.semPapel ? 'principal' : papel.value, nota: props.simples || props.semPapel ? '' : nota.value.trim() })
   nota.value = ''
 }
 
@@ -170,14 +172,14 @@ function escolherWeb() {
     <div class="linha entre">
       <div class="abas" role="tablist" aria-label="De onde vem o material">
         <button v-for="a in abas" :key="a.id" type="button" role="tab" :aria-selected="aba === a.id" :class="{ ativa: aba === a.id }" @click="aba = a.id">{{ a.nome }}</button>
-        <button v-if="!simples" type="button" disabled class="desativada" title="Quando o Streaming tiver subpastas e legendas">Streaming <span class="etiqueta">em breve</span></button>
+        <button v-if="!simples && !semPapel" type="button" disabled class="desativada" title="Quando o Streaming tiver subpastas e legendas">Streaming <span class="etiqueta">em breve</span></button>
       </div>
       <button type="button" class="botao discreto icone" aria-label="Fechar" @click="emit('fechar')"><Icone nome="fechar" :tamanho="16" /></button>
     </div>
 
     <p v-if="erro" class="aviso sem-margem">{{ erro }}</p>
 
-    <div v-if="!simples && aba !== 'livro'" class="campos">
+    <div v-if="!simples && !semPapel && aba !== 'livro'" class="campos">
       <div>
         <label class="rotulo" for="em-papel">Papel na etapa</label>
         <select id="em-papel" v-model="papel" class="campo">
@@ -249,7 +251,7 @@ function escolherWeb() {
             <div><label class="rotulo" for="em-de">Da página</label><input id="em-de" v-model="paginas.de" class="campo" type="number" min="1" /></div>
             <div><label class="rotulo" for="em-ate">Até</label><input id="em-ate" v-model="paginas.ate" class="campo" type="number" min="1" /></div>
           </div>
-          <div v-if="!simples" class="campos">
+          <div v-if="!simples && !semPapel" class="campos">
             <div>
               <label class="rotulo" for="em-papel-l">Papel na etapa</label>
               <select id="em-papel-l" v-model="papel" class="campo">

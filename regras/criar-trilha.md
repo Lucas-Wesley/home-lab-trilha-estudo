@@ -144,3 +144,7 @@ Ver `docs/CRIACAO-DE-TRILHAS.md` para o contexto de cada uma.
     assunto na etapa da aula que o ensina. Nas instruções da trilha: completar só o que nenhuma
     aula do curso ensina, procurando antes nas outras transcrições, e avisar nas notas quando o
     objetivo pedir o que a aula não traz.
+14. **Trilha montada aos poucos: roteiro primeiro, conteúdo depois.** Na trilha de redes, o Lucas
+    pediu só os tópicos (do básico ao avançado, cada etapa dizendo exatamente o que aprender e
+    como praticar no Mac), sem pesquisar conteúdo. As etapas nascem sem material (C9 falha de
+    propósito) e o conteúdo entra por "Encaixar material" (T32), um material por vez.

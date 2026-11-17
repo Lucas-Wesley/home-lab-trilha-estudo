@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T31), fases, riscos e o que está em aberto.
+  (T1–T32), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — o design **próprio** desta app (estilo Claude
@@ -99,6 +99,12 @@ Streaming (`/api/video/proprio/<id>.mp4`): mudar essa rota lá é mudar a Trilha
 `modelo_criacao`; exercícios e simulado → `modelo_estudo`; correção do simulado e conferência do
 resumo → `modelo_correcao` (vazio = o dos exercícios). Recomendados na tela `Ajustes.vue` (página
 Modelos): Sonnet, Opus, Haiku, Haiku.
+
+## Encaixar material (T32)
+`backend/encaixe.go`: `POST /api/trilhas/{id}/encaixar` (material + pedido) cria uma proposta
+`encaixe` com chave `@encaixe-<n>` (uma por material) e guarda o material em `encaixes`;
+`GET /api/trilhas/{id}/encaixes` lista; aprovar recebe `{encaixes:[i], novos:[i]}`. Regra
+`encaixe.md`. Tela: `EncaixarMaterial.vue` na página da trilha (usa `EscolherMaterial` com `sem-papel`).
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

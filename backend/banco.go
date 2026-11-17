@@ -250,6 +250,12 @@ CREATE TABLE IF NOT EXISTS revisoes (
 	PRIMARY KEY (trilha_id, etapa_chave)
 );
 
+-- T32 (encaixar material): o material de cada proposta de encaixe (a 1ª versão; os ajustes apontam para ela).
+CREATE TABLE IF NOT EXISTS encaixes (
+	proposta_id INTEGER PRIMARY KEY REFERENCES propostas(id) ON DELETE CASCADE,
+	material    TEXT NOT NULL
+);
+
 -- T30 (videoaula): as notas que o Lucas toma assistindo e o resumo dele, pela chave da etapa.
 CREATE TABLE IF NOT EXISTS anotacoes (
 	trilha_id     INTEGER NOT NULL REFERENCES trilhas(id) ON DELETE CASCADE,

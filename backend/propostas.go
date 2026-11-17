@@ -363,6 +363,8 @@ func (a *app) handleAjustar(w http.ResponseWriter, r *http.Request) {
 	titulo := "Ajuste da lição"
 	if ehCriacao(p.Tipo) {
 		titulo = titulosCriacao[p.Tipo] + ": " + a.tituloDaTrilha(r.Context(), p.TrilhaID)
+	} else if p.Tipo == tipoEncaixe {
+		titulo = "Encaixar material: " + a.tituloDaTrilha(r.Context(), p.TrilhaID)
 	} else if e, err := a.etapaPorChave(r.Context(), p.TrilhaID, p.EtapaChave); err == nil {
 		titulo = titulosEstudo[p.Tipo] + ": " + e.Titulo
 	}
@@ -394,6 +396,10 @@ func (a *app) handleAprovar(w http.ResponseWriter, r *http.Request) {
 	}
 	if p.Tipo == tipoReforco {
 		a.aprovarReforco(w, r, p)
+		return
+	}
+	if p.Tipo == tipoEncaixe {
+		a.aprovarEncaixe(w, r, p)
 		return
 	}
 	if err := a.semVersaoGerando(r.Context(), p); err != nil {

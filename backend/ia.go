@@ -145,6 +145,7 @@ var regrasDoApp = []regra{
 	{Arquivo: "corrigir-simulado.md", Titulo: "Corrigir o simulado", Para: "Corrigir as respostas do simulado"},
 	{Arquivo: "conferir-resumo.md", Titulo: "Conferir o resumo", Para: "Comparar o meu resumo de uma videoaula com a transcrição dela"},
 	{Arquivo: "reforco.md", Titulo: "Reforço", Para: "Propor etapas de reforço para uma etapa em que errei"},
+	{Arquivo: "encaixe.md", Titulo: "Encaixar material", Para: "Dizer em que etapas um material entra e que tópicos ele traz que a trilha não tem"},
 	{Arquivo: "materiais.md", Titulo: "Sugerir material", Para: "Procurar material para uma etapa (web, Biblioteca, Acervo, documentos)"},
 	{Arquivo: "entrevista.md", Titulo: "Entrevista", Para: "Criar trilha (a IA monta): pré-pesquisa e perguntas"},
 	{Arquivo: "mapa.md", Titulo: "Mapa do assunto", Para: "Criar trilha (a IA monta): o mapa completo e o recorte sugerido"},

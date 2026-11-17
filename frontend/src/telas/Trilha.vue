@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import DialogoMeta from '../DialogoMeta.vue'
 import DocumentosTrilha from '../DocumentosTrilha.vue'
+import EncaixarMaterial from '../EncaixarMaterial.vue'
 import FormTrilha from '../FormTrilha.vue'
 import Icone from '../Icone.vue'
 import NavTrilhas from '../NavTrilhas.vue'
@@ -187,6 +188,7 @@ const secoes = [
   { id: 'sobre', nome: 'Sobre a trilha' },
   { id: 'meta', nome: 'Meta e ritmo' },
   { id: 'estrutura', nome: 'Estrutura' },
+  { id: 'encaixar', nome: 'Encaixar material' },
   { id: 'documentos', nome: 'Documentos' },
   { id: 'cronograma', nome: 'Cronograma' },
 ]
@@ -289,7 +291,7 @@ function irPara(id) {
             <tbody>
               <tr v-for="(e, ei) in m.etapas" :key="e.id">
                 <td class="col-titulo">
-                  <a class="titulo" :href="link('trilhas', t.id, 'etapas', e.id)">{{ e.titulo }}</a>
+                  <a class="titulo" :href="link('trilhas', t.id, 'etapas', e.id)"><span class="numero">{{ mi + 1 }}.{{ ei + 1 }}</span>{{ e.titulo }}</a>
                   <div v-if="e.objetivo" class="descricao">{{ e.objetivo }}</div>
                 </td>
                 <td>
@@ -321,6 +323,12 @@ function irPara(id) {
           <input v-model="novoModulo" class="campo" placeholder="Novo módulo" />
           <button class="botao" type="submit">Criar módulo</button>
         </form>
+      </section>
+
+      <!-- Encaixar material (T32) -->
+      <section v-if="t.modulos.length" id="encaixar" class="secao">
+        <h2>Encaixar material</h2>
+        <EncaixarMaterial :trilha="t" @mudou="carregar" />
       </section>
 
       <!-- Documentos -->
@@ -385,6 +393,7 @@ function irPara(id) {
 </template>
 
 <style scoped>
+.numero { display: inline-block; min-width: 2.6em; color: var(--texto-fraco); font-variant-numeric: tabular-nums; font-weight: 500; }
 .etiquetas-topo { margin-top: var(--e3); }
 .topo { margin-top: var(--e4); }
 .secao { margin-top: var(--e7); scroll-margin-top: calc(var(--barra) + var(--e4)); }
