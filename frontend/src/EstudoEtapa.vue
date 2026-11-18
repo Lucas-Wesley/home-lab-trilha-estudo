@@ -9,10 +9,14 @@ import { textoComCodigo } from './markdown.js'
 const props = defineProps({
   etapa: { type: Object, required: true },
   trilha: { type: Object, required: true },
+  // Na página da etapa, cada parte fica numa aba: mostra só a da vez (vazio = todas).
+  aba: { type: String, default: '' },
 })
-const emit = defineEmits(['concluir', 'mudou'])
+const emit = defineEmits(['concluir', 'mudou', 'contagem'])
 
 const est = ref(null)
+watch(est, (x) => x && emit('contagem', { exercicios: x.exercicios.length, simulado: x.simulado.length }))
+const ver = (parte) => !props.aba || props.aba === parte
 const erro = ref('')
 async function carregar() {
   try {
@@ -135,7 +139,7 @@ async function mandarFlashcards() {
     <p v-if="erro" class="aviso">{{ erro }}</p>
 
     <!-- Exercícios -->
-    <section id="exercicios" class="secao">
+    <section v-show="ver('exercicios')" id="exercicios" class="secao">
       <div class="linha entre">
         <h2>Exercícios</h2>
         <button v-if="est?.exercicios.length && !fazendo" class="botao discreto" @click="propEx?.abrir()">Pedir exercícios novos</button>
@@ -210,7 +214,7 @@ async function mandarFlashcards() {
     </section>
 
     <!-- Simulado -->
-    <section id="simulado" class="secao">
+    <section v-show="ver('simulado')" id="simulado" class="secao">
       <div class="linha entre">
         <h2>Simulado</h2>
         <button v-if="est?.simulado.length" class="botao discreto" @click="propSim?.abrir()">Gerar mais</button>
@@ -268,7 +272,7 @@ async function mandarFlashcards() {
     </section>
 
     <!-- Flashcards -->
-    <section id="flashcards" class="secao">
+    <section v-show="ver('flashcards')" id="flashcards" class="secao">
       <h2>Flashcards</h2>
       <p v-if="!temLicao" class="suave">A lição vira cartões no app Flashcards: primeiro a lição da etapa.</p>
       <p v-else-if="est && !est.flashcards.disponivel" class="suave">O Flashcards não está configurado neste servidor (FLASHCARDS_URL).</p>

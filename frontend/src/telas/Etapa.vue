@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import EscolherMaterial from '../EscolherMaterial.vue'
 import DominioEtapa from '../DominioEtapa.vue'
 import EstudoEtapa from '../EstudoEtapa.vue'
@@ -17,6 +17,8 @@ import { abreEmOutraAba, hrefMaterial } from '../material.js'
 import { link } from '../rotas.js'
 import { textoComCodigo } from '../markdown.js'
 import { BLOOM, PAPEIS, PROFUNDIDADES, STATUS, TIPOS_MATERIAL, duracao } from '../rotulos.js'
+
+const TIPOS_ETAPA = { base: 'Etapa de base', reforco: 'Reforço', projeto: 'Projeto do módulo' }
 
 const props = defineProps({
   trilhaId: { type: Number, required: true },
@@ -59,6 +61,37 @@ const anterior = computed(() => todas.value[posicao.value - 1])
 const proxima = computed(() => todas.value[posicao.value + 1])
 const modulo = computed(() => todas.value[posicao.value]?.modulo || '')
 const profundidade = computed(() => e.value?.profundidade || t.value?.profundidade || 3)
+const doModulo = computed(() => todas.value.filter((x) => x.modulo === modulo.value))
+const posicaoNoModulo = computed(() => doModulo.value.findIndex((x) => x.id === props.etapaId) + 1)
+const totalNoModulo = computed(() => doModulo.value.length)
+
+// ---------- abas ----------
+const contagem = ref({ exercicios: 0, simulado: 0 })
+const abas = computed(() => [
+  { id: 'licao', nome: videos.value.length ? 'Texto da aula' : e.value?.tipo === 'projeto' ? 'Enunciado' : 'Lição', feito: !!e.value?.licao },
+  { id: 'resumo', nome: 'Meu resumo' },
+  { id: 'exercicios', nome: 'Exercícios', conta: contagem.value.exercicios },
+  { id: 'simulado', nome: 'Simulado', conta: contagem.value.simulado },
+  { id: 'flashcards', nome: 'Flashcards' },
+  { id: 'dominio', nome: 'Domínio' },
+  { id: 'fontes', nome: 'Fontes', conta: e.value?.materiais?.length || 0 },
+])
+const IDS_ABAS = ['licao', 'resumo', 'exercicios', 'simulado', 'flashcards', 'dominio', 'fontes']
+// A âncora do endereço escolhe a aba (#exercicios) ou um título da lição (#por-que-existe).
+const abaDaAncora = (a) => (a === 'material' ? 'fontes' : IDS_ABAS.includes(a) ? a : 'licao')
+const aba = ref(abaDaAncora(props.ancora))
+const ancoraDaLicao = computed(() => (IDS_ABAS.includes(props.ancora) || props.ancora === 'material' ? '' : props.ancora))
+watch(() => props.ancora, (a) => (aba.value = abaDaAncora(a)))
+watch(() => props.etapaId, () => (aba.value = abaDaAncora(props.ancora)))
+const barraAbas = ref(null)
+async function trocarAba(id) {
+  aba.value = id
+  history.replaceState(null, '', `#/trilhas/${props.trilhaId}/etapas/${props.etapaId}${id === 'licao' ? '' : '#' + id}`)
+  await nextTick()
+  // Trocou de aba lá embaixo: volta para o começo dela.
+  const barra = barraAbas.value
+  if (barra && barra.getBoundingClientRect().top < 0) barra.scrollIntoView({ block: 'start' })
+}
 
 const materiaisPorPapel = computed(() => {
   const grupos = { principal: [], apoio: [], aprofundar: [] }
@@ -153,75 +186,95 @@ async function excluir() {
 
       <!-- Leitura -->
       <template v-if="!edicao">
-        <div class="cabecalho">
-          <h1>{{ e.titulo }}</h1>
+        <header class="cabecalho">
+          <div>
+            <h1>{{ e.titulo }}</h1>
+            <p class="contexto">
+              {{ modulo }} · etapa {{ posicaoNoModulo }} de {{ totalNoModulo }}
+              <span v-if="TIPOS_ETAPA[e.tipo]" class="etiqueta ambar">{{ TIPOS_ETAPA[e.tipo] }}</span>
+            </p>
+          </div>
           <button class="botao discreto" @click="editar">Editar</button>
+        </header>
+        <p v-if="e.objetivo" class="objetivo" v-html="textoComCodigo(e.objetivo)" />
+
+        <!-- Progresso: o estado, o que falta para concluir e as ações, num cartão só. -->
+        <div class="cartao progresso">
+          <div class="progresso-texto">
+            <div class="linha">
+              <span class="rotulo sem-margem">Para concluir</span>
+              <span class="etiqueta" :class="STATUS[e.status].cor">{{ STATUS[e.status].nome }}</span>
+            </div>
+            <p v-if="e.criterio" class="criterio" v-html="textoComCodigo(e.criterio)" />
+            <p v-if="e.requer.length" class="antes">
+              <span class="fraco">Antes:</span>
+              <template v-for="(r, i) in e.requer" :key="r">
+                <a :href="link('trilhas', t.id, 'etapas', r)">{{ porId[r]?.titulo }}</a><span v-if="porId[r]?.status === 'concluida'" class="feito" title="Concluída"> ✓</span><span v-if="i < e.requer.length - 1">, </span>
+              </template>
+            </p>
+          </div>
+          <div class="progresso-acoes">
+            <button v-if="e.status === 'disponivel'" class="botao" @click="mudarStatus('em_andamento')">Começar</button>
+            <button v-if="e.status !== 'concluida'" class="botao primario" @click="mudarStatus('concluida')">Concluir</button>
+            <button v-if="e.status === 'disponivel' || e.status === 'em_andamento'" class="botao discreto" @click="mudarStatus('pulada')">Pular</button>
+            <button v-if="e.status === 'concluida' || e.status === 'pulada'" class="botao discreto" @click="mudarStatus('disponivel')">Reabrir</button>
+          </div>
         </div>
-        <div class="linha etiquetas-topo">
-          <span class="etiqueta" :class="STATUS[e.status].cor">{{ STATUS[e.status].nome }}</span>
-          <span v-if="e.tipo === 'base'" class="etiqueta ambar">Etapa de base</span>
-          <span v-if="e.tipo === 'reforco'" class="etiqueta ambar">Reforço</span>
-          <span v-if="e.tipo === 'projeto'" class="etiqueta ambar">Projeto do módulo</span>
-          <span v-if="e.bloom" class="etiqueta">{{ BLOOM[e.bloom] }}</span>
-          <span class="etiqueta">{{ PROFUNDIDADES[profundidade] }}</span>
-          <span class="etiqueta">{{ duracao(e.minutos) }}</span>
-        </div>
-        <p v-if="e.objetivo" class="lead" v-html="textoComCodigo(e.objetivo)" />
         <p v-if="aviso" class="aviso topo">{{ aviso }}</p>
 
-        <div class="linha acoes">
-          <button v-if="e.status === 'disponivel'" class="botao" @click="mudarStatus('em_andamento')">Começar</button>
-          <button v-if="e.status !== 'concluida'" class="botao primario" @click="mudarStatus('concluida')">Concluir</button>
-          <button v-if="e.status === 'disponivel' || e.status === 'em_andamento'" class="botao discreto" @click="mudarStatus('pulada')">Pular</button>
-          <button v-if="e.status === 'concluida' || e.status === 'pulada'" class="botao discreto" @click="mudarStatus('disponivel')">Reabrir</button>
-        </div>
+        <Videoaula v-if="videos.length" ref="player" :key="`video-${e.id}`" :videos="videos" :etapa-id="e.id" class="topo" />
 
-        <Videoaula v-if="videos.length" ref="player" :key="`video-${e.id}`" :videos="videos" :etapa-id="e.id" />
+        <!-- Abas: cada parte da etapa no seu lugar (fica no endereço: dá para voltar direto nela). -->
+        <nav ref="barraAbas" class="abas-etapa" role="tablist" aria-label="Partes da etapa">
+          <button
+            v-for="a in abas"
+            :key="a.id"
+            role="tab"
+            class="aba"
+            :class="{ ativa: aba === a.id }"
+            :aria-selected="aba === a.id"
+            @click="trocarAba(a.id)"
+          >
+            {{ a.nome }}<span v-if="a.conta" class="conta">{{ a.conta }}</span><span v-else-if="a.feito" class="feito" aria-label="pronta">✓</span>
+          </button>
+        </nav>
 
-        <div v-if="e.requer.length || e.criterio || e.foco" class="cartao cheio pilha bloco">
-          <div v-if="e.requer.length">
-            <span class="rotulo">Antes desta etapa</span>
-            <ul class="lista-simples">
-              <li v-for="r in e.requer" :key="r">
-                <a :href="link('trilhas', t.id, 'etapas', r)">{{ porId[r]?.titulo }}</a>
-                <span class="etiqueta" :class="STATUS[porId[r]?.status]?.cor">{{ STATUS[porId[r]?.status]?.nome }}</span>
-              </li>
-            </ul>
+        <div class="painel">
+          <section v-show="aba === 'licao'" id="licao">
+            <div class="linha entre cabeca-aba">
+              <span class="pequeno">{{ e.licao ? `${PROFUNDIDADES[profundidade]} · cerca de ${duracao(e.minutos)}` : '' }}</span>
+              <button v-if="e.licao" class="botao discreto" @click="proposta?.abrir()">Pedir mudança</button>
+            </div>
+            <p v-if="!e.licao && !propostaAberta" class="suave">Esta etapa ainda não tem {{ e.tipo === 'projeto' ? 'enunciado' : 'lição' }}. A IA escreve na profundidade da etapa ({{ PROFUNDIDADES[profundidade] }}), a partir das fontes, trazendo para dentro tudo o que importa; chega como proposta, você comenta e aprova. Também dá para escrever à mão em Editar.</p>
+            <PropostaLicao ref="proposta" :key="e.id" :etapa-id="e.id" :licao-atual="e.licao || ''" :base-docs="baseDocs" @aprovada="aoAprovar" @aberta="propostaAberta = $event" />
+            <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancoraDaLicao" :base-docs="baseDocs" @titulos="titulos = $event" />
+          </section>
+
+          <div v-show="aba === 'resumo'">
+            <ResumoEtapa :key="`resumo-${e.id}`" :etapa-id="e.id" :tem-video="videos.length > 0" @ir="irNoVideo" />
           </div>
-          <div v-if="e.criterio">
-            <span class="rotulo">Para concluir</span>
-            <p class="sem-margem criterio" v-html="textoComCodigo(e.criterio)" />
-          </div>
-          <div v-if="e.foco">
-            <span class="rotulo">Foco da lição</span>
-            <p class="sem-margem criterio" v-html="textoComCodigo(e.foco)" />
-          </div>
-        </div>
 
-        <section id="licao" class="secao">
-          <div class="linha entre">
-            <h2>{{ videos.length ? 'Texto da aula' : e.tipo === 'projeto' ? 'Enunciado do projeto' : 'Lição' }}</h2>
-            <button v-if="e.licao" class="botao discreto" @click="proposta?.abrir()">Pedir mudança</button>
+          <EstudoEtapa
+            v-show="['exercicios', 'simulado', 'flashcards'].includes(aba)"
+            :key="`estudo-${e.id}-${!!e.licao}`"
+            :etapa="e"
+            :trilha="t"
+            :aba="aba"
+            @concluir="mudarStatus('concluida')"
+            @mudou="recarregarEtapa"
+            @contagem="contagem = $event"
+          />
+
+          <div v-show="aba === 'dominio'">
+            <DominioEtapa :key="`dominio-${e.id}-${e.status}-${versaoEstudo}`" :etapa="e" :trilha-id="t.id" @mudou="recarregarEtapa" />
           </div>
-          <p v-if="!e.licao && !propostaAberta" class="suave">Esta etapa ainda não tem lição. A IA escreve uma na profundidade da etapa ({{ PROFUNDIDADES[profundidade] }}), a partir das fontes (abaixo), trazendo para dentro dela tudo o que importa; ela chega como proposta, você comenta e aprova. Também dá para escrever à mão em Editar.</p>
-          <PropostaLicao ref="proposta" :key="e.id" :etapa-id="e.id" :licao-atual="e.licao || ''" :base-docs="baseDocs" @aprovada="aoAprovar" @aberta="propostaAberta = $event" />
-          <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancora" :base-docs="baseDocs" @titulos="titulos = $event" />
-        </section>
 
-        <ResumoEtapa :key="`resumo-${e.id}`" :etapa-id="e.id" :tem-video="videos.length > 0" @ir="irNoVideo" />
-
-        <EstudoEtapa :key="`estudo-${e.id}-${!!e.licao}`" :etapa="e" :trilha="t" @concluir="mudarStatus('concluida')" @mudou="recarregarEtapa" />
-        <DominioEtapa :key="`dominio-${e.id}-${e.status}-${versaoEstudo}`" :etapa="e" :trilha-id="t.id" @mudou="recarregarEtapa" />
-
-        <section id="material" class="secao">
-          <div class="linha entre">
-            <h2>Fontes</h2>
-            <button v-if="!sugestaoAberta" class="botao discreto" @click="sugerir?.abrir()">Sugerir material</button>
-          </div>
-          <p class="suave">De onde a lição sai. A lição já traz o que importa: não precisa abrir nada daqui.</p>
-          <p v-if="!materiaisPorPapel.length" class="suave">Sem fonte ainda. A IA pode sugerir (web, os seus livros, o Acervo e os documentos da trilha), ou adicione em Editar.</p>
-          <details v-if="materiaisPorPapel.length" class="fontes" :open="!e.licao">
-            <summary>{{ e.materiais.length }} fonte(s)</summary>
+          <section v-show="aba === 'fontes'" id="material">
+            <div class="linha entre cabeca-aba">
+              <span class="suave">De onde a lição sai. A lição já traz o que importa: não precisa abrir nada daqui.</span>
+              <button v-if="!sugestaoAberta" class="botao discreto" @click="sugerir?.abrir()">Sugerir material</button>
+            </div>
+            <p v-if="!materiaisPorPapel.length" class="suave">Sem fonte ainda. A IA pode sugerir (web, os seus livros, o Acervo e os documentos da trilha), ou mande um material pela página da trilha (Encaixar material) ou em Editar.</p>
             <div v-for="[papel, lista] in materiaisPorPapel" :key="papel" class="grupo-material">
               <span class="rotulo">{{ PAPEIS[papel] }}</span>
               <ul class="materiais">
@@ -236,15 +289,9 @@ async function excluir() {
                 </li>
               </ul>
             </div>
-          </details>
-          <div class="streaming">
-            <button class="botao discreto" disabled title="Quando o Streaming tiver subpastas e legendas">
-              <Icone nome="video" :tamanho="16" /> Vincular pasta de Meus vídeos
-            </button>
-            <span class="etiqueta">em breve</span>
-          </div>
-          <PropostaMaterial ref="sugerir" :key="`material-${e.id}`" :etapa-id="e.id" :trilha-id="t.id" @aprovada="recarregarEtapa" @aberta="sugestaoAberta = $event" />
-        </section>
+            <PropostaMaterial ref="sugerir" :key="`material-${e.id}`" :etapa-id="e.id" :trilha-id="t.id" @aprovada="recarregarEtapa" @aberta="sugestaoAberta = $event" />
+          </section>
+        </div>
 
         <nav class="vizinhas" aria-label="Etapas vizinhas">
           <a v-if="anterior" class="cartao" :href="link('trilhas', t.id, 'etapas', anterior.id)">
@@ -366,7 +413,7 @@ async function excluir() {
     </template>
 
     <template #lateral>
-      <ul v-if="titulos.length && !edicao" class="sumario">
+      <ul v-if="titulos.length && !edicao && aba === 'licao'" class="sumario">
         <li v-for="h in titulos" :key="h.id" :class="{ sub: h.nivel === 3 }">
           <a :href="`#/trilhas/${trilhaId}/etapas/${etapaId}#${h.id}`">{{ h.texto }}</a>
         </li>
@@ -376,28 +423,77 @@ async function excluir() {
 </template>
 
 <style scoped>
-.etiquetas-topo { margin-top: var(--e3); }
+.cabecalho { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--e4); }
+.cabecalho h1 { font-size: 28px; }
+.contexto { display: flex; align-items: center; gap: var(--e2); flex-wrap: wrap; margin: var(--e2) 0 0; font-size: 14px; color: var(--texto-fraco); }
+.objetivo { font-size: 16px; line-height: 1.6; color: var(--texto-suave); margin: var(--e4) 0 0; max-width: 72ch; }
+.objetivo :deep(code), .criterio :deep(code) { font-size: 0.86em; padding: 1px 5px; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio-e); }
 .topo { margin-top: var(--e4); }
-.acoes { margin-top: var(--e5); }
-.bloco { margin-top: var(--e5); }
-.secao { margin-top: var(--e7); }
-.secao > h2 { margin-bottom: var(--e3); }
 .sem-margem { margin: 0; }
-.lead :deep(code), .criterio :deep(code) { font-size: 0.86em; padding: 1px 5px; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio-e); }
-.lista-simples { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e1); }
-.lista-simples li { display: flex; gap: var(--e2); align-items: center; flex-wrap: wrap; }
+.entre { justify-content: space-between; }
+
+/* Cartão de progresso */
+.progresso { display: flex; gap: var(--e5); align-items: center; justify-content: space-between; margin-top: var(--e5); }
+.progresso-texto { display: grid; gap: var(--e2); min-width: 0; }
+.progresso-acoes { display: flex; gap: var(--e2); flex: none; }
+.criterio { margin: 0; font-size: 14.5px; line-height: 1.55; }
+.antes { margin: 0; font-size: 13.5px; line-height: 1.5; }
+.feito { color: var(--verde); }
+
+/* Abas da etapa: fixas no topo ao rolar a lição, para trocar de parte de qualquer lugar. */
+.abas-etapa {
+  position: sticky;
+  top: var(--barra);
+  z-index: 5;
+  display: flex;
+  gap: 2px;
+  margin-top: var(--e6);
+  padding: var(--e1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  scroll-margin-top: var(--barra);
+}
+.abas-etapa::-webkit-scrollbar { display: none; }
+.aba {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 7px var(--e3);
+  border: 0;
+  border-radius: var(--raio-p);
+  background: transparent;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.aba:hover { color: var(--texto); background: var(--superficie-2); }
+.aba.ativa { background: var(--fundo); color: var(--texto); box-shadow: 0 0 0 1px var(--borda); }
+.conta { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--superficie-2); color: var(--texto-fraco); font-size: 12px; line-height: 18px; text-align: center; }
+.aba.ativa .conta { background: var(--superficie); }
+.aba .feito { font-size: 12px; }
+.painel { margin-top: var(--e5); min-height: 240px; }
+/* Dentro da aba, o nome já está na aba: some o título repetido e o espaço de seção. */
+.painel :deep(.secao) { margin-top: 0; }
+.painel :deep(.secao > h2), .painel :deep(.secao > .linha > h2), .painel :deep(.secao > .cabeca-secao) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.painel :deep(.secao > .linha.entre) { justify-content: flex-end; }
+.painel :deep(#resumo > .linha.entre) { justify-content: flex-end; }
+.cabeca-aba { margin-bottom: var(--e3); gap: var(--e3); }
+
 .grupo-material + .grupo-material { margin-top: var(--e4); }
-.fontes > summary { cursor: pointer; color: var(--texto-suave); margin-bottom: var(--e3); }
-.streaming { display: flex; align-items: center; gap: var(--e2); margin-top: var(--e4); }
-.streaming .botao:disabled { cursor: not-allowed; opacity: 0.6; }
-.materiais { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e3); }
+.materiais { list-style: none; margin: var(--e2) 0 0; padding: 0; display: grid; gap: var(--e3); }
 .materiais li { display: flex; gap: var(--e3); align-items: flex-start; font-size: 15px; line-height: 1.5; }
 .materiais .etiqueta { flex: none; margin-top: 2px; min-width: 76px; justify-content: center; }
 .nota { font-size: 14px; margin-top: 2px; }
 .vizinhas { display: grid; grid-template-columns: 1fr 1fr; gap: var(--e3); margin-top: var(--e7); }
 .vizinhas .cartao { display: grid; gap: 2px; }
 .vizinhas .direita { text-align: right; }
-.entre { justify-content: space-between; }
 .caixa { border: 1px solid var(--borda); border-radius: var(--raio); padding: var(--e3) var(--e4) var(--e4); margin: 0; }
 .caixa legend { padding: 0 var(--e1); margin: 0; }
 .opcao { display: flex; gap: var(--e2); align-items: flex-start; padding: 3px 0; font-size: 14px; }
@@ -406,7 +502,10 @@ async function excluir() {
 /* O título da lição repete o da etapa, que já está no topo da página. */
 .licao-etapa :deep(h1:first-child) { display: none; }
 .perigo { color: var(--vermelho); }
-@media (max-width: 599px) {
+@media (max-width: 699px) {
+  .cabecalho h1 { font-size: 24px; }
+  .progresso { flex-direction: column; align-items: stretch; gap: var(--e3); }
+  .progresso-acoes { flex-wrap: wrap; }
   .vizinhas { grid-template-columns: 1fr; }
 }
 </style>
