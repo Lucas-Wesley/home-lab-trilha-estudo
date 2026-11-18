@@ -199,7 +199,7 @@ async function excluir() {
         <p v-if="e.objetivo" class="objetivo" v-html="textoComCodigo(e.objetivo)" />
 
         <!-- Progresso: o estado, o que falta para concluir e as ações, num cartão só. -->
-        <div class="cartao progresso">
+        <div class="progresso">
           <div class="progresso-texto">
             <div class="linha">
               <span class="rotulo sem-margem">Para concluir</span>
@@ -239,7 +239,7 @@ async function excluir() {
           </button>
         </nav>
 
-        <div class="painel">
+        <div class="conteudo-aba">
           <section v-show="aba === 'licao'" id="licao">
             <div class="linha entre cabeca-aba">
               <span class="pequeno">{{ e.licao ? `${PROFUNDIDADES[profundidade]} · cerca de ${duracao(e.minutos)}` : '' }}</span>
@@ -433,7 +433,7 @@ async function excluir() {
 .entre { justify-content: space-between; }
 
 /* Cartão de progresso */
-.progresso { display: flex; gap: var(--e5); align-items: center; justify-content: space-between; margin-top: var(--e5); }
+.progresso { padding: var(--e4) var(--e5); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); display: flex; gap: var(--e5); align-items: center; justify-content: space-between; margin-top: var(--e5); }
 .progresso-texto { display: grid; gap: var(--e2); min-width: 0; }
 .progresso-acoes { display: flex; gap: var(--e2); flex: none; }
 .criterio { margin: 0; font-size: 14.5px; line-height: 1.55; }
@@ -462,7 +462,7 @@ async function excluir() {
   align-items: center;
   gap: 6px;
   flex: none;
-  padding: 7px var(--e3);
+  padding: 7px 11px;
   border: 0;
   border-radius: var(--raio-p);
   background: transparent;
@@ -478,12 +478,12 @@ async function excluir() {
 .conta { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--superficie-2); color: var(--texto-fraco); font-size: 12px; line-height: 18px; text-align: center; }
 .aba.ativa .conta { background: var(--superficie); }
 .aba .feito { font-size: 12px; }
-.painel { margin-top: var(--e5); min-height: 240px; }
+.conteudo-aba { margin-top: var(--e5); min-height: 240px; }
 /* Dentro da aba, o nome já está na aba: some o título repetido e o espaço de seção. */
-.painel :deep(.secao) { margin-top: 0; }
-.painel :deep(.secao > h2), .painel :deep(.secao > .linha > h2), .painel :deep(.secao > .cabeca-secao) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.painel :deep(.secao > .linha.entre) { justify-content: flex-end; }
-.painel :deep(#resumo > .linha.entre) { justify-content: flex-end; }
+.conteudo-aba :deep(.secao) { margin-top: 0; }
+.conteudo-aba :deep(.secao > h2), .conteudo-aba :deep(.secao > .linha > h2), .conteudo-aba :deep(.secao > .cabeca-secao) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.conteudo-aba :deep(.secao > .linha.entre) { justify-content: flex-end; }
+.conteudo-aba :deep(#resumo > .linha.entre) { justify-content: flex-end; }
 .cabeca-aba { margin-bottom: var(--e3); gap: var(--e3); }
 
 .grupo-material + .grupo-material { margin-top: var(--e4); }
@@ -501,6 +501,8 @@ async function excluir() {
 .licao { min-height: 360px; font-family: var(--fonte-mono); font-size: 13px; }
 /* O título da lição repete o da etapa, que já está no topo da página. */
 .licao-etapa :deep(h1:first-child) { display: none; }
+/* E o quadro de abertura (objetivo, antes, tempo) repete o topo da página. */
+.licao-etapa :deep(h1:first-child + blockquote) { display: none; }
 .perigo { color: var(--vermelho); }
 @media (max-width: 699px) {
   .cabecalho h1 { font-size: 24px; }
