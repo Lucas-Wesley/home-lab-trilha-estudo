@@ -186,8 +186,8 @@ const abas = computed(() => [
   { id: 'roteiro', nome: 'Revisar roteiro' },
   { id: 'encaixar', nome: 'Encaixar material' },
   { id: 'documentos', nome: 'Documentos', conta: t.value?.documentos?.length || 0 },
-  { id: 'meta', nome: 'Meta e cronograma' },
-  { id: 'sobre', nome: 'Sobre a trilha' },
+  { id: 'meta', nome: 'Meta e ritmo' },
+  { id: 'sobre', nome: 'Sobre' },
 ])
 const IDS_ABAS = ['estrutura', 'roteiro', 'encaixar', 'documentos', 'meta', 'sobre']
 const abaDaAncora = (a) => (a === 'cronograma' ? 'meta' : IDS_ABAS.includes(a) ? a : 'estrutura')

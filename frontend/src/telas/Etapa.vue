@@ -281,7 +281,7 @@ async function excluir() {
               <span class="suave">De onde a lição sai. A lição já traz o que importa: não precisa abrir nada daqui.</span>
               <button v-if="!sugestaoAberta" class="botao discreto" @click="sugerir?.abrir()">Sugerir material</button>
             </div>
-            <p v-if="!materiaisPorPapel.length" class="suave">Sem fonte ainda. A IA pode sugerir (web, os seus livros, o Acervo e os documentos da trilha), ou mande um material pela página da trilha (Encaixar material) ou em Editar.</p>
+            <p v-if="!materiaisPorPapel.length" class="suave">Sem fonte ainda. A IA pode sugerir (web, os seus livros, o Acervo e os documentos da trilha), encaixe um material seu logo abaixo, ou adicione em Editar.</p>
             <div v-for="[papel, lista] in materiaisPorPapel" :key="papel" class="grupo-material">
               <span class="rotulo">{{ PAPEIS[papel] }}</span>
               <ul class="materiais">
