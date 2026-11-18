@@ -199,8 +199,8 @@ async function excluir() {
         <p v-if="e.objetivo" class="objetivo" v-html="textoComCodigo(e.objetivo)" />
 
         <!-- Progresso: o estado, o que falta para concluir e as ações, num cartão só. -->
-        <div class="progresso">
-          <div class="progresso-texto">
+        <div class="situacao">
+          <div class="situacao-texto">
             <div class="linha">
               <span class="rotulo sem-margem">Para concluir</span>
               <span class="etiqueta" :class="STATUS[e.status].cor">{{ STATUS[e.status].nome }}</span>
@@ -213,7 +213,7 @@ async function excluir() {
               </template>
             </p>
           </div>
-          <div class="progresso-acoes">
+          <div class="situacao-acoes">
             <button v-if="e.status === 'disponivel'" class="botao" @click="mudarStatus('em_andamento')">Começar</button>
             <button v-if="e.status !== 'concluida'" class="botao primario" @click="mudarStatus('concluida')">Concluir</button>
             <button v-if="e.status === 'disponivel' || e.status === 'em_andamento'" class="botao discreto" @click="mudarStatus('pulada')">Pular</button>
@@ -433,9 +433,9 @@ async function excluir() {
 .entre { justify-content: space-between; }
 
 /* Cartão de progresso */
-.progresso { padding: var(--e4) var(--e5); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); display: flex; gap: var(--e5); align-items: center; justify-content: space-between; margin-top: var(--e5); }
-.progresso-texto { display: grid; gap: var(--e2); min-width: 0; }
-.progresso-acoes { display: flex; gap: var(--e2); flex: none; }
+.situacao { padding: var(--e4) var(--e5); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); display: flex; gap: var(--e5); align-items: center; justify-content: space-between; margin-top: var(--e5); }
+.situacao-texto { display: grid; gap: var(--e2); min-width: 0; }
+.situacao-acoes { display: flex; gap: var(--e2); flex: none; }
 .criterio { margin: 0; font-size: 14.5px; line-height: 1.55; }
 .antes { margin: 0; font-size: 13.5px; line-height: 1.5; }
 .feito { color: var(--verde); }
@@ -506,8 +506,8 @@ async function excluir() {
 .perigo { color: var(--vermelho); }
 @media (max-width: 699px) {
   .cabecalho h1 { font-size: 24px; }
-  .progresso { flex-direction: column; align-items: stretch; gap: var(--e3); }
-  .progresso-acoes { flex-wrap: wrap; }
+  .situacao { flex-direction: column; align-items: stretch; gap: var(--e3); }
+  .situacao-acoes { flex-wrap: wrap; }
   .vizinhas { grid-template-columns: 1fr; }
 }
 </style>
