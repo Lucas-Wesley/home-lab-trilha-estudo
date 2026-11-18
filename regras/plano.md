@@ -16,7 +16,7 @@ Devolva:
   `modulos`. Cada módulo tem `titulo`, `descricao` e `etapas`. Cada etapa tem:
   - `chave` (minúsculas, números e hífens, única), `titulo`, `objetivo` (com verbo de Bloom),
     `bloom` (`lembrar`, `entender`, `aplicar`, `analisar`, `avaliar` ou `criar`), `tipo`
-    (`normal` ou `base`), `minutos` (20 a 90), `criterio` (verificável e sem citar o material:
+    (`normal`, `base` ou `projeto`: o projeto que fecha o módulo), `minutos` (20 a 90; projeto até 180), `criterio` (verificável e sem citar o material:
     o Lucas estuda pela lição, que substitui o material);
   - `requer`: as chaves dos pré-requisitos **diretos** (cada uma de uma etapa anterior);
   - `materiais`: pelo menos um com `papel` `principal`. Cada material tem `tipo` (`web`,

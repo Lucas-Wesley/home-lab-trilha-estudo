@@ -103,6 +103,35 @@ Use estas seções, nesta ordem, conforme a profundidade (a coluna da direita):
   `[material]`. O material da etapa entra como `[material]`, pelo título e pela seção, **sem
   link**. É o único lugar da lição em que o material aparece.
 
+## 3.1 Etapa de projeto
+
+Quando o pedido diz que a etapa é o **projeto do módulo**, ela não ensina assunto novo: junta o
+que as etapas do módulo (listadas no pedido) ensinaram num trabalho prático, feito no ambiente do
+Lucas (o Mac, e o homelab quando couber). Use este molde, no lugar do da seção 3:
+
+```
+# <título da etapa>
+
+> **Objetivo:** <o objetivo da etapa> · **Tempo:** <min>
+> **Consolida:** <as etapas do módulo, em uma linha>
+
+## O projeto                    (o que construir e por quê, em 1 ou 2 parágrafos; um cenário real)
+## O que você vai precisar      (ferramentas e o que instalar, com os comandos)
+## Requisitos                   (lista verificável: cada item diz o que tem que funcionar)
+## Marcos                       (3 a 6 passos; cada um diz o que fazer e como saber que deu certo,
+                                 sem dar a solução pronta; aponte a etapa do módulo que ajuda)
+## Como verificar               (os comandos ou testes que provam o critério de conclusão)
+## Onde costuma travar          (3 a 5 erros prováveis, com a dica escondida em <details>)
+## Ir além                      (2 a 4 extensões opcionais, mais difíceis)
+## Gabarito comentado           (a solução de referência, toda dentro de <details>, por marco)
+## Flashcards sugeridos         (4 a 6 pares, das decisões que o projeto obrigou a tomar)
+## Referências
+```
+
+O projeto cabe no tempo da etapa, usa **todas ou quase todas** as etapas do módulo e termina em
+algo que roda e se verifica (um comando, um teste, uma captura). Nada de "pesquise sobre": tudo o
+que ele precisa saber está nas lições do módulo.
+
 ## 4. Errata
 
 Erro achado no material: a lição ensina **a versão certa**, sem falar do documento. Quando o erro

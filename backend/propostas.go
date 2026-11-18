@@ -594,13 +594,14 @@ var nomesProfundidade = map[int]string{
 func (a *app) montarPedidoLicao(ctx context.Context, tr trilha, p proposta) (map[string]string, map[int64]bool, error) {
 	var e etapa
 	var modulo string
+	var doModulo []etapa
 	var anterior, proxima *etapa
 	var todas []etapa
 	for _, m := range tr.Modulos {
 		for i := range m.Etapas {
 			todas = append(todas, m.Etapas[i])
 			if m.Etapas[i].Chave == p.EtapaChave {
-				e, modulo = m.Etapas[i], m.Titulo
+				e, modulo, doModulo = m.Etapas[i], m.Titulo, m.Etapas
 			}
 		}
 	}
@@ -652,6 +653,9 @@ func (a *app) montarPedidoLicao(ctx context.Context, tr trilha, p proposta) (map
 	if e.Tipo == "reforco" {
 		escreva("- Tipo: etapa de **reforço** (o Lucas errou estes pontos nos exercícios, no simulado ou na revisão; explique de outro jeito, com outros exemplos, e não repita a lição da etapa reforçada)\n")
 	}
+	if e.Tipo == "projeto" {
+		escreva("- Tipo: **projeto do módulo** (consolida o que as etapas do módulo ensinaram; escreva o enunciado do projeto pela seção \"Etapa de projeto\" das regras, não uma lição)\n")
+	}
 	if e.Foco != "" {
 		escreva("- Foco pedido para esta lição: %s\n", e.Foco)
 	}
@@ -663,6 +667,15 @@ func (a *app) montarPedidoLicao(ctx context.Context, tr trilha, p proposta) (map
 	}
 
 	escreva("\n## Onde ela está na trilha\n\n")
+	if e.Tipo == "projeto" {
+		escreva("Etapas do módulo que o projeto consolida (use o que elas ensinaram; não ensine assunto novo):\n\n")
+		for _, x := range doModulo {
+			if x.ID != e.ID && x.Tipo != "projeto" {
+				escreva("- %s%s%s\n", x.Titulo, sufixo(" — ", x.Objetivo), licaoEm(x))
+			}
+		}
+		escreva("\n")
+	}
 	if len(e.Requer) > 0 {
 		escreva("Pré-requisitos (já estudados antes desta; não reexplique, só retome em uma frase se precisar):\n\n")
 		for _, rid := range e.Requer {

@@ -298,6 +298,7 @@ function irPara(id) {
                   <div class="etiquetas">
                     <span class="etiqueta" :class="STATUS[e.status].cor">{{ STATUS[e.status].nome }}</span>
                     <span v-if="e.tipo === 'base'" class="etiqueta ambar">Etapa de base</span>
+                    <span v-if="e.tipo === 'projeto'" class="etiqueta ambar">Projeto</span>
                     <span v-if="e.id === proximaId" class="etiqueta azul">Próxima</span>
                   </div>
                 </td>

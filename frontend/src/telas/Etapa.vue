@@ -161,6 +161,7 @@ async function excluir() {
           <span class="etiqueta" :class="STATUS[e.status].cor">{{ STATUS[e.status].nome }}</span>
           <span v-if="e.tipo === 'base'" class="etiqueta ambar">Etapa de base</span>
           <span v-if="e.tipo === 'reforco'" class="etiqueta ambar">Reforço</span>
+          <span v-if="e.tipo === 'projeto'" class="etiqueta ambar">Projeto do módulo</span>
           <span v-if="e.bloom" class="etiqueta">{{ BLOOM[e.bloom] }}</span>
           <span class="etiqueta">{{ PROFUNDIDADES[profundidade] }}</span>
           <span class="etiqueta">{{ duracao(e.minutos) }}</span>
@@ -199,7 +200,7 @@ async function excluir() {
 
         <section id="licao" class="secao">
           <div class="linha entre">
-            <h2>{{ videos.length ? 'Texto da aula' : 'Lição' }}</h2>
+            <h2>{{ videos.length ? 'Texto da aula' : e.tipo === 'projeto' ? 'Enunciado do projeto' : 'Lição' }}</h2>
             <button v-if="e.licao" class="botao discreto" @click="proposta?.abrir()">Pedir mudança</button>
           </div>
           <p v-if="!e.licao && !propostaAberta" class="suave">Esta etapa ainda não tem lição. A IA escreve uma na profundidade da etapa ({{ PROFUNDIDADES[profundidade] }}), a partir das fontes (abaixo), trazendo para dentro dela tudo o que importa; ela chega como proposta, você comenta e aprova. Também dá para escrever à mão em Editar.</p>
@@ -290,6 +291,7 @@ async function excluir() {
               <option value="normal">Normal</option>
               <option value="base">Etapa de base</option>
               <option value="reforco">Reforço</option>
+              <option value="projeto">Projeto do módulo</option>
             </select>
           </div>
           <div>

@@ -148,3 +148,8 @@ Ver `docs/CRIACAO-DE-TRILHAS.md` para o contexto de cada uma.
     pediu só os tópicos (do básico ao avançado, cada etapa dizendo exatamente o que aprender e
     como praticar no Mac), sem pesquisar conteúdo. As etapas nascem sem material (C9 falha de
     propósito) e o conteúdo entra por "Encaixar material" (T32), um material por vez.
+15. **Trilha prática: cada módulo fecha com um projeto.** O Lucas pediu, na trilha de redes, que
+    cada módulo termine com uma etapa do tipo `projeto` (a última do módulo), que consolida o que
+    as etapas dele ensinaram num trabalho que roda no Mac. O objetivo é de nível `criar` ou
+    `aplicar`, o critério é verificável (o comando ou o teste que prova) e a lição dela segue o
+    molde de projeto (`licao.md`, seção 3.1), sem assunto novo.

@@ -283,3 +283,23 @@ func TestConferirLinks(t *testing.T) {
 		}
 	}
 }
+
+// Projeto do módulo (lição 15 de criar-trilha): o pedido diz que é projeto e lista o que ele consolida.
+func TestPedidoDoProjetoDoModulo(t *testing.T) {
+	f := &iaFalsa{}
+	f.resposta = func(int, map[string]string) (string, error) {
+		return `{"licao":"# Projeto\n\n## O projeto\n\nTexto.","notas":"","respostas":[]}`, nil
+	}
+	c := clienteComIA(t, f)
+	trilhaComEtapa(c)
+	var pj etapa
+	c.ok("POST", "/api/modulos/1/etapas", map[string]any{"titulo": "Projeto: rede da casa", "objetivo": "Montar a rede.", "tipo": "projeto", "bloom": "criar", "minutos": 150}, &pj)
+	c.ok("POST", fmt.Sprintf("/api/etapas/%d/licao", pj.ID), map[string]any{}, nil)
+	c.a.fila.esvaziar(context.Background())
+	pedido := f.arquivos[0]["pedido.md"]
+	for _, trecho := range []string{"projeto do módulo", "Etapas do módulo que o projeto consolida", "- IP e DHCP — Explicar o DHCP.", "- NAT — Explicar o NAT."} {
+		if !strings.Contains(pedido, trecho) {
+			t.Fatalf("falta %q no pedido:\n%s", trecho, pedido)
+		}
+	}
+}

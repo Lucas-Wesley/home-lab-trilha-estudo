@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T32), fases, riscos e o que está em aberto.
+  (T1–T33), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — o design **próprio** desta app (estilo Claude
@@ -105,6 +105,10 @@ Modelos): Sonnet, Opus, Haiku, Haiku.
 `encaixe` com chave `@encaixe-<n>` (uma por material) e guarda o material em `encaixes`;
 `GET /api/trilhas/{id}/encaixes` lista; aprovar recebe `{encaixes:[i], novos:[i]}`. Regra
 `encaixe.md`. Tela: `EncaixarMaterial.vue` na página da trilha (usa `EscolherMaterial` com `sem-papel`).
+
+## Projeto do módulo (T33)
+Etapa `tipo = projeto` (última do módulo): o pedido em `propostas.go` lista as etapas do módulo e a
+regra `licao.md` (seção 3.1) usa o molde de enunciado de projeto no lugar do da lição.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

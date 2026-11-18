@@ -97,7 +97,7 @@ var (
 	estadosTrilha   = []string{"rascunho", "ativa", "pausada", "concluida"}
 	tiposMaterial   = []string{"documento", "web", "livro", "acervo", "streaming"}
 	papeisMaterial  = []string{"principal", "apoio", "aprofundar"}
-	tiposEtapa      = []string{"normal", "base", "reforco"}
+	tiposEtapa      = []string{"normal", "base", "reforco", "projeto"}
 	errNaoEncontrou = errors.New("não encontrado")
 )
 
