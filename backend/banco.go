@@ -36,6 +36,8 @@ var migracoes = []string{
 	// com ele) e o mini-teste de nível da criação (T9).
 	`ALTER TABLE etapas ADD COLUMN foco TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE criacoes ADD COLUMN nivelamento TEXT NOT NULL DEFAULT ''`,
+	// T34: o encaixe mandado a um tópico só (chave da etapa; vazio = a trilha inteira).
+	`ALTER TABLE encaixes ADD COLUMN foco TEXT NOT NULL DEFAULT ''`,
 }
 
 // O esquema cresce fase a fase (DECISOES.md §9).

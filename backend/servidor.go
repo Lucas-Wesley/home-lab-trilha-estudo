@@ -34,6 +34,7 @@ func (a *app) ligarIA() {
 	a.fila.executores[tipoCorrecao] = a.corrigirSimulado
 	a.fila.executores[tipoConferirResumo] = a.conferirResumo
 	a.fila.executores[tipoEncaixe] = a.gerarEncaixe
+	a.fila.executores[tipoRoteiro] = a.gerarRoteiro
 	a.fila.executores[tipoMateriais] = a.gerarMateriais
 	a.fila.executores[tipoReforco] = a.gerarReforco
 	a.fila.executores[tipoNivelamento] = a.gerarNivelamento
@@ -59,6 +60,8 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/trilhas/{id}/modulos", a.handleCriarModulo)
 	mux.HandleFunc("POST /api/trilhas/{id}/encaixar", a.handleEncaixar)
 	mux.HandleFunc("GET /api/trilhas/{id}/encaixes", a.handleEncaixes)
+	mux.HandleFunc("POST /api/trilhas/{id}/roteiro", a.handleRevisarRoteiro)
+	mux.HandleFunc("GET /api/trilhas/{id}/roteiro", a.handleRoteiro)
 
 	mux.HandleFunc("PUT /api/modulos/{id}", a.handleEditarModulo)
 	mux.HandleFunc("DELETE /api/modulos/{id}", a.handleExcluirModulo)

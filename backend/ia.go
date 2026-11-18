@@ -145,7 +145,8 @@ var regrasDoApp = []regra{
 	{Arquivo: "corrigir-simulado.md", Titulo: "Corrigir o simulado", Para: "Corrigir as respostas do simulado"},
 	{Arquivo: "conferir-resumo.md", Titulo: "Conferir o resumo", Para: "Comparar o meu resumo de uma videoaula com a transcrição dela"},
 	{Arquivo: "reforco.md", Titulo: "Reforço", Para: "Propor etapas de reforço para uma etapa em que errei"},
-	{Arquivo: "encaixe.md", Titulo: "Encaixar material", Para: "Dizer em que etapas um material entra e que tópicos ele traz que a trilha não tem"},
+	{Arquivo: "encaixe.md", Titulo: "Encaixar material", Para: "Dizer em que etapas um material entra, que tópicos ele traz que a trilha não tem e que tópicos ele mostra que deviam mudar"},
+	{Arquivo: "roteiro.md", Titulo: "Revisar o roteiro", Para: "Rever os tópicos da trilha (ou de um tópico) contra o objetivo, o recorte, os níveis e a profundidade, e propor mudanças"},
 	{Arquivo: "materiais.md", Titulo: "Sugerir material", Para: "Procurar material para uma etapa (web, Biblioteca, Acervo, documentos)"},
 	{Arquivo: "entrevista.md", Titulo: "Entrevista", Para: "Criar trilha (a IA monta): pré-pesquisa e perguntas"},
 	{Arquivo: "mapa.md", Titulo: "Mapa do assunto", Para: "Criar trilha (a IA monta): o mapa completo e o recorte sugerido"},
@@ -278,8 +279,8 @@ type ajustes struct {
 	ModeloCriacao     string `json:"modelo_criacao"`
 	ModeloEstudo      string `json:"modelo_estudo"`   // gerar exercícios e simulado (fase 5)
 	ModeloCorrecao    string `json:"modelo_correcao"` // corrigir o simulado e conferir o resumo; vazio = o dos exercícios
-	NotaMinima        string `json:"nota_minima"`   // critério automático: % nos exercícios (vazio = 80)
-	ModeloPadrao      string `json:"modelo_padrao"` // só leitura: CLAUDE_MODEL
+	NotaMinima        string `json:"nota_minima"`     // critério automático: % nos exercícios (vazio = 80)
+	ModeloPadrao      string `json:"modelo_padrao"`   // só leitura: CLAUDE_MODEL
 }
 
 var chavesAjustes = map[string]func(*ajustes) *string{
@@ -368,7 +369,7 @@ func (a *app) modeloPara(ctx context.Context, tipo string) string {
 		return valor
 	}
 	switch {
-	case ehCriacao(tipo) || tipo == tipoReforco || tipo == tipoNivelamento:
+	case ehCriacao(tipo) || tipo == tipoReforco || tipo == tipoNivelamento || tipo == tipoRoteiro:
 		return primeiro(ler("criacao"), a.ia.modelo)
 	case tipo == tipoCorrecao || tipo == tipoConferirResumo:
 		// A correção (simulado, intercalado) e a conferência do resumo; vazio = o dos exercícios.

@@ -1,5 +1,6 @@
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import AbasPagina from '../AbasPagina.vue'
 import DialogoMeta from '../DialogoMeta.vue'
 import DocumentosTrilha from '../DocumentosTrilha.vue'
 import EncaixarMaterial from '../EncaixarMaterial.vue'
@@ -7,6 +8,7 @@ import FormTrilha from '../FormTrilha.vue'
 import Icone from '../Icone.vue'
 import NavTrilhas from '../NavTrilhas.vue'
 import Pagina from '../Pagina.vue'
+import RevisarRoteiro from '../RevisarRoteiro.vue'
 import { api } from '../api.js'
 import { link } from '../rotas.js'
 import { BLOOM, DIAS, ESTADOS, PROFUNDIDADES, STATUS, dataCurta, duracao, percentual } from '../rotulos.js'
@@ -36,14 +38,7 @@ async function carregar() {
     erro.value = e.status === 404 ? 'Trilha não encontrada.' : e.message
   }
 }
-// Chegou com âncora (#/trilhas/3#documentos): vai até a seção depois de carregar.
-onMounted(async () => {
-  await carregar()
-  if (props.ancora) {
-    await nextTick()
-    document.getElementById(props.ancora)?.scrollIntoView({ block: 'start' })
-  }
-})
+onMounted(carregar)
 
 // Toda mudança devolve a trilha atualizada (ou não), e o erro aparece no topo.
 async function fazer(acao) {
@@ -184,16 +179,23 @@ function moverEtapa(mi, ei, delta) {
 // "requisito pendente" em todas as outras era ruído: no começo, todas têm.)
 const proximaId = computed(() => etapas.value.find((e) => e.status !== 'concluida' && e.status !== 'pulada')?.id)
 
-const secoes = [
-  { id: 'sobre', nome: 'Sobre a trilha' },
-  { id: 'meta', nome: 'Meta e ritmo' },
-  { id: 'estrutura', nome: 'Estrutura' },
+// ---------- abas ----------
+// Cada parte da trilha numa aba; a aba fica no endereço (#/trilhas/3#documentos).
+const abas = computed(() => [
+  { id: 'estrutura', nome: 'Estrutura', conta: t.value?.progresso.total || 0 },
+  { id: 'roteiro', nome: 'Revisar roteiro' },
   { id: 'encaixar', nome: 'Encaixar material' },
-  { id: 'documentos', nome: 'Documentos' },
-  { id: 'cronograma', nome: 'Cronograma' },
-]
-function irPara(id) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  { id: 'documentos', nome: 'Documentos', conta: t.value?.documentos?.length || 0 },
+  { id: 'meta', nome: 'Meta e cronograma' },
+  { id: 'sobre', nome: 'Sobre a trilha' },
+])
+const IDS_ABAS = ['estrutura', 'roteiro', 'encaixar', 'documentos', 'meta', 'sobre']
+const abaDaAncora = (a) => (a === 'cronograma' ? 'meta' : IDS_ABAS.includes(a) ? a : 'estrutura')
+const aba = ref(abaDaAncora(props.ancora))
+watch(() => props.ancora, (a) => (aba.value = abaDaAncora(a)))
+function trocarAba(id) {
+  aba.value = id
+  history.replaceState(null, '', `#/trilhas/${props.trilhaId}${id === 'estrutura' ? '' : '#' + id}`)
 }
 </script>
 
@@ -215,20 +217,24 @@ function irPara(id) {
           <button class="botao discreto" @click="abrirEdicao">Editar</button>
         </div>
       </div>
-      <div class="linha etiquetas-topo">
+      <p class="contexto">
         <span class="etiqueta" :class="ESTADOS[t.estado].cor">{{ ESTADOS[t.estado].nome }}</span>
-        <span class="etiqueta">Profundidade {{ t.profundidade }} · {{ PROFUNDIDADES[t.profundidade] }}</span>
-        <span class="etiqueta">{{ t.progresso.total }} etapas · {{ duracao(t.progresso.minutos_total) }}</span>
-      </div>
-      <p v-if="t.objetivo" class="lead">{{ t.objetivo }}</p>
+        {{ t.modulos.length }} módulos · {{ t.progresso.total }} etapas · {{ duracao(t.progresso.minutos_total) }} · profundidade {{ PROFUNDIDADES[t.profundidade] }}
+      </p>
+      <p v-if="t.objetivo" class="objetivo">{{ t.objetivo }}</p>
       <p v-if="aviso" class="aviso topo">{{ aviso }}</p>
       <p v-if="passoCriacao && passoCriacao !== 'pronta'" class="aviso neutro topo">
         Esta trilha está sendo criada com a IA. <a :href="link('trilhas', t.id, 'criar')">Continuar a criação</a>
       </p>
 
+      <AbasPagina class="abas-trilha" :abas="abas" :model-value="aba" rotulo="Partes da trilha" @update:model-value="trocarAba" />
+
       <!-- Sobre -->
-      <section id="sobre" class="secao">
-        <h2>Sobre a trilha</h2>
+      <section v-show="aba === 'sobre'" id="sobre" class="secao">
+        <div class="linha entre cabeca-aba">
+          <span class="suave">O que a IA usa para criar as lições e revisar o roteiro.</span>
+          <button class="botao discreto" @click="abrirEdicao">Editar</button>
+        </div>
         <dl class="ficha">
           <template v-if="t.recorte"><dt>Recorte</dt><dd>{{ t.recorte }}</dd></template>
           <template v-if="t.nivel_partida"><dt>Nível de partida</dt><dd>{{ t.nivel_partida }}</dd></template>
@@ -240,8 +246,8 @@ function irPara(id) {
       </section>
 
       <!-- Meta -->
-      <section id="meta" class="secao">
-        <h2>Meta e ritmo</h2>
+      <section v-show="aba === 'meta'" id="meta" class="secao">
+        <h3 class="subtitulo">Meta e ritmo</h3>
         <div v-if="metaTexto" class="cartao cheio pilha">
           <div class="linha entre">
             <div>
@@ -270,9 +276,9 @@ function irPara(id) {
       </section>
 
       <!-- Estrutura -->
-      <section id="estrutura" class="secao">
-        <div class="linha entre">
-          <h2>Estrutura</h2>
+      <section v-show="aba === 'estrutura'" id="estrutura" class="secao">
+        <div class="linha entre cabeca-aba">
+          <span class="suave">{{ t.progresso.concluidas }} de {{ t.progresso.total }} concluídas</span>
           <button class="botao" :class="{ primario: organizar }" @click="organizar = !organizar">{{ organizar ? 'Pronto' : 'Organizar' }}</button>
         </div>
 
@@ -326,22 +332,27 @@ function irPara(id) {
         </form>
       </section>
 
+      <!-- Revisar o roteiro (T34) -->
+      <section v-show="aba === 'roteiro'" id="roteiro" class="secao">
+        <RevisarRoteiro v-if="t.modulos.length" :trilha="t" @mudou="carregar" />
+        <p v-else class="suave">Crie os módulos e as etapas primeiro (aba Estrutura).</p>
+      </section>
+
       <!-- Encaixar material (T32) -->
-      <section v-if="t.modulos.length" id="encaixar" class="secao">
-        <h2>Encaixar material</h2>
-        <EncaixarMaterial :trilha="t" @mudou="carregar" />
+      <section v-show="aba === 'encaixar'" id="encaixar" class="secao">
+        <EncaixarMaterial v-if="t.modulos.length" :trilha="t" @mudou="carregar" />
+        <p v-else class="suave">Crie os módulos e as etapas primeiro (aba Estrutura).</p>
       </section>
 
       <!-- Documentos -->
-      <section id="documentos" class="secao">
-        <h2>Documentos</h2>
+      <section v-show="aba === 'documentos'" id="documentos" class="secao">
         <DocumentosTrilha :trilha="t" @mudou="carregar" />
       </section>
 
-      <!-- Cronograma -->
-      <section id="cronograma" class="secao">
+      <!-- Cronograma (na aba da meta) -->
+      <section v-show="aba === 'meta'" id="cronograma" class="secao">
         <div class="linha entre">
-          <h2>Cronograma</h2>
+          <h3 class="subtitulo">Cronograma</h3>
           <button v-if="cronograma.length > 7" class="botao discreto" @click="verTudo = !verTudo">{{ verTudo ? 'Só os próximos dias' : 'Ver tudo' }}</button>
         </div>
         <p v-if="!cronograma.length" class="suave">O cronograma aparece quando houver uma meta.</p>
@@ -365,9 +376,6 @@ function irPara(id) {
         <div class="suave">Falta {{ duracao(restante) }}</div>
         <div v-if="previsao" class="suave">Previsão: {{ dataCurta(previsao) }}</div>
       </div>
-      <ul v-if="t" class="sumario">
-        <li v-for="s in secoes" :key="s.id"><a href="" @click.prevent="irPara(s.id)">{{ s.nome }}</a></li>
-      </ul>
     </template>
   </Pagina>
 
@@ -395,10 +403,14 @@ function irPara(id) {
 
 <style scoped>
 .numero { display: inline-block; min-width: 2.6em; color: var(--texto-fraco); font-variant-numeric: tabular-nums; font-weight: 500; }
-.etiquetas-topo { margin-top: var(--e3); }
+.contexto { display: flex; align-items: center; gap: var(--e2); flex-wrap: wrap; margin: var(--e2) 0 0; font-size: 14px; color: var(--texto-fraco); }
+.objetivo { font-size: 16px; line-height: 1.6; color: var(--texto-suave); margin: var(--e4) 0 0; max-width: 72ch; }
 .topo { margin-top: var(--e4); }
-.secao { margin-top: var(--e7); scroll-margin-top: calc(var(--barra) + var(--e4)); }
-.secao > h2, .secao > .linha > h2 { margin-bottom: var(--e3); }
+.abas-trilha { margin-top: var(--e6); }
+.secao { margin-top: var(--e5); }
+#cronograma { margin-top: var(--e7); }
+.cabeca-aba { margin-bottom: var(--e3); gap: var(--e3); }
+.subtitulo { font-size: 16px; margin-bottom: var(--e3); }
 .entre { justify-content: space-between; }
 .fim { justify-content: flex-end; }
 .sem-margem { margin: 0; }

@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T33), fases, riscos e o que está em aberto.
+  (T1–T34), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — o design **próprio** desta app (estilo Claude
@@ -109,6 +109,15 @@ Modelos): Sonnet, Opus, Haiku, Haiku.
 ## Projeto do módulo (T33)
 Etapa `tipo = projeto` (última do módulo): o pedido em `propostas.go` lista as etapas do módulo e a
 regra `licao.md` (seção 3.1) usa o molde de enunciado de projeto no lugar do da lição.
+
+## Revisar o roteiro e encaixar no tópico (T34)
+`backend/roteiro.go`: `POST /api/trilhas/{id}/roteiro` (pedido + `etapa_chave` opcional) cria a
+proposta `roteiro` (chave `@roteiro` ou `@roteiro:<etapa>`); `GET .../roteiro?etapa=` devolve a
+última; aprovar recebe `{mudancas:[i]}` (editar, novo, mover, remover; `inserirEtapa` e
+`lugarNoModulo` são usados também pelo encaixe). O encaixe aceita `etapa_chave` (foco, coluna
+`encaixes.foco`, filtro `?etapa=`) e devolve `revisoes` (aprovar: `revisoes:[i]`). Regras
+`roteiro.md` e `encaixe.md`. Telas: `RevisarRoteiro.vue`, `MudancaRoteiro.vue`; as páginas da
+trilha e da etapa usam `AbasPagina.vue`.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

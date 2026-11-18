@@ -1,7 +1,9 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import EscolherMaterial from '../EscolherMaterial.vue'
+import AbasPagina from '../AbasPagina.vue'
 import DominioEtapa from '../DominioEtapa.vue'
+import EncaixarMaterial from '../EncaixarMaterial.vue'
 import EstudoEtapa from '../EstudoEtapa.vue'
 import Icone from '../Icone.vue'
 import Leitor from '../Leitor.vue'
@@ -10,6 +12,7 @@ import Pagina from '../Pagina.vue'
 import PropostaLicao from '../PropostaLicao.vue'
 import PropostaMaterial from '../PropostaMaterial.vue'
 import ResumoEtapa from '../ResumoEtapa.vue'
+import RevisarRoteiro from '../RevisarRoteiro.vue'
 import Videoaula from '../Videoaula.vue'
 import { videosDaEtapa } from '../videoaula.js'
 import { api } from '../api.js'
@@ -89,7 +92,7 @@ async function trocarAba(id) {
   history.replaceState(null, '', `#/trilhas/${props.trilhaId}/etapas/${props.etapaId}${id === 'licao' ? '' : '#' + id}`)
   await nextTick()
   // Trocou de aba lá embaixo: volta para o começo dela.
-  const barra = barraAbas.value
+  const barra = barraAbas.value?.barra
   if (barra && barra.getBoundingClientRect().top < 0) barra.scrollIntoView({ block: 'start' })
 }
 
@@ -107,6 +110,18 @@ const irNoVideo = (parte, segundos) => player.value?.ir(parte, segundos)
 const baseDocs = computed(() => `#/trilhas/${props.trilhaId}/documentos/`)
 
 const sugerir = ref(null)
+
+// Revisar o tópico com IA (T34): aplicada a revisão, a etapa pode ter mudado ou saído da trilha.
+const revisar = ref(null)
+const revisaoAberta = ref(false)
+async function aposRevisao() {
+  try {
+    await recarregarEtapa()
+  } catch (err) {
+    if (err.status === 404) location.hash = link('trilhas', props.trilhaId)
+    else aviso.value = err.message
+  }
+}
 const sugestaoAberta = ref(false)
 
 async function mudarStatus(status) {
@@ -194,7 +209,10 @@ async function excluir() {
               <span v-if="TIPOS_ETAPA[e.tipo]" class="etiqueta ambar">{{ TIPOS_ETAPA[e.tipo] }}</span>
             </p>
           </div>
-          <button class="botao discreto" @click="editar">Editar</button>
+          <div class="linha acoes-topo">
+            <button v-if="!revisaoAberta" class="botao discreto" @click="revisar?.abrir()">Revisar com IA</button>
+            <button class="botao discreto" @click="editar">Editar</button>
+          </div>
         </header>
         <p v-if="e.objetivo" class="objetivo" v-html="textoComCodigo(e.objetivo)" />
 
@@ -221,23 +239,12 @@ async function excluir() {
           </div>
         </div>
         <p v-if="aviso" class="aviso topo">{{ aviso }}</p>
+        <RevisarRoteiro ref="revisar" :key="`roteiro-${e.id}`" :trilha="t" :etapa="e" @aberta="revisaoAberta = $event" @mudou="aposRevisao" />
 
         <Videoaula v-if="videos.length" ref="player" :key="`video-${e.id}`" :videos="videos" :etapa-id="e.id" class="topo" />
 
         <!-- Abas: cada parte da etapa no seu lugar (fica no endereço: dá para voltar direto nela). -->
-        <nav ref="barraAbas" class="abas-etapa" role="tablist" aria-label="Partes da etapa">
-          <button
-            v-for="a in abas"
-            :key="a.id"
-            role="tab"
-            class="aba"
-            :class="{ ativa: aba === a.id }"
-            :aria-selected="aba === a.id"
-            @click="trocarAba(a.id)"
-          >
-            {{ a.nome }}<span v-if="a.conta" class="conta">{{ a.conta }}</span><span v-else-if="a.feito" class="feito" aria-label="pronta">✓</span>
-          </button>
-        </nav>
+        <AbasPagina ref="barraAbas" class="abas-etapa" :abas="abas" :model-value="aba" rotulo="Partes da etapa" @update:model-value="trocarAba" />
 
         <div class="conteudo-aba">
           <section v-show="aba === 'licao'" id="licao">
@@ -290,6 +297,10 @@ async function excluir() {
               </ul>
             </div>
             <PropostaMaterial ref="sugerir" :key="`material-${e.id}`" :etapa-id="e.id" :trilha-id="t.id" @aprovada="recarregarEtapa" @aberta="sugestaoAberta = $event" />
+            <div class="encaixar-aqui">
+              <span class="rotulo">Encaixar material neste tópico</span>
+              <EncaixarMaterial :key="`encaixe-${e.id}`" :trilha="t" :etapa="e" @mudou="recarregarEtapa" />
+            </div>
           </section>
         </div>
 
@@ -440,44 +451,7 @@ async function excluir() {
 .antes { margin: 0; font-size: 13.5px; line-height: 1.5; }
 .feito { color: var(--verde); }
 
-/* Abas da etapa: fixas no topo ao rolar a lição, para trocar de parte de qualquer lugar. */
-.abas-etapa {
-  position: sticky;
-  top: var(--barra);
-  z-index: 5;
-  display: flex;
-  gap: 2px;
-  margin-top: var(--e6);
-  padding: var(--e1);
-  overflow-x: auto;
-  scrollbar-width: none;
-  background: var(--superficie);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  scroll-margin-top: var(--barra);
-}
-.abas-etapa::-webkit-scrollbar { display: none; }
-.aba {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  padding: 7px 11px;
-  border: 0;
-  border-radius: var(--raio-p);
-  background: transparent;
-  color: var(--texto-suave);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.aba:hover { color: var(--texto); background: var(--superficie-2); }
-.aba.ativa { background: var(--fundo); color: var(--texto); box-shadow: 0 0 0 1px var(--borda); }
-.conta { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--superficie-2); color: var(--texto-fraco); font-size: 12px; line-height: 18px; text-align: center; }
-.aba.ativa .conta { background: var(--superficie); }
-.aba .feito { font-size: 12px; }
+.abas-etapa { margin-top: var(--e6); }
 .conteudo-aba { margin-top: var(--e5); min-height: 240px; }
 /* Dentro da aba, o nome já está na aba: some o título repetido e o espaço de seção. */
 .conteudo-aba :deep(.secao) { margin-top: 0; }
@@ -485,6 +459,8 @@ async function excluir() {
 .conteudo-aba :deep(.secao > .linha.entre) { justify-content: flex-end; }
 .conteudo-aba :deep(#resumo > .linha.entre) { justify-content: flex-end; }
 .cabeca-aba { margin-bottom: var(--e3); gap: var(--e3); }
+.acoes-topo { flex-wrap: nowrap; gap: var(--e1); }
+.encaixar-aqui { margin-top: var(--e6); padding-top: var(--e5); border-top: 1px solid var(--borda); }
 
 .grupo-material + .grupo-material { margin-top: var(--e4); }
 .materiais { list-style: none; margin: var(--e2) 0 0; padding: 0; display: grid; gap: var(--e3); }

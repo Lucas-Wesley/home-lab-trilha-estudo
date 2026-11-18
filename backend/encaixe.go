@@ -50,9 +50,12 @@ type encaixeNovo struct {
 }
 
 type conteudoEncaixe struct {
-	Material  material             `json:"material"`
-	Encaixes  []encaixeEtapa       `json:"encaixes"`
-	Novos     []encaixeNovo        `json:"novos"`
+	Material material       `json:"material"`
+	Foco     string         `json:"foco,omitempty"` // a etapa a que o Lucas mandou o material (T34)
+	Encaixes []encaixeEtapa `json:"encaixes"`
+	Novos    []encaixeNovo  `json:"novos"`
+	// Revisões dos tópicos que o material mostra que deviam mudar (só "editar", T34).
+	Revisoes  []mudancaRoteiro     `json:"revisoes"`
 	Notas     string               `json:"notas,omitempty"`
 	Respostas []respostaComentario `json:"respostas,omitempty"`
 }
@@ -76,15 +79,18 @@ const esquemaEncaixe = `{"type":"object","properties":{
   "nota":{"type":"string"},
   "motivo":{"type":"string","description":"por que a trilha precisa deste tópico"}},
   "required":["titulo","objetivo","bloom","minutos","modulo","depois_de","localizador","nota","motivo"]}},
+"revisoes":{"type":"array","items":{"type":"object","properties":{` + camposMudanca + `},
+  "required":["etapa_chave","titulo","objetivo","criterio","bloom","minutos","motivo"]}},
 "notas":{"type":"string"},` + esquemaRespostas + `},
-"required":["encaixes","novos","notas","respostas"]}`
+"required":["encaixes","novos","revisoes","notas","respostas"]}`
 
 // ---------- pedir ----------
 
 func (a *app) handleEncaixar(w http.ResponseWriter, r *http.Request) {
 	var corpo struct {
-		Material material `json:"material"`
-		Pedido   string   `json:"pedido"`
+		Material   material `json:"material"`
+		Pedido     string   `json:"pedido"`
+		EtapaChave string   `json:"etapa_chave"` // mandado a um tópico só (T34)
 	}
 	if err := lerCorpo(r, &corpo); err != nil {
 		a.responderErro(w, err)
@@ -121,47 +127,58 @@ func (a *app) handleEncaixar(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, erroDeEntrada{errors.New("a trilha ainda não tem módulos para encaixar o material")})
 		return
 	}
+	titulo := "Encaixar: " + m.Titulo
+	if corpo.EtapaChave != "" {
+		e, err := a.etapaPorChave(ctx, id, corpo.EtapaChave)
+		if err != nil {
+			a.responderErro(w, erroDeEntrada{errors.New("essa etapa não é desta trilha")})
+			return
+		}
+		titulo += " (em " + e.Titulo + ")"
+	}
 	bruto, _ := json.Marshal(m)
 	chave := fmt.Sprintf("@encaixe-%d", time.Now().UnixNano())
-	p, err := a.novaProposta(ctx, id, chave, tipoEncaixe, strings.TrimSpace(corpo.Pedido), 0, "Encaixar: "+m.Titulo)
+	p, err := a.novaProposta(ctx, id, chave, tipoEncaixe, strings.TrimSpace(corpo.Pedido), 0, titulo)
 	if err != nil {
 		a.responderErro(w, err)
 		return
 	}
-	if _, err := a.db.ExecContext(ctx, `INSERT INTO encaixes (proposta_id, material) VALUES (?, ?)`, p.ID, string(bruto)); err != nil {
+	if _, err := a.db.ExecContext(ctx, `INSERT INTO encaixes (proposta_id, material, foco) VALUES (?, ?, ?)`, p.ID, string(bruto), corpo.EtapaChave); err != nil {
 		a.responderErro(w, err)
 		return
 	}
 	responderJSON(w, http.StatusCreated, p)
 }
 
-// materialDoEncaixe: o material guardado na 1ª versão (os ajustes apontam para a anterior).
-func (a *app) materialDoEncaixe(ctx context.Context, p proposta) (material, error) {
+// materialDoEncaixe: o material (e o tópico a que foi mandado) guardado na 1ª versão (os ajustes
+// apontam para a anterior).
+func (a *app) materialDoEncaixe(ctx context.Context, p proposta) (material, string, error) {
 	var m material
 	id, anterior := p.ID, p.AnteriorID
 	for i := 0; i < 100 && id > 0; i++ {
-		var bruto string
-		err := a.db.QueryRowContext(ctx, `SELECT material FROM encaixes WHERE proposta_id = ?`, id).Scan(&bruto)
+		var bruto, foco string
+		err := a.db.QueryRowContext(ctx, `SELECT material, foco FROM encaixes WHERE proposta_id = ?`, id).Scan(&bruto, &foco)
 		if err == nil {
-			return m, json.Unmarshal([]byte(bruto), &m)
+			return m, foco, json.Unmarshal([]byte(bruto), &m)
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
-			return m, err
+			return m, "", err
 		}
 		id = anterior
 		anterior = 0
 		if id > 0 {
 			ant, err := a.propostaPorID(ctx, id)
 			if err != nil {
-				return m, err
+				return m, "", err
 			}
 			anterior = ant.AnteriorID
 		}
 	}
-	return m, errors.New("o material deste encaixe não foi achado")
+	return m, "", errors.New("o material deste encaixe não foi achado")
 }
 
-// handleEncaixes: as propostas de encaixe da trilha (uma por material), da mais nova à mais antiga.
+// handleEncaixes: as propostas de encaixe da trilha (uma por material), da mais nova à mais antiga;
+// com ?etapa=chave, só as mandadas a esse tópico.
 func (a *app) handleEncaixes(w http.ResponseWriter, r *http.Request) {
 	id, err := idDaRota(r)
 	if err != nil {
@@ -169,6 +186,7 @@ func (a *app) handleEncaixes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	soDoTopico := r.URL.Query().Get("etapa")
 	rows, err := a.db.QueryContext(ctx, `SELECT id FROM propostas WHERE trilha_id = ? AND tipo = ? AND estado != ?
 		ORDER BY id DESC LIMIT 60`, id, tipoEncaixe, propDescartada)
 	if err != nil {
@@ -194,8 +212,11 @@ func (a *app) handleEncaixes(w http.ResponseWriter, r *http.Request) {
 		if err := a.completar(ctx, &p); err != nil {
 			continue
 		}
-		m, _ := a.materialDoEncaixe(ctx, p)
-		lista = append(lista, map[string]any{"proposta": p, "material": m})
+		m, foco, _ := a.materialDoEncaixe(ctx, p)
+		if soDoTopico != "" && foco != soDoTopico {
+			continue
+		}
+		lista = append(lista, map[string]any{"proposta": p, "material": m, "foco": foco})
 	}
 	responderJSON(w, http.StatusOK, lista)
 }
@@ -222,7 +243,7 @@ func (a *app) gerarEncaixe(ctx context.Context, t *tarefa) error {
 	if err != nil {
 		return err
 	}
-	m, err := a.materialDoEncaixe(ctx, p)
+	m, foco, err := a.materialDoEncaixe(ctx, p)
 	if err != nil {
 		return err
 	}
@@ -231,7 +252,7 @@ func (a *app) gerarEncaixe(ctx context.Context, t *tarefa) error {
 		return err
 	}
 	defer os.RemoveAll(pasta)
-	arquivos, comentarios, err := a.montarPedidoEncaixe(ctx, tr, p, m)
+	arquivos, comentarios, err := a.montarPedidoEncaixe(ctx, tr, p, m, foco)
 	if err != nil {
 		return err
 	}
@@ -264,13 +285,18 @@ func (a *app) gerarEncaixe(ctx context.Context, t *tarefa) error {
 	if err := dadosDaResposta(resp, &c); err != nil {
 		return err
 	}
-	c.Material = m
-	var tirados []string
+	c.Material, c.Foco = m, foco
+	var tirados, tiradas []string
 	c.Encaixes, c.Novos, tirados = limparEncaixe(tr, m, c.Encaixes, c.Novos)
+	for i := range c.Revisoes {
+		c.Revisoes[i].Acao = "editar"
+	}
+	c.Revisoes, tiradas = limparMudancas(tr, c.Revisoes, []string{"editar"})
+	tirados = append(tirados, tiradas...)
 	if len(tirados) > 0 {
 		c.Notas = strings.TrimSpace(c.Notas + "\n\n(O app tirou: " + strings.Join(tirados, "; ") + ".)")
 	}
-	if len(c.Encaixes) == 0 && len(c.Novos) == 0 {
+	if len(c.Encaixes) == 0 && len(c.Novos) == 0 && len(c.Revisoes) == 0 {
 		return errors.New("a IA não achou onde o material se encaixa" + entreParenteses(strings.TrimSpace(c.Notas)))
 	}
 	bruto, err := json.Marshal(c)
@@ -342,7 +368,7 @@ func limparEncaixe(tr trilha, m material, encaixes []encaixeEtapa, novos []encai
 	return vazioSeNulo(bons), vazioSeNulo(novosBons), tirados
 }
 
-func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m material) (map[string]string, map[int64]bool, error) {
+func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m material, foco string) (map[string]string, map[int64]bool, error) {
 	cfg, err := a.lerAjustes(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -380,7 +406,13 @@ func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m 
 	}
 
 	num := numeracao(tr)
-	escreva("\n## A trilha, na ordem (número, chave, título, objetivo, material que já tem)\n\n")
+	if foco != "" {
+		if e, err := a.etapaPorChave(ctx, tr.ID, foco); err == nil {
+			escreva("\n## Foco: o Lucas mandou este material para o tópico **%s** `%s` — %s\n\n", num[e.Chave], e.Chave, e.Titulo)
+			escreva("Diga **a parte do material que serve a este tópico** (o encaixe nele, com o trecho certo), se servir de verdade; se não servir, diga nas notas por quê e onde ele serviria. Revise este tópico à luz do material (em `revisoes`), se o material mostrar que o objetivo ou o critério devia mudar. Outras etapas e tópicos novos só se o material for forte para elas.\n")
+		}
+	}
+	escreva("\n## A trilha, na ordem (número, chave, título, objetivo, critério, material que já tem)\n\n")
 	for i, md := range tr.Modulos {
 		escreva("\n### Módulo %d: %s\n", i+1, md.Titulo)
 		if md.Descricao != "" {
@@ -389,6 +421,9 @@ func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m 
 		escreva("\n")
 		for _, e := range md.Etapas {
 			escreva("- **%s** `%s` — %s: %s", num[e.Chave], e.Chave, e.Titulo, e.Objetivo)
+			if e.Criterio != "" {
+				escreva(" · critério: %s", e.Criterio)
+			}
 			if len(e.Materiais) > 0 {
 				var ts []string
 				for _, mm := range e.Materiais {
@@ -438,6 +473,7 @@ func (a *app) aprovarEncaixe(w http.ResponseWriter, r *http.Request, p proposta)
 	var corpo struct {
 		Encaixes []int `json:"encaixes"`
 		Novos    []int `json:"novos"`
+		Revisoes []int `json:"revisoes"`
 	}
 	if r.ContentLength != 0 {
 		if err := lerCorpo(r, &corpo); err != nil {
@@ -455,7 +491,7 @@ func (a *app) aprovarEncaixe(w http.ResponseWriter, r *http.Request, p proposta)
 		a.responderErro(w, err)
 		return
 	}
-	if len(corpo.Encaixes) == 0 && len(corpo.Novos) == 0 {
+	if len(corpo.Encaixes) == 0 && len(corpo.Novos) == 0 && len(corpo.Revisoes) == 0 {
 		a.responderErro(w, erroDeEntrada{errors.New("marque onde o material entra (ou descarte a proposta)")})
 		return
 	}
@@ -503,6 +539,32 @@ func (a *app) aprovarEncaixe(w http.ResponseWriter, r *http.Request, p proposta)
 		}
 		mudadas[x.EtapaChave] = e
 	}
+	vistos = map[int]bool{}
+	for _, i := range corpo.Revisoes {
+		if i < 0 || i >= len(c.Revisoes) {
+			a.responderErro(w, erroDeEntrada{fmt.Errorf("revisão %d não está na proposta", i+1)})
+			return
+		}
+		if vistos[i] {
+			continue
+		}
+		vistos[i] = true
+		x := c.Revisoes[i]
+		e, ok := mudadas[x.EtapaChave]
+		if !ok {
+			if e, ok = etapas[x.EtapaChave]; !ok {
+				a.responderErro(w, erroDeEntrada{fmt.Errorf("a etapa %q não existe mais na trilha", x.EtapaChave)})
+				return
+			}
+			ordemMudadas = append(ordemMudadas, x.EtapaChave)
+		}
+		e = editarEtapa(e, x)
+		if err := validarEtapa(&e); err != nil {
+			a.responderErro(w, erroDeEntrada{err})
+			return
+		}
+		mudadas[x.EtapaChave] = e
+	}
 	var novos []encaixeNovo
 	vistos = map[int]bool{}
 	for _, i := range corpo.Novos {
@@ -530,65 +592,15 @@ func (a *app) aprovarEncaixe(w http.ResponseWriter, r *http.Request, p proposta)
 	}
 	var criadas []string
 	for _, x := range novos {
-		mid, ok := modulos[strings.ToLower(x.Modulo)]
-		if !ok {
-			res, err := tx.ExecContext(ctx, `INSERT INTO modulos (trilha_id, ordem, titulo, descricao)
-				VALUES (?, (SELECT COALESCE(MAX(ordem), -1) + 1 FROM modulos WHERE trilha_id = ?), ?, '')`, p.TrilhaID, p.TrilhaID, x.Modulo)
-			if err != nil {
-				a.responderErro(w, err)
-				return
-			}
-			if mid, err = res.LastInsertId(); err != nil {
-				a.responderErro(w, err)
-				return
-			}
-			modulos[strings.ToLower(x.Modulo)] = mid
-		}
-		// Posição: logo depois de "depois_de", se ela está nesse módulo; senão, no fim do módulo.
-		var ordem int
-		if d, ok := etapas[x.DepoisDe]; ok && d.ModuloID == mid {
-			var atual int
-			if err := tx.QueryRowContext(ctx, `SELECT ordem FROM etapas WHERE id = ?`, d.ID).Scan(&atual); err != nil {
-				a.responderErro(w, err)
-				return
-			}
-			ordem = atual + 1
-		} else if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(ordem), -1) + 1 FROM etapas WHERE modulo_id = ?`, mid).Scan(&ordem); err != nil {
-			a.responderErro(w, err)
-			return
-		}
 		mm := c.Material
 		mm.Localizador, mm.Papel, mm.Nota = x.Localizador, "principal", x.Nota
-		nova := etapa{TrilhaID: p.TrilhaID, ModuloID: mid, Titulo: x.Titulo, Objetivo: x.Objetivo, Bloom: x.Bloom, Tipo: "normal",
+		nova := etapa{TrilhaID: p.TrilhaID, Titulo: x.Titulo, Objetivo: x.Objetivo, Bloom: x.Bloom, Tipo: "normal",
 			Minutos: x.Minutos, Requer: []int64{}, Materiais: []material{mm}}
-		if err := validarEtapa(&nova); err != nil {
-			a.responderErro(w, erroDeEntrada{fmt.Errorf("%s: %w", x.Titulo, err)})
-			return
-		}
-		chave, err := slugLivre(ctx, tx, slugificar(x.Titulo), `SELECT COUNT(*) FROM etapas WHERE trilha_id = ? AND chave = ?`, p.TrilhaID)
+		chave, err := a.inserirEtapa(ctx, tx, modulos, etapas, x.Modulo, x.DepoisDe, nova)
 		if err != nil {
 			a.responderErro(w, err)
 			return
 		}
-		if _, err := tx.ExecContext(ctx, `UPDATE etapas SET ordem = ordem + 1 WHERE modulo_id = ? AND ordem >= ?`, mid, ordem); err != nil {
-			a.responderErro(w, err)
-			return
-		}
-		res, err := tx.ExecContext(ctx, `INSERT INTO etapas (trilha_id, modulo_id, ordem, chave, titulo) VALUES (?, ?, ?, ?, ?)`,
-			p.TrilhaID, mid, ordem, chave, nova.Titulo)
-		if err != nil {
-			a.responderErro(w, err)
-			return
-		}
-		if nova.ID, err = res.LastInsertId(); err != nil {
-			a.responderErro(w, err)
-			return
-		}
-		if err := a.salvarEtapa(ctx, tx, nova); err != nil {
-			a.responderErro(w, err)
-			return
-		}
-		etapas[chave] = nova
 		criadas = append(criadas, chave)
 	}
 	if err := tx.Commit(); err != nil {

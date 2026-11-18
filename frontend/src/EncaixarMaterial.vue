@@ -4,11 +4,15 @@
 // uma proposta: ele marca o que aceita, pede ajuste ou descarta; só o marcado entra na trilha.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import EscolherMaterial from './EscolherMaterial.vue'
+import MudancaRoteiro from './MudancaRoteiro.vue'
 import { api } from './api.js'
 import { link } from './rotas.js'
 import { BLOOM, PAPEIS, TIPOS_MATERIAL } from './rotulos.js'
 
-const props = defineProps({ trilha: { type: Object, required: true } })
+const props = defineProps({
+  trilha: { type: Object, required: true },
+  etapa: { type: Object, default: null }, // mandado a um tópico só (T34)
+})
 const emit = defineEmits(['mudou'])
 
 const lista = ref([])
@@ -24,7 +28,7 @@ const porChave = computed(() => Object.fromEntries(props.trilha.modulos.flatMap(
 
 async function carregar() {
   try {
-    lista.value = await api(`/api/trilhas/${props.trilha.id}/encaixes`)
+    lista.value = await api(`/api/trilhas/${props.trilha.id}/encaixes${props.etapa ? `?etapa=${encodeURIComponent(props.etapa.chave)}` : ''}`)
     erro.value = ''
   } catch (e) {
     erro.value = e.message
@@ -62,7 +66,7 @@ function escolher(m) {
   escolhendo.value = false
 }
 async function encaixar(material = escolhido.value, texto = pedido.value) {
-  const ok = await acao(() => api(`/api/trilhas/${props.trilha.id}/encaixar`, { metodo: 'POST', corpo: { material, pedido: texto } }))
+  const ok = await acao(() => api(`/api/trilhas/${props.trilha.id}/encaixar`, { metodo: 'POST', corpo: { material, pedido: texto, ...(props.etapa ? { etapa_chave: props.etapa.chave } : {}) } }))
   if (ok && material === escolhido.value) {
     escolhido.value = null
     pedido.value = ''
@@ -80,6 +84,7 @@ watch(
       marcados.value[p.id] = {
         encaixes: new Set((p.conteudo?.encaixes || []).map((_, i) => i)),
         novos: new Set((p.conteudo?.novos || []).map((_, i) => i)),
+        revisoes: new Set((p.conteudo?.revisoes || []).map((_, i) => i)),
       }
     }
   },
@@ -90,11 +95,11 @@ function alternar(pid, grupo, i) {
   s.has(i) ? s.delete(i) : s.add(i)
   marcados.value[pid] = { ...marcados.value[pid], [grupo]: s }
 }
-const total = (pid) => (marcados.value[pid]?.encaixes.size || 0) + (marcados.value[pid]?.novos.size || 0)
+const total = (pid) => (marcados.value[pid]?.encaixes.size || 0) + (marcados.value[pid]?.novos.size || 0) + (marcados.value[pid]?.revisoes.size || 0)
 
 async function aplicar(p) {
   const m = marcados.value[p.id]
-  if (await acao(() => api(`/api/propostas/${p.id}/aprovar`, { metodo: 'POST', corpo: { encaixes: [...m.encaixes], novos: [...m.novos] } }))) emit('mudou')
+  if (await acao(() => api(`/api/propostas/${p.id}/aprovar`, { metodo: 'POST', corpo: { encaixes: [...m.encaixes], novos: [...m.novos], revisoes: [...m.revisoes] } }))) emit('mudou')
 }
 const ajuste = ref({})
 async function ajustar(p) {
@@ -107,8 +112,11 @@ const onde = (n) => porChave.value[n.depois_de] ? `depois de ${porChave.value[n.
 
 <template>
   <div class="pilha">
-    <p class="suave sem-margem">
-      Mande um material e a IA diz em que etapas ele entra (com o capítulo ou o trecho) e que tópicos ele traz que a trilha ainda não tem. Você marca o que aceita.
+    <p v-if="etapa" class="suave sem-margem">
+      Mande um material para este tópico e a IA diz que parte dele serve aqui (o capítulo ou o trecho) e se o tópico deve mudar por causa dele. Se o material servir a outros tópicos, ela também diz. Você marca o que aceita.
+    </p>
+    <p v-else class="suave sem-margem">
+      Mande um material e a IA diz em que etapas ele entra (com o capítulo ou o trecho), que tópicos ele traz que a trilha ainda não tem e que tópicos ele mostra que deviam mudar. Você marca o que aceita.
       <strong>{{ comMaterial }} de {{ etapas.length }}</strong> etapas já têm material.
     </p>
     <details class="dica">
@@ -137,7 +145,7 @@ const onde = (n) => porChave.value[n.depois_de] ? `depois de ${porChave.value[n.
         <button class="botao discreto" @click="escolhido = null">Cancelar</button>
       </div>
     </div>
-    <div v-else><button class="botao" @click="escolhendo = true">Encaixar um material</button></div>
+    <div v-else><button class="botao" @click="escolhendo = true">{{ etapa ? 'Encaixar um material neste tópico' : 'Encaixar um material' }}</button></div>
     <p v-if="erro" class="aviso">{{ erro }}</p>
 
     <div v-for="x in abertas" :key="x.proposta.id" class="cartao pilha encaixe">
@@ -188,6 +196,14 @@ const onde = (n) => porChave.value[n.depois_de] ? `depois de ${porChave.value[n.
               <span class="fraco"> · em "{{ n.modulo }}"<template v-if="n.modulo_novo"> (módulo novo)</template>, {{ onde(n) }} · {{ BLOOM[n.bloom] }} · {{ n.minutos }} min</span>
               <span class="bloco-nota">{{ n.objetivo }}<span v-if="n.motivo" class="fraco"> — {{ n.motivo }}</span></span>
             </span>
+          </label>
+        </div>
+
+        <div v-if="x.proposta.conteudo.revisoes?.length">
+          <span class="rotulo">Tópicos que deviam mudar</span>
+          <label v-for="(m, i) in x.proposta.conteudo.revisoes" :key="'r' + i" class="opcao">
+            <input type="checkbox" :checked="marcados[x.proposta.id]?.revisoes.has(i)" @change="alternar(x.proposta.id, 'revisoes', i)" />
+            <MudancaRoteiro :m="m" :trilha-id="trilha.id" />
           </label>
         </div>
 

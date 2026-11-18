@@ -21,7 +21,7 @@ import (
 // (como a correção do simulado: tarefa sem proposta, falha fica registrada).
 
 const (
-	tipoResumo         = "resumo"         // a tentativa
+	tipoResumo         = "resumo"          // a tentativa
 	tipoConferirResumo = "conferir_resumo" // a tarefa da fila
 	limiteAnotacao     = 60000             // caracteres, por campo
 )

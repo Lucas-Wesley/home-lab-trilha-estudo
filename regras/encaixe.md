@@ -40,6 +40,17 @@ Quando o material ensina algo **importante para o objetivo da trilha** que **nen
 Não proponha tópico que já existe com outro nome, nem detalhe pequeno que cabe dentro de uma etapa
 (isso é encaixe, com nota). Respeite o recorte da trilha: o que ele deixa de fora não vira tópico.
 
+## Revisões dos tópicos (`revisoes`)
+
+Quando o material mostra que um tópico **existente** devia mudar (o objetivo deixa de fora algo
+central que o material ensina e que é do recorte, o critério não mede o que importa, o título engana,
+o tempo está muito fora), proponha a revisão: `etapa_chave`, só os campos que mudam (`titulo`,
+`objetivo`, `criterio`, `bloom`, `minutos`; vazio ou 0 = manter) e o `motivo`. Poucas e certeiras:
+o material ser mais completo que a etapa não é motivo (isso é encaixe com papel `aprofundar`).
+
+Se o pedido tem um **Foco** (o Lucas mandou o material a um tópico), olhe primeiro para ele: o
+encaixe nele com o trecho certo e, se for o caso, a revisão dele.
+
 ## Notas (`notas`)
 
 Em poucas linhas: o que o material é, para que parte da trilha ele serve mais, o que dele ficou de
