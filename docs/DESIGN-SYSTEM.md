@@ -138,6 +138,8 @@ etiquetas com fundo escuro saturado e texto claro).
 | **Busca** (`.busca`) | campo com ícone de lupa e o atalho `Ctrl K` em `<kbd>` à direita |
 | **Seletor em pílula** (`.seletor`) | "Categoria **Todas** ▾": rótulo fraco + valor forte |
 | **Abas** (`.abas`) | texto `--texto-suave`; ativa com fundo `--ativo` e texto `--texto` (como as linguagens do bloco de código) |
+| **Abas da etapa** (`.abas-etapa`, em `Etapa.vue`) | barra em pílula `--superficie` com borda e raio 10, presa no topo ao rolar (abaixo da barra do app); aba 14/500 `--texto-suave`, ativa com fundo `--fundo` e contorno `--borda`; contagem em pílula `--superficie-2` 12 px; ✓ verde quando a parte está pronta. Rola de lado no celular. A aba fica no endereço (`#exercicios`) |
+| **Cartão de situação** (`.situacao`, em `Etapa.vue`) | `--superficie`, borda, raio 10: "Para concluir" + estado + critério + pré-requisitos (✓ verde nos feitos) à esquerda, ações à direita (empilha no celular) |
 | **Cartão** (`.cartao`) | fundo transparente ou `--superficie`, borda 1 px `--borda`, raio 10, padding 16; título 16/600, descrição `--texto-suave` cortada em 2 linhas; hover com borda `--borda-forte` |
 | **Lista em tabela** (`.tabela`) | cabeçalho 13 px `--texto-fraco`; linhas com divisória `--borda`; título 15/600 + descrição `--texto-suave`; etiquetas; data à direita em `--texto-fraco` |
 | **Etiqueta** (`.etiqueta.azul` etc.) | 12 px/500, padding 2×6, raio 4, cores da tabela de etiquetas |

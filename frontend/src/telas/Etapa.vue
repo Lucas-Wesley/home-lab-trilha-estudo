@@ -503,6 +503,8 @@ async function excluir() {
 .licao-etapa :deep(h1:first-child) { display: none; }
 /* E o quadro de abertura (objetivo, antes, tempo) repete o topo da página. */
 .licao-etapa :deep(h1:first-child + blockquote) { display: none; }
+/* Ir a um título pelo sumário não o esconde atrás da barra e das abas presas no topo. */
+.licao-etapa :deep(h2), .licao-etapa :deep(h3) { scroll-margin-top: calc(var(--barra) + 64px); }
 .perigo { color: var(--vermelho); }
 @media (max-width: 699px) {
   .cabecalho h1 { font-size: 24px; }
