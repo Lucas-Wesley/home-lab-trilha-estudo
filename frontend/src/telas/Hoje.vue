@@ -20,8 +20,15 @@ async function carregar() {
 onMounted(carregar)
 
 const hojeTexto = computed(() => new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }))
-const minutosHoje = (th) => th.hoje.filter((i) => !['concluida', 'pulada'].includes(i.status)).reduce((s, i) => s + i.minutos, 0)
 const feito = (i) => i.status === 'concluida' || i.status === 'pulada'
+
+// Os números do topo: o que falta estudar hoje, as revisões do dia e o que passou do prazo.
+const paraHoje = computed(() => {
+  const itens = (dados.value?.trilhas || []).flatMap((th) => th.hoje.filter((i) => !feito(i)))
+  return { etapas: itens.length, minutos: itens.reduce((s, i) => s + i.minutos, 0) }
+})
+const atrasadas = computed(() => (dados.value?.trilhas || []).reduce((s, th) => s + th.atrasadas.length, 0))
+const paraHojePorTrilha = (th) => th.hoje.filter((i) => !feito(i)).reduce((s, i) => s + i.minutos, 0)
 
 async function recalcular(th) {
   try {
@@ -45,19 +52,38 @@ async function recalcular(th) {
       </div>
     </template>
 
-    <h1>Hoje</h1>
-    <p class="lead">{{ hojeTexto }}</p>
+    <div class="topo-pagina">
+      <h1>Hoje</h1>
+      <div class="acoes"><span class="pequeno">{{ hojeTexto }}</span></div>
+    </div>
     <p v-if="erro" class="aviso">{{ erro }}</p>
 
+    <div v-if="dados && (paraHoje.etapas || revisoes.length || atrasadas)" class="numeros-quadro">
+      <div class="numero-quadro">
+        <p class="rotulo-secao">Para hoje</p>
+        <span class="valor-grande">{{ paraHoje.etapas }}</span>
+        <span class="pequeno">{{ paraHoje.etapas === 1 ? 'etapa' : 'etapas' }} · {{ duracao(paraHoje.minutos) }}</span>
+      </div>
+      <div class="numero-quadro">
+        <p class="rotulo-secao">Revisões</p>
+        <span class="valor-grande">{{ revisoes.length }}</span>
+        <span class="pequeno">para fazer hoje</span>
+      </div>
+      <div v-if="atrasadas" class="numero-quadro">
+        <p class="rotulo-secao">Atrasadas</p>
+        <span class="valor-grande">{{ atrasadas }}</span>
+        <span class="pequeno">{{ atrasadas === 1 ? 'etapa' : 'etapas' }} fora do dia</span>
+      </div>
+    </div>
+
     <!-- Revisão espaçada (fase 7): as etapas concluídas que voltaram hoje, de todas as trilhas ativas. -->
-    <section v-if="revisoes.length" class="trilha-hoje">
-      <h2>Revisões de hoje</h2>
-      <p class="suave">Perguntas rápidas das etapas que você já concluiu, no dia de cada uma voltar.</p>
-      <div class="pilha bloco">
-        <a v-for="r in revisoes" :key="`${r.trilha_id}-${r.chave}`" class="cartao item" :href="link('trilhas', r.trilha_id, 'etapas', r.etapa_id, 'revisao')">
+    <section v-if="revisoes.length" class="quadro">
+      <div class="quadro-topo"><h2 class="rotulo-secao">Revisões de hoje</h2></div>
+      <div class="lista">
+        <a v-for="r in revisoes" :key="`${r.trilha_id}-${r.chave}`" class="item" :href="link('trilhas', r.trilha_id, 'etapas', r.etapa_id, 'revisao')">
           <div>
             <strong>{{ r.etapa_titulo }}</strong>
-            <div class="fraco">{{ r.trilha_titulo }}<template v-if="r.atraso > 0"> · atrasada {{ r.atraso }} dia(s)</template></div>
+            <div class="pequeno">{{ r.trilha_titulo }}<template v-if="r.atraso > 0"> · atrasada {{ r.atraso }} dia(s)</template></div>
           </div>
           <span class="etiqueta ambar">revisar</span>
         </a>
@@ -72,37 +98,39 @@ async function recalcular(th) {
         </div>
         <div class="progresso"><span :style="{ width: percentual(th.progresso) + '%' }" /></div>
 
-        <div v-if="th.atrasadas.length" class="cartao atraso pilha">
-          <div class="linha entre">
-            <strong>{{ th.atrasadas.length }} etapa(s) atrasada(s)</strong>
-            <button class="botao" @click="recalcular(th)">Recalcular a partir de hoje</button>
-          </div>
-          <ul class="itens">
-            <li v-for="i in th.atrasadas" :key="i.etapa_id">
+        <template v-if="th.atrasadas.length">
+          <p class="aviso">
+            {{ th.atrasadas.length }} {{ th.atrasadas.length === 1 ? 'etapa atrasada' : 'etapas atrasadas' }}.
+            <button class="botao discreto recalc" @click="recalcular(th)">Recalcular a partir de hoje</button>
+          </p>
+          <ul class="lista atrasadas">
+            <li v-for="i in th.atrasadas" :key="i.etapa_id" class="item">
               <a :href="link('trilhas', th.id, 'etapas', i.etapa_id)">{{ i.titulo }}</a>
-              <span class="fraco"> · {{ duracao(i.total) }}</span>
+              <span class="fraco">{{ duracao(i.total) }}</span>
             </li>
           </ul>
-        </div>
+        </template>
 
-        <div v-if="th.hoje.length" class="pilha bloco">
-          <span class="rotulo">Para hoje · {{ duracao(minutosHoje(th)) }}</span>
-          <a v-for="i in th.hoje" :key="i.etapa_id" class="cartao item" :class="{ feito: feito(i) }" :href="link('trilhas', th.id, 'etapas', i.etapa_id)">
-            <div>
-              <strong>{{ i.titulo }}</strong>
-              <div class="fraco">{{ duracao(i.minutos) }}<template v-if="i.parte"> · parte {{ i.parte }}</template></div>
-            </div>
-            <span class="etiqueta" :class="STATUS[i.status].cor">{{ STATUS[i.status].nome }}</span>
-          </a>
-        </div>
+        <template v-if="th.hoje.length">
+          <p class="rotulo-secao bloco">Para hoje · {{ duracao(paraHojePorTrilha(th)) }}</p>
+          <div class="lista">
+            <a v-for="i in th.hoje" :key="i.etapa_id" class="item" :class="{ feito: feito(i) }" :href="link('trilhas', th.id, 'etapas', i.etapa_id)">
+              <div>
+                <strong>{{ i.titulo }}</strong>
+                <div class="pequeno">{{ duracao(i.minutos) }}<template v-if="i.parte"> · parte {{ i.parte }}</template></div>
+              </div>
+              <span class="etiqueta" :class="STATUS[i.status].cor">{{ STATUS[i.status].nome }}</span>
+            </a>
+          </div>
+        </template>
         <p v-else-if="!th.atrasadas.length" class="suave bloco">Hoje não é dia de estudo nesta trilha.</p>
 
         <div v-if="th.proximo" class="bloco">
-          <span class="rotulo">Próximo dia de estudo · {{ dataCurta(th.proximo.data) }}</span>
-          <ul class="itens">
-            <li v-for="i in th.proximo.itens" :key="i.etapa_id">
+          <p class="rotulo-secao">Próximo dia de estudo · {{ dataCurta(th.proximo.data) }}</p>
+          <ul class="lista">
+            <li v-for="i in th.proximo.itens" :key="i.etapa_id" class="item">
               <a :href="link('trilhas', th.id, 'etapas', i.etapa_id)">{{ i.titulo }}</a>
-              <span class="fraco"> · {{ duracao(i.minutos) }}<template v-if="i.parte"> (parte {{ i.parte }})</template></span>
+              <span class="fraco">{{ duracao(i.minutos) }}<template v-if="i.parte"> · parte {{ i.parte }}</template></span>
             </li>
           </ul>
           <p class="pequeno">Quer adiantar? Pode abrir a etapa e estudar agora.</p>
@@ -122,15 +150,27 @@ async function recalcular(th) {
 
 <style scoped>
 .trilha-hoje { margin-top: var(--e6); padding-bottom: var(--e6); border-bottom: 1px solid var(--borda); }
+.trilha-hoje:last-child { border-bottom: 0; padding-bottom: 0; }
+.trilha-hoje h2 { margin-bottom: 0; }
 .trilha-hoje h2 a { color: inherit; text-decoration: none; }
 .trilha-hoje h2 a:hover { text-decoration: underline; }
 .trilha-hoje .progresso { margin: var(--e3) 0 var(--e4); }
 .entre { justify-content: space-between; }
 .bloco { margin-top: var(--e4); }
-.atraso { border-color: var(--vermelho-fundo); }
-.item { display: flex; justify-content: space-between; align-items: center; gap: var(--e3); }
+.quadro { margin-top: var(--e5); }
+.lista .item { display: flex; align-items: center; justify-content: space-between; gap: var(--e3); padding: 9px 0; color: inherit; text-decoration: none; }
+.lista .item:hover strong { color: var(--link); }
+.lista .item strong { font-weight: 600; font-size: 14.5px; }
 .item.feito strong { color: var(--texto-fraco); text-decoration: line-through; }
-.itens { margin: var(--e2) 0 0; padding-left: var(--e5); line-height: 1.7; }
-.palco { margin-top: var(--e6); padding: var(--e8) var(--e4); border: 1px solid var(--borda); border-radius: var(--raio); }
-.centro { text-align: center; margin: 0; }
+.lista .pequeno { margin-top: 1px; }
+.recalc { height: auto; padding: 0; font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.recalc:hover { background: transparent; color: var(--vermelho); }
+ul.lista li.item { display: flex; align-items: baseline; justify-content: space-between; gap: var(--e3); padding: 8px 0; font-size: 14.5px; }
+ul.lista li.item a { color: inherit; text-decoration: none; }
+ul.lista li.item a:hover { color: var(--link); }
+ul.lista.atrasadas { margin-bottom: var(--e4); }
+.quadro .lista .item:last-child { padding-bottom: 4px; }
+.rotulo-secao { margin-bottom: var(--e2); }
+.palco { margin-top: var(--e6); }
+.centro { margin: 0; }
 </style>

@@ -36,8 +36,7 @@ onMounted(async () => {
   <Pagina>
     <template #nav><NavTrilhas v-if="t" :trilha="t" :documento-atual="doc" /></template>
 
-    <p v-if="erro" class="aviso">{{ erro }}</p>
-    <template v-else-if="t && d">
+    <template #topo v-if="t && d">
       <nav class="migalhas" aria-label="Você está em">
         <a :href="link('trilhas')">Trilhas</a>
         <Icone nome="seta-direita" :tamanho="14" />
@@ -45,6 +44,9 @@ onMounted(async () => {
         <Icone nome="seta-direita" :tamanho="14" />
         <a :href="link('trilhas', t.id) + '#documentos'">Documentos</a>
       </nav>
+    </template>
+    <p v-if="erro" class="aviso">{{ erro }}</p>
+    <template v-else-if="t && d">
       <Leitor :texto="d.conteudo" :ancora="ancora" :base-docs="base" @titulos="titulos = $event" />
     </template>
 

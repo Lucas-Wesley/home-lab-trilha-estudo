@@ -32,7 +32,7 @@ defineExpose({ barra })
 <style scoped>
 .abas-pagina {
   position: sticky;
-  top: var(--barra);
+  top: var(--e2);
   z-index: 5;
   display: flex;
   gap: 2px;
@@ -42,7 +42,7 @@ defineExpose({ barra })
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio);
-  scroll-margin-top: var(--barra);
+  scroll-margin-top: var(--e2);
 }
 .abas-pagina::-webkit-scrollbar { display: none; }
 .aba {

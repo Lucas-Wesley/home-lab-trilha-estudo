@@ -37,19 +37,23 @@ function trocarFiltro() {
   <Pagina>
     <template #nav><NavTrilhas /></template>
 
-    <h1>Trilhas</h1>
-    <p class="lead">Estudo em ordem, com profundidade e progresso.</p>
-
-    <p v-if="erro" class="aviso">{{ erro }}</p>
-    <template v-else-if="trilhas && trilhas.length">
-      <div class="linha filtros">
+    <div class="topo-pagina">
+      <h1>Trilhas</h1>
+      <div v-if="trilhas && trilhas.length" class="meio">
         <label class="busca">
           <Icone nome="lupa" />
           <span class="so-leitor">Buscar</span>
           <input v-model="busca" class="campo" placeholder="Buscar trilhas…" />
         </label>
-        <button class="seletor" @click="trocarFiltro">Situação <strong>{{ FILTROS[filtro] }}</strong> <Icone nome="seta-baixo" :tamanho="14" /></button>
       </div>
+      <div class="acoes">
+        <button v-if="trilhas && trilhas.length" class="seletor" @click="trocarFiltro">Situação <strong>{{ FILTROS[filtro] }}</strong> <Icone nome="seta-baixo" :tamanho="14" /></button>
+        <a class="botao primario" :href="link('trilhas', 'nova')"><Icone nome="mais" /> Nova trilha</a>
+      </div>
+    </div>
+
+    <p v-if="erro" class="aviso">{{ erro }}</p>
+    <template v-else-if="trilhas && trilhas.length">
       <table class="tabela">
         <thead>
           <tr><th>Trilha</th><th>Situação</th><th class="direita">Progresso</th></tr>
@@ -87,12 +91,10 @@ function trocarFiltro() {
 </template>
 
 <style scoped>
-.filtros { margin: var(--e5) 0 var(--e4); }
-.filtros .busca { flex: 1; min-width: 200px; max-width: 400px; }
 a.titulo { text-decoration: none; }
 a.titulo:hover { text-decoration: underline; }
 .direita { text-align: right; white-space: nowrap; }
 .mini { width: 96px; margin: var(--e2) 0 0 auto; }
-.palco { margin-top: var(--e5); padding: var(--e8) var(--e4); border: 1px solid var(--borda); border-radius: var(--raio); }
-.centro { text-align: center; margin: 0; }
+.palco { margin-top: var(--e5); }
+.centro { margin: 0; }
 </style>

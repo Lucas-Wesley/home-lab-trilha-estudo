@@ -5,6 +5,9 @@ import Pagina from '../Pagina.vue'
 
 // A vitrine viva do design system (docs/DESIGN-SYSTEM.md): mudou o design, muda aqui também.
 const grupos = [
+  { nome: 'Espaço', secoes: [
+    { id: 'espaco', nome: 'Organização' },
+  ] },
   { nome: 'Fundamentos', secoes: [
     { id: 'cores', nome: 'Cores' },
     { id: 'tipografia', nome: 'Tipografia' },
@@ -84,18 +87,68 @@ function irPara(id) {
       </div>
     </template>
 
-    <nav class="migalhas" aria-label="Você está em">
-      <a href="#/design">Design</a>
-      <Icone nome="seta-direita" :tamanho="14" />
-      <span>Design system</span>
-    </nav>
-    <div class="cabecalho">
-      <h1>Design system</h1>
-      <a class="botao discreto" href="https://github.com/Lucas-Wesley/home-lab-trilha-estudo/blob/main/docs/DESIGN-SYSTEM.md" target="_blank" rel="noopener">
-        <Icone nome="link" /> Ver o documento
-      </a>
-    </div>
-    <p class="lead">Escuro, neutro e quieto; pequeno e denso, mas respirando. Inspirado nas Docs, no Console e no Cookbook da Claude Platform. Esta página é a vitrine viva de <code>docs/DESIGN-SYSTEM.md</code>.</p>
+    <template #topo>
+      <div class="topo-pagina">
+        <h1>Design system</h1>
+        <div class="meio busca">
+          <Icone nome="lupa" />
+          <input class="campo" placeholder="A ferramenta principal fica na linha do título" aria-label="Exemplo de busca" />
+        </div>
+        <div class="acoes">
+          <a class="botao discreto" href="https://github.com/Lucas-Wesley/home-lab-trilha-estudo/blob/main/docs/DESIGN-SYSTEM.md" target="_blank" rel="noopener">
+            <Icone nome="link" /> Ver o documento
+          </a>
+        </div>
+      </div>
+      <p class="explicacao">Escuro, neutro e quieto; pequeno e denso, mas respirando. O design nasce no Hub; esta página é a vitrine viva de <code>docs/DESIGN-SYSTEM.md</code> aqui na Trilha.</p>
+    </template>
+
+    <!-- Espaço -->
+    <section id="espaco" class="secao">
+      <h2>Organização do espaço</h2>
+      <p class="suave">A quarta versão, copiada do Hub: sem barra no topo (a marca abre a lateral), cabeçalho da página numa linha (<code>.topo-pagina</code>), ferramentas na linha do conteúdo (<code>.ferramentas</code>), números primeiro (<code>.numeros-quadro</code>), conteúdo agrupado em quadros (<code>.quadro</code>, <code>.quadros</code>) e a página em duas colunas (<code>.duas-colunas</code>) — esta página mesma usa: o conteúdo à esquerda e o sumário na <code>.lateral</code>.</p>
+
+      <div class="ferramentas">
+        <div class="abas" role="tablist" aria-label="Exemplo de abas">
+          <button v-for="l in linguagens" :key="l" :class="{ ativa: linguagem === l }" @click="linguagem = l">{{ l }}</button>
+        </div>
+        <div class="direita">
+          <button class="seletor">Situação <strong>Todas</strong> <Icone nome="seta-baixo" :tamanho="14" /></button>
+        </div>
+      </div>
+
+      <div class="numeros-quadro">
+        <div v-for="[r, v, d] in [['Para hoje', '3', 'etapas · 1h 30min'], ['Revisões', '2', 'para fazer hoje'], ['Progresso', '41%', 'da trilha ativa'], ['Atrasadas', '1', 'etapa fora do dia']]" :key="r" class="numero-quadro">
+          <p class="rotulo-secao">{{ r }}</p>
+          <span class="valor-grande">{{ v }}</span>
+          <span class="pequeno">{{ d }}</span>
+        </div>
+      </div>
+
+      <div class="quadros">
+        <section class="quadro">
+          <div class="quadro-topo">
+            <h2 class="rotulo-secao">Quadro com lista</h2>
+            <a href="#/design">Ver tudo</a>
+          </div>
+          <ul class="lista">
+            <li v-for="n in ['Zonas de firewall', 'NAT e CGNAT', 'VLANs']" :key="n" class="linha-exemplo">
+              <span>{{ n }}</span><span class="etiqueta verde">feita</span>
+            </li>
+          </ul>
+        </section>
+        <section class="quadro">
+          <div class="quadro-topo"><h2 class="rotulo-secao">Quadro com formulário</h2></div>
+          <div class="pilha">
+            <input class="campo" placeholder="Um campo dentro do quadro" />
+            <div class="linha-acoes">
+              <button class="botao primario">Ação do quadro</button>
+              <button class="botao discreto">Discreta</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
 
     <!-- Cores -->
     <section id="cores" class="secao">
@@ -330,10 +383,10 @@ function irPara(id) {
     </section>
 
     <template #lateral>
-      <div class="resumo">
-        <div class="linha resumo-topo">
-          <strong>Design system</strong>
-          <span class="etiqueta ambar">v1</span>
+      <div class="quadro">
+        <div class="quadro-topo">
+          <h2 class="rotulo-secao">Design system</h2>
+          <span class="etiqueta ambar">v4</span>
         </div>
         <span class="resumo-rotulo">Fontes</span>
         <ul class="verificacao">
@@ -354,9 +407,10 @@ function irPara(id) {
 </template>
 
 <style scoped>
-.secao { margin-top: var(--e7); scroll-margin-top: calc(var(--barra) + var(--e5)); }
+.secao { margin-top: var(--e7); scroll-margin-top: var(--e6); }
 .secao > h2 { margin-bottom: var(--e3); }
 .secao > p.suave { margin: 0 0 var(--e4); }
+.linha-exemplo { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
 
 .amostras { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--e3); }
 .amostra { display: flex; gap: var(--e3); align-items: center; }
@@ -377,7 +431,5 @@ function irPara(id) {
 .proposta { display: grid; gap: var(--e4); margin-top: var(--e5); padding-top: var(--e5); border-top: 1px solid var(--borda); }
 .proposta .leitura { margin: 0; }
 
-.resumo { display: grid; gap: var(--e2); padding: var(--e4); margin-bottom: var(--e5); border: 1px solid var(--borda); border-radius: var(--raio); }
-.resumo-topo { justify-content: space-between; margin-bottom: var(--e1); }
-.resumo-rotulo { margin-top: var(--e2); font-size: 12.5px; color: var(--texto-fraco); text-decoration: underline; text-underline-offset: 3px; }
+.resumo-rotulo { display: block; margin-top: var(--e2); font-size: 12.5px; color: var(--texto-fraco); text-decoration: underline; text-underline-offset: 3px; }
 </style>

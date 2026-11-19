@@ -5,27 +5,32 @@ import Hoje from './telas/Hoje.vue'
 import Trilhas from './telas/Trilhas.vue'
 import Vitrine from './telas/Vitrine.vue'
 import Ajustes from './telas/Ajustes.vue'
+import { api } from './api.js'
 import { lerRota, link } from './rotas.js'
 import { aplicarTema, lerTema, proximoTema } from './tema.js'
 
 const hash = ref(location.hash)
 const rota = computed(() => lerRota(hash.value))
 const telas = { hoje: Hoje, trilhas: Trilhas, ajustes: Ajustes, design: Vitrine }
+const versao = ref('')
 
 const abas = [
   { secao: 'hoje', nome: 'Hoje', icone: 'hoje' },
   { secao: 'trilhas', nome: 'Trilhas', icone: 'trilhas' },
+  { secao: 'ajustes', nome: 'Ajustes', icone: 'ajustes' },
 ]
 
 const tema = ref(lerTema())
 const NOMES_TEMA = { auto: 'Tema do aparelho', claro: 'Tema claro', escuro: 'Tema escuro' }
 const ICONES_TEMA = { auto: 'auto', claro: 'sol', escuro: 'lua' }
-function trocarTema() {
-  tema.value = proximoTema(tema.value)
-  aplicarTema(tema.value)
+function escolherTema(t) {
+  tema.value = t
+  aplicarTema(t)
 }
+const trocarTema = () => escolherTema(proximoTema(tema.value))
 
-// Gaveta da navegação lateral no celular; cada tela (Pagina.vue) mostra a sua navegação nela.
+// A lateral vira gaveta no celular (o item "Menu" da barra do pé abre). A navegação de cada tela
+// vai para o #nav-contexto da lateral por <Teleport> (Pagina.vue).
 const gaveta = ref(false)
 provide('gaveta', gaveta)
 
@@ -38,48 +43,62 @@ function aoMudarHash() {
   if (pagina(rota.value) !== anterior && !rota.value.ancora) window.scrollTo(0, 0)
 }
 
-onMounted(() => {
+onMounted(async () => {
   aplicarTema(tema.value)
   window.addEventListener('hashchange', aoMudarHash)
+  try {
+    versao.value = (await api('/api/health', { tempo: 4000 })).version
+  } catch {
+    versao.value = ''
+  }
 })
 onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
 </script>
 
 <template>
-  <header class="barra">
-    <button class="botao discreto icone so-celular" :aria-expanded="gaveta" aria-label="Abrir a navegação" @click="gaveta = !gaveta">
-      <Icone :nome="gaveta ? 'fechar' : 'menu'" />
-    </button>
-    <a class="marca" :href="link('hoje')">
-      <span class="marca-icone"><Icone nome="marca" :tamanho="18" /></span>
-      <span>Trilha de Estudo</span>
-    </a>
-    <nav class="abas abas-topo" aria-label="Seções">
-      <a
-        v-for="aba in abas"
-        :key="aba.secao"
-        :href="link(aba.secao)"
-        :class="{ ativa: rota.secao === aba.secao }"
-        :aria-current="rota.secao === aba.secao ? 'page' : undefined"
-      >{{ aba.nome }}</a>
-    </nav>
-    <div class="barra-direita">
-      <a class="botao discreto icone" :class="{ ativa: rota.secao === 'ajustes' }" :href="link('ajustes')" title="Ajustes" aria-label="Ajustes">
-        <Icone nome="ajustes" />
+  <div class="moldura">
+    <aside class="menu" :class="{ aberta: gaveta }" aria-label="Menu">
+      <a class="marca" :href="link('hoje')">
+        <span class="marca-icone"><Icone nome="marca" :tamanho="18" /></span>
+        <span class="marca-texto">
+          <span class="marca-sobre">Homelab</span>
+          <span class="marca-nome">Trilhas</span>
+        </span>
       </a>
-      <button class="botao discreto icone" :title="NOMES_TEMA[tema]" :aria-label="NOMES_TEMA[tema]" @click="trocarTema">
-        <Icone :nome="ICONES_TEMA[tema]" />
-      </button>
-      <a class="botao primario" :href="link('trilhas', 'nova')">
-        <Icone nome="mais" />
-        <span class="so-largo">Nova trilha</span>
-      </a>
-    </div>
-  </header>
+      <nav>
+        <a
+          v-for="aba in abas"
+          :key="aba.secao"
+          class="nav-item"
+          :class="{ ativo: rota.secao === aba.secao }"
+          :href="link(aba.secao)"
+          :aria-current="rota.secao === aba.secao ? 'page' : undefined"
+        >
+          <Icone :nome="aba.icone" :tamanho="18" />
+          <span>{{ aba.nome }}</span>
+        </a>
+      </nav>
+      <!-- A navegação de cada tela (as etapas da trilha aberta, as trilhas ativas…) entra aqui. -->
+      <div id="nav-contexto" />
+      <div class="rodape">
+        <span>{{ versao ? `versão ${versao.slice(0, 7)}` : 'sem conexão' }}</span>
+        <button class="botao discreto icone" :title="NOMES_TEMA[tema]" :aria-label="NOMES_TEMA[tema]" @click="trocarTema">
+          <Icone :nome="ICONES_TEMA[tema]" />
+        </button>
+      </div>
+    </aside>
+    <div v-if="gaveta" class="veu" @click="gaveta = false" />
 
-  <component :is="telas[rota.secao]" :rota="rota" />
+    <main class="conteudo">
+      <component :is="telas[rota.secao]" :rota="rota" :tema="rota.secao === 'ajustes' ? tema : undefined" @tema="escolherTema" />
+    </main>
+  </div>
 
   <nav class="abas-celular" aria-label="Seções">
+    <button @click="gaveta = !gaveta">
+      <Icone :nome="gaveta ? 'fechar' : 'menu'" :tamanho="20" />
+      <span>Menu</span>
+    </button>
     <a
       v-for="aba in abas"
       :key="aba.secao"
@@ -94,43 +113,93 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
 </template>
 
 <style scoped>
-.barra {
+/* Sem barra no topo (referência de espaço): a marca abre a lateral e o tema fica no pé dela. */
+.moldura { display: flex; }
+
+.menu {
   position: sticky;
   top: 0;
-  z-index: 30;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: var(--nav);
+  height: 100vh;
+  padding: var(--e4) var(--e3);
+  overflow-y: auto;
+  border-right: 1px solid var(--borda);
+  background: var(--superficie);
+}
+.menu nav { display: grid; gap: 2px; }
+
+#nav-contexto:not(:empty) {
+  margin-top: var(--e4);
+  padding-top: var(--e3);
+  border-top: 1px solid var(--borda);
+}
+
+.marca {
   display: flex;
   align-items: center;
-  gap: var(--e4);
-  height: var(--barra);
-  padding: 0 var(--e5);
-  background: var(--fundo);
-  border-bottom: 1px solid var(--borda);
-}
-.marca {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--e2);
-  font-family: var(--fonte-titulo);
-  font-size: 19px;
-  font-weight: 500;
+  gap: var(--e3);
+  margin: 0 0 var(--e4);
+  padding: var(--e2);
   color: var(--texto);
   text-decoration: none;
-  white-space: nowrap;
 }
-.marca-icone { display: inline-flex; color: var(--ambar); }
-.abas-topo { margin: 0 auto; }
-.barra-direita { display: flex; align-items: center; gap: var(--e2); margin-left: auto; }
-.barra-direita .botao.ativa { background: var(--superficie-2); color: var(--texto); }
-.so-celular { display: none; }
+.marca-icone {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-p);
+  background: var(--fundo);
+}
+.marca-texto { display: grid; line-height: 1.2; }
+.marca-sobre { font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--texto-fraco); }
+.marca-nome { font-family: var(--fonte-titulo); font-size: 18px; font-weight: 500; }
+
+.rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding: var(--e3) 0 0 var(--e2);
+  color: var(--texto-fraco);
+  font-size: 12px;
+}
+
+.conteudo {
+  flex: 1;
+  min-width: 0;
+  min-height: 100vh;
+}
 
 .abas-celular { display: none; }
+.veu { display: none; }
 
 @media (max-width: 899px) {
-  .barra { padding: 0 var(--e3); gap: var(--e2); }
-  .so-celular { display: inline-flex; }
-  .abas-topo { display: none; }
-  .so-largo { display: none; }
-  .barra-direita .botao.primario { width: var(--controle); padding: 0; }
+  /* A lateral sai da tela e vira gaveta, aberta pelo item Menu da barra do pé. */
+  .menu {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(300px, 85vw);
+    height: auto;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 160ms ease, visibility 160ms;
+  }
+  .menu.aberta { transform: none; visibility: visible; }
+  .veu {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background: rgb(0 0 0 / 0.45);
+  }
 
   .abas-celular {
     position: fixed;
@@ -139,12 +208,12 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
     bottom: 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     padding: var(--e1) var(--e2) calc(var(--e1) + env(safe-area-inset-bottom));
     background: var(--fundo);
     border-top: 1px solid var(--borda);
   }
-  .abas-celular a {
+  .abas-celular a, .abas-celular button {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -154,7 +223,10 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
     font-weight: 500;
     color: var(--texto-fraco);
     text-decoration: none;
+    border: 0;
+    background: transparent;
     border-radius: var(--raio-p);
+    cursor: pointer;
   }
   .abas-celular a.ativa { color: var(--texto); background: var(--superficie-2); }
 }

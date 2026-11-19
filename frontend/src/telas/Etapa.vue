@@ -189,8 +189,7 @@ async function excluir() {
   <Pagina>
     <template #nav><NavTrilhas v-if="t" :trilha="t" :etapa-atual="etapaId" /></template>
 
-    <p v-if="erro" class="aviso">{{ erro }}</p>
-    <template v-else-if="t && e">
+    <template #topo v-if="t && e">
       <nav class="migalhas" aria-label="Você está em">
         <a :href="link('trilhas')">Trilhas</a>
         <Icone nome="seta-direita" :tamanho="14" />
@@ -198,10 +197,8 @@ async function excluir() {
         <Icone nome="seta-direita" :tamanho="14" />
         <span>{{ modulo }}</span>
       </nav>
-
-      <!-- Leitura -->
       <template v-if="!edicao">
-        <header class="cabecalho">
+        <div class="topo-pagina">
           <div>
             <h1>{{ e.titulo }}</h1>
             <p class="contexto">
@@ -209,15 +206,21 @@ async function excluir() {
               <span v-if="TIPOS_ETAPA[e.tipo]" class="etiqueta ambar">{{ TIPOS_ETAPA[e.tipo] }}</span>
             </p>
           </div>
-          <div class="linha acoes-topo">
+          <div class="acoes">
             <button v-if="!revisaoAberta" class="botao discreto" @click="revisar?.abrir()">Revisar com IA</button>
             <button class="botao discreto" @click="editar">Editar</button>
           </div>
-        </header>
+        </div>
         <p v-if="e.objetivo" class="objetivo" v-html="textoComCodigo(e.objetivo)" />
+      </template>
+    </template>
+    <p v-if="erro" class="aviso">{{ erro }}</p>
+    <template v-else-if="t && e">
+      <!-- Leitura -->
+      <template v-if="!edicao">
 
-        <!-- Progresso: o estado, o que falta para concluir e as ações, num cartão só. -->
-        <div class="situacao">
+        <!-- Progresso: o estado, o que falta para concluir e as ações, num quadro só. -->
+        <div class="quadro situacao">
           <div class="situacao-texto">
             <div class="linha">
               <span class="rotulo sem-margem">Para concluir</span>
@@ -434,8 +437,6 @@ async function excluir() {
 </template>
 
 <style scoped>
-.cabecalho { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--e4); }
-.cabecalho h1 { font-size: 28px; }
 .contexto { display: flex; align-items: center; gap: var(--e2); flex-wrap: wrap; margin: var(--e2) 0 0; font-size: 14px; color: var(--texto-fraco); }
 .objetivo { font-size: 16px; line-height: 1.6; color: var(--texto-suave); margin: var(--e4) 0 0; max-width: 72ch; }
 .objetivo :deep(code), .criterio :deep(code) { font-size: 0.86em; padding: 1px 5px; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio-e); }
@@ -443,8 +444,8 @@ async function excluir() {
 .sem-margem { margin: 0; }
 .entre { justify-content: space-between; }
 
-/* Cartão de progresso */
-.situacao { padding: var(--e4) var(--e5); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); display: flex; gap: var(--e5); align-items: center; justify-content: space-between; margin-top: var(--e5); }
+/* Quadro de progresso */
+.situacao { display: flex; gap: var(--e5); align-items: center; justify-content: space-between; margin-top: var(--e5); }
 .situacao-texto { display: grid; gap: var(--e2); min-width: 0; }
 .situacao-acoes { display: flex; gap: var(--e2); flex: none; }
 .criterio { margin: 0; font-size: 14.5px; line-height: 1.55; }
@@ -459,7 +460,6 @@ async function excluir() {
 .conteudo-aba :deep(.secao > .linha.entre) { justify-content: flex-end; }
 .conteudo-aba :deep(#resumo > .linha.entre) { justify-content: flex-end; }
 .cabeca-aba { margin-bottom: var(--e3); gap: var(--e3); }
-.acoes-topo { flex-wrap: nowrap; gap: var(--e1); }
 .encaixar-aqui { margin-top: var(--e6); padding-top: var(--e5); border-top: 1px solid var(--borda); }
 
 .grupo-material + .grupo-material { margin-top: var(--e4); }
@@ -479,11 +479,10 @@ async function excluir() {
 .licao-etapa :deep(h1:first-child) { display: none; }
 /* E o quadro de abertura (objetivo, antes, tempo) repete o topo da página. */
 .licao-etapa :deep(h1:first-child + blockquote) { display: none; }
-/* Ir a um título pelo sumário não o esconde atrás da barra e das abas presas no topo. */
-.licao-etapa :deep(h2), .licao-etapa :deep(h3) { scroll-margin-top: calc(var(--barra) + 64px); }
+/* Ir a um título pelo sumário não o esconde atrás das abas presas no topo. */
+.licao-etapa :deep(h2), .licao-etapa :deep(h3) { scroll-margin-top: calc(var(--e2) + var(--e7)); }
 .perigo { color: var(--vermelho); }
 @media (max-width: 699px) {
-  .cabecalho h1 { font-size: 24px; }
   .situacao { flex-direction: column; align-items: stretch; gap: var(--e3); }
   .situacao-acoes { flex-wrap: wrap; }
   .vizinhas { grid-template-columns: 1fr; }

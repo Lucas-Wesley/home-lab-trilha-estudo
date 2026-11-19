@@ -288,10 +288,11 @@ const rodadasFeitas = computed(() =>
 
     <p v-if="erro && !dados" class="aviso">{{ erro }}</p>
     <div v-if="criacao" class="pilha conteudo">
-      <div>
-      <h1>{{ criacao.tema }}</h1>
-      <p v-if="criacao.pedido" class="lead">{{ criacao.pedido }}</p>
-
+      <div class="topo-pagina">
+        <div>
+          <h1>{{ criacao.tema }}</h1>
+          <p v-if="criacao.pedido" class="contexto">{{ criacao.pedido }}</p>
+        </div>
       </div>
       <ol class="passos" aria-label="Passos">
         <li v-for="(p, i) in passos" :key="p.id" :class="{ feito: i < indicePasso || pronta, atual: i === indicePasso && !pronta }">
@@ -595,8 +596,8 @@ const rodadasFeitas = computed(() =>
   .ficha { grid-template-columns: 1fr; }
   .ficha dd { margin-bottom: var(--e2); }
 }
-.conteudo h1 { margin: 0; }
-.conteudo .lead { margin-top: var(--e2); }
+.conteudo .topo-pagina { margin-bottom: 0; }
+.contexto { max-width: var(--leitura); margin: var(--e2) 0 0; font-size: 14px; line-height: 1.5; color: var(--texto-fraco); }
 .passos { list-style: none; display: flex; flex-wrap: wrap; gap: var(--e2) var(--e5); margin: 0; padding: 0; font-size: 14px; color: var(--texto-fraco); }
 .passos li { display: flex; align-items: center; gap: var(--e2); }
 .passos .bolinha { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--borda-forte); font-size: 12px; }

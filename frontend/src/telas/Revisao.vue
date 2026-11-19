@@ -74,8 +74,12 @@ const correcoes = computed(() => (Array.isArray(feito.value?.tentativa?.resultad
         <Icone nome="seta-direita" :tamanho="14" />
         <a :href="link('trilhas', trilhaId, 'etapas', etapaId)">{{ etapa.titulo }}</a>
       </nav>
-      <h1>Revisão</h1>
-      <p class="lead">{{ etapa.titulo }}</p>
+      <div class="topo-pagina">
+        <div>
+          <h1>Revisão</h1>
+          <p class="contexto">{{ etapa.titulo }}</p>
+        </div>
+      </div>
 
       <p v-if="!dados.concluida" class="aviso neutro">A revisão é das etapas concluídas. Conclua esta na página dela.</p>
 
@@ -147,6 +151,7 @@ const correcoes = computed(() => (Array.isArray(feito.value?.tentativa?.resultad
 
 <style scoped>
 .sem-margem { margin: 0; }
+.contexto { margin: var(--e2) 0 0; font-size: 14px; color: var(--texto-fraco); }
 .entre { justify-content: space-between; }
 .cartao p { display: block; overflow: visible; }
 .questoes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e3); }
