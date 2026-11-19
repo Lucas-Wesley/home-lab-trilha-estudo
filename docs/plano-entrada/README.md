@@ -87,7 +87,7 @@ gasta crédito duas vezes. O Lucas quer:
 |---|---|---|---|---|
 | 1 | [F01-legenda-do-youtube.md](F01-legenda-do-youtube.md) | A Trilha lê vídeo e playlist do YouTube (legenda com minutos, capítulos) e guarda como **fonte** | não | ✅ no ar (92aa4d2) |
 | 2 | [F02-tela-entrada.md](F02-tela-entrada.md) | Tela **Entrada**: colar link, compartilhar do celular, lista e página da fonte | não | ✅ no ar (f9477be) |
-| 3 | [F03-fragmentar.md](F03-fragmentar.md) | A IA divide a fonte em **fragmentos**; o Lucas ajusta e confirma | sim | |
+| 3 | [F03-fragmentar.md](F03-fragmentar.md) | A IA divide a fonte em **fragmentos**; o Lucas ajusta e confirma | sim | ✅ no ar |
 | 4 | [F04-destino-e-encaixe.md](F04-destino-e-encaixe.md) | A IA sugere as trilhas de cada fragmento; o encaixe por trilha | sim | |
 | 5 | [F05-trecho-do-youtube-na-etapa.md](F05-trecho-do-youtube-na-etapa.md) | O trecho do YouTube toca na etapa, com aviso do fim e progresso | não | |
 | 6 | [F06-sem-destino-e-acervo.md](F06-sem-destino-e-acervo.md) | "Sem destino" some em 30 dias; trazer do Acervo (os vídeos do Akita) | não | |

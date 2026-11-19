@@ -36,6 +36,7 @@ type fonte struct {
 	// os fragmentos e a tarefa em si (só na página da fonte).
 	TarefaID   int64       `json:"tarefa_id"`
 	Pedido     string      `json:"pedido"`
+	Notas      string      `json:"notas"` // o que a IA disse da divisão em fragmentos
 	Fragmentos []fragmento `json:"fragmentos,omitempty"`
 	Tarefa     *tarefa     `json:"tarefa,omitempty"`
 }
@@ -52,13 +53,13 @@ func pastaDaFonte(id int64) string {
 }
 
 const colunasFonte = `id, tipo, url, video_id, titulo, canal, duracao, idioma, capitulos, estado, erro,
-	playlist, criado_em, COALESCE(tarefa_id, 0), pedido FROM fontes`
+	playlist, criado_em, COALESCE(tarefa_id, 0), pedido, notas FROM fontes`
 
 func lerFonte(row interface{ Scan(...any) error }) (fonte, error) {
 	var f fonte
 	var capitulos string
 	err := row.Scan(&f.ID, &f.Tipo, &f.URL, &f.VideoID, &f.Titulo, &f.Canal, &f.Duracao, &f.Idioma,
-		&capitulos, &f.Estado, &f.Erro, &f.Playlist, &f.CriadoEm, &f.TarefaID, &f.Pedido)
+		&capitulos, &f.Estado, &f.Erro, &f.Playlist, &f.CriadoEm, &f.TarefaID, &f.Pedido, &f.Notas)
 	if err == nil {
 		f.Capitulos = []capitulo{}
 		json.Unmarshal([]byte(capitulos), &f.Capitulos)

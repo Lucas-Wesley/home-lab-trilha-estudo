@@ -14,8 +14,10 @@ Devolva:
 
 - `fragmentos`: a lista, cada um com `inicio`, `fim` (`mm:ss` ou `h:mm:ss`, como na transcrição),
   `titulo`, `resumo`, `assuntos` e `tipo`.
-- `notas`: uma ou duas frases sobre a divisão (ex.: "o capítulo 3 virou dois fragmentos", "cortei
-  a propaganda"). Vazio se não tiver nada a dizer.
+- `notas`: **no máximo duas frases curtas**, só sobre a divisão (ex.: "o capítulo 3 virou dois
+  fragmentos", "cortei a propaganda e o encerramento"). Não comente o que **não** veio no pedido
+  (sem pedido, sem confirmados: não diga nada sobre isso) nem repita o que já está nos fragmentos.
+  Vazio se não tiver nada a dizer.
 
 ## Como dividir
 

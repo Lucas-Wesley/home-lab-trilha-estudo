@@ -41,6 +41,7 @@ var migracoes = []string{
 	// T37: a fonte guarda a tarefa de fragmentar e o pedido do Lucas para a IA.
 	`ALTER TABLE fontes ADD COLUMN tarefa_id INTEGER REFERENCES tarefas(id) ON DELETE SET NULL`,
 	`ALTER TABLE fontes ADD COLUMN pedido TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE fontes ADD COLUMN notas TEXT NOT NULL DEFAULT ''`, // T37: as notas da IA sobre a divisão (não é erro)
 }
 
 // O esquema cresce fase a fase (DECISOES.md §9).

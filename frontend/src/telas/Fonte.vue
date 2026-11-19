@@ -216,7 +216,7 @@ onBeforeUnmount(() => {
         </p>
         <template v-else>
           <p v-if="fonte.tarefa?.estado === 'falhou'" class="aviso">A divisão falhou: {{ fonte.erro }}</p>
-          <p v-else-if="fonte.erro" class="aviso neutro">{{ fonte.erro }}</p>
+          <p v-else-if="fonte.notas" class="aviso neutro">{{ fonte.notas }}</p>
           <form class="linha" @submit.prevent="fragmentar">
             <input v-model="pedido" class="campo fragmentar-pedido" placeholder="Pedido para a IA (opcional)" />
             <button class="botao" :class="{ primario: !fragmentos.length }" :disabled="ocupado">

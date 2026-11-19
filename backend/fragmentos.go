@@ -309,7 +309,7 @@ func (a *app) fragmentar(ctx context.Context, t *tarefa) error {
 	if err := renumerarFragmentos(ctx, tx, f.ID); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE fontes SET estado = 'fragmentada', erro = ? WHERE id = ?`, nota, f.ID); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE fontes SET estado = 'fragmentada', erro = '', notas = ? WHERE id = ?`, nota, f.ID); err != nil {
 		return err
 	}
 	return tx.Commit()

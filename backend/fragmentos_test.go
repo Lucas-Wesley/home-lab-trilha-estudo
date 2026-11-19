@@ -60,7 +60,7 @@ func TestFragmentar(t *testing.T) {
 
 	var f2 fonte
 	c.ok("GET", fmt.Sprintf("/api/entrada/%d", inicial.ID), nil, &f2)
-	if f2.Estado != "fragmentada" || f2.Erro != "Divisão de teste." {
+	if f2.Estado != "fragmentada" || f2.Notas != "Divisão de teste." || f2.Erro != "" {
 		t.Fatalf("depois da tarefa: %+v", f2)
 	}
 	if len(f2.Fragmentos) != 3 {
@@ -136,8 +136,8 @@ func TestFragmentarLimpeza(t *testing.T) {
 		t.Fatalf("terceiro (fim cortado na duração, tipo saneado): %+v", f2.Fragmentos[2])
 	}
 	for _, trecho := range []string{"00:40–00:35", "02:00–02:30", "00:50–00:55", "O app tirou"} {
-		if !strings.Contains(f2.Erro, trecho) {
-			t.Errorf("o erro devia contar o que saiu (%q): %q", trecho, f2.Erro)
+		if !strings.Contains(f2.Notas, trecho) {
+			t.Errorf("as notas deviam contar o que saiu (%q): %q", trecho, f2.Notas)
 		}
 	}
 }
