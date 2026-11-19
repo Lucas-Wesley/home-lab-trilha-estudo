@@ -74,3 +74,22 @@ que fica de fora e a última etapa mapeia o resto da norma.
 
 **Generalização** (lições 10 a 12 em `regras/criar-trilha.md` §6).
 
+
+## Trilhas 9 a 15: os roteiros das trilhas grandes (19/11/2026)
+
+**Entrada:** pedido do Lucas para receber o conteúdo dos vídeos do YouTube e dos cursos do Telegram
+(plano da Entrada, `docs/plano-entrada/`): DDD na prática (9), Conhecimento de base em tecnologia
+(10, trilha aberta por áreas), Algoritmos e estruturas de dados (11), Linux para desenvolvimento e
+servidores (12), Golang do zero ao backend em produção (13), AWS para engenharia de software (14,
+separada da trilha de certificação) e System Design (15). Recorte de cada uma sugerido pelo Claude,
+com a aprovação do Lucas.
+
+**Como:** só o roteiro (lição 14), cada etapa com o que aprender e como praticar no Mac, e um
+projeto no fim de cada módulo (lição 15; a trilha 10 não tem projetos por ser aberta). Os pacotes
+são montados por um script local (fora do Git) e importados por `POST /api/importar`.
+
+**Rodada 1:** o revisor só acusou C9 (sem material, de propósito) e C4 em dois módulos com 7 etapas
+(Árvores, em Algoritmos; Concorrência, em Golang), divididos em dois cada, com um projeto cada. A
+leitura manual de C5 achou três projetos que usavam algo antes da etapa que o ensina (usuário de
+sistema no Linux, testes de tabela no Go, DynamoDB na AWS): reescritos para o básico, com a revisita
+dita. **Resultado:** 265 etapas em 57 módulos, ~255 h, sem material; o conteúdo entra pela Entrada.
