@@ -55,25 +55,28 @@ gasta crédito duas vezes. O Lucas quer:
    Procure uma função parecida que já existe e copie o jeito dela (erros com `erroDeEntrada`,
    respostas com `responderJSON`/`responderErro`, rotas em `servidor.go`, tabelas em `banco.go`,
    colunas novas na lista de `ALTER TABLE` de `banco.go`).
-4. **Testes são obrigatórios.** Cada fase lista os testes. Rode tudo antes de dizer que terminou:
+4. **Tela nova = dentro de `<Pagina>`** (`frontend/src/Pagina.vue`): é ele que dá a margem, a
+   largura e a navegação. Copie o começo de uma tela que já existe (ex.: `telas/ListaTrilhas.vue`).
+   Olhe toda tela nova em 360 px de largura antes do commit.
+5. **Testes são obrigatórios.** Cada fase lista os testes. Rode tudo antes de dizer que terminou:
    - `cd backend && go vet ./... && go test ./...`
    - `cd frontend && npm test && npm run build`
    Se Go ou Node não estiverem no Mac, use os containers: `docker compose -f compose.dev.yaml run --rm api go test ./...`
    e `docker compose -f compose.dev.yaml run --rm web npm test`.
-5. **Nunca gaste a IA de verdade nem a internet nos testes.** O Claude nos testes é o
+6. **Nunca gaste a IA de verdade nem a internet nos testes.** O Claude nos testes é o
    `scripts/claude-falso.mjs` (estenda-o para as tarefas novas). O yt-dlp nos testes é um script
    falso em `backend/testdata/` (como o do Acervo, `acervo/backend/testdata/yt-dlp-falso`). O
    Streaming e o Acervo nos testes são servidores falsos (`httptest`), como os da Biblioteca e do
    Acervo em `material_test.go`.
-6. **Não publique.** Não rode `./deploy.sh`, não faça `git push`. No fim da fase, faça **um commit**
+7. **Não publique.** Não rode `./deploy.sh`, não faça `git push`. No fim da fase, faça **um commit**
    na `main` local com a mensagem que a fase indica (autoria do Lucas, **sem** `Co-Authored-By`).
-7. **Documente**: cada fase acrescenta uma decisão nova em `docs/DECISOES.md` (tabela da seção 7,
+8. **Documente**: cada fase acrescenta uma decisão nova em `docs/DECISOES.md` (tabela da seção 7,
    próximo número livre: T35, T36…), no mesmo estilo das outras, e atualiza `CLAUDE.md` com uma seção
    curta quando cria arquivo ou conceito novo. Mudou o que a IA recebe ou devolve: atualize a regra
    em `regras/` e os testes.
-8. **Não mexa** em: outros repositórios (Streaming, Acervo), `deploy.sh`, `compose.prod.yaml` (a
+9. **Não mexa** em: outros repositórios (Streaming, Acervo), `deploy.sh`, `compose.prod.yaml` (a
    não ser que a fase diga), dados em `data/`, regras de IA que a fase não cita.
-9. **Repo público**: nenhum link de grupo do Telegram, token, senha ou dado pessoal no código, nos
+10. **Repo público**: nenhum link de grupo do Telegram, token, senha ou dado pessoal no código, nos
    testes ou nos commits. Nos testes, só dados inventados.
 10. Ao terminar, escreva no fim do arquivo da fase uma seção **"Feito"** com: o que foi feito, os
     arquivos mudados, os comandos de teste rodados e o resultado, e o que ficou de fora.
@@ -83,7 +86,7 @@ gasta crédito duas vezes. O Lucas quer:
 | Fase | Arquivo | O que entrega | IA? | Situação |
 |---|---|---|---|---|
 | 1 | [F01-legenda-do-youtube.md](F01-legenda-do-youtube.md) | A Trilha lê vídeo e playlist do YouTube (legenda com minutos, capítulos) e guarda como **fonte** | não | ✅ no ar (92aa4d2) |
-| 2 | [F02-tela-entrada.md](F02-tela-entrada.md) | Tela **Entrada**: colar link, compartilhar do celular, lista e página da fonte | não | |
+| 2 | [F02-tela-entrada.md](F02-tela-entrada.md) | Tela **Entrada**: colar link, compartilhar do celular, lista e página da fonte | não | ✅ no ar (f9477be) |
 | 3 | [F03-fragmentar.md](F03-fragmentar.md) | A IA divide a fonte em **fragmentos**; o Lucas ajusta e confirma | sim | |
 | 4 | [F04-destino-e-encaixe.md](F04-destino-e-encaixe.md) | A IA sugere as trilhas de cada fragmento; o encaixe por trilha | sim | |
 | 5 | [F05-trecho-do-youtube-na-etapa.md](F05-trecho-do-youtube-na-etapa.md) | O trecho do YouTube toca na etapa, com aviso do fim e progresso | não | |
