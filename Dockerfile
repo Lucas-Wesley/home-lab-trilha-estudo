@@ -14,11 +14,15 @@ COPY --from=web /src/dist ./web/dist
 ARG VERSION=dev
 RUN CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION}" -o /app .
 
-# O Node fica na imagem final: o Claude Code roda nele (fase 3, T4).
+# O Node fica na imagem final: o Claude Code roda nele (fase 3, T4) e o yt-dlp o usa como motor
+# de JavaScript; o ffmpeg pega o áudio dos vídeos sem legenda para o Whisper transcrever (T35).
 FROM node:24-alpine
-RUN apk add --no-cache git ripgrep libgcc libstdc++ \
+RUN apk add --no-cache git ripgrep libgcc libstdc++ python3 py3-pip ffmpeg \
  && npm install -g @anthropic-ai/claude-code \
  && npm cache clean --force
+# O YouTube quebra o yt-dlp com frequência: o deploy passa a data aqui para sempre pegar a versão nova.
+ARG YTDLP_EM=nunca
+RUN pip install --no-cache-dir --break-system-packages -U "yt-dlp[default]" && echo "yt-dlp de $YTDLP_EM"
 COPY --from=api /app /app
 # Regras da IA (T6); as editadas em Ajustes ficam em /data/regras e valem por cima destas.
 COPY regras/ /regras/
@@ -28,6 +32,7 @@ USER 1000:1000
 ENV DATA_DIR=/data \
     REGRAS_DIR=/regras \
     HOME=/data/home \
+    YTDLP_ARGS="--js-runtimes node" \
     USE_BUILTIN_RIPGREP=0 \
     DISABLE_AUTOUPDATER=1
 ENTRYPOINT ["/app"]

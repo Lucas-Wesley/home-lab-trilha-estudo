@@ -65,12 +65,22 @@ func main() {
 		bibliotecaLink: strings.TrimSuffix(env("BIBLIOTECA_LINK", "https://biblioteca.internal"), "/"),
 		acervo:         strings.TrimSuffix(os.Getenv("ACERVO_URL"), "/"),
 		acervoLink:     strings.TrimSuffix(env("ACERVO_LINK", "https://acervo.internal"), "/"),
-	}}
+	},
+		ytdlpBin:      env("YTDLP_BIN", "yt-dlp"),
+		ytdlpExtra:    strings.Fields(os.Getenv("YTDLP_ARGS")),
+		whisper:       strings.TrimSuffix(os.Getenv("WHISPER_URL"), "/"),
+		pausaEntrada:  15 * time.Second,
+		acordaEntrada: make(chan struct{}, 1),
+	}
 	a.ligarIA()
 	if err := a.fila.recuperar(ctx); err != nil {
 		log.Fatal(err)
 	}
+	if err := a.recuperarEntrada(ctx); err != nil {
+		log.Fatal(err)
+	}
 	go a.fila.rodar(ctx)
+	go a.rodarEntrada(ctx)
 
 	srv := &http.Server{
 		Addr:              addr,

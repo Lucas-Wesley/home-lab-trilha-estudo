@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 )
 
 // app junta o que os handlers usam.
@@ -17,6 +18,13 @@ type app struct {
 	ia       *configIA
 	fila     *fila
 	integra  integracoes
+	// Entrada (T35): o yt-dlp, o Whisper dos vídeos sem legenda e a fila de leitura da Entrada
+	// (separada da do Claude: ler a legenda não gasta crédito).
+	ytdlpBin      string        // YTDLP_BIN
+	ytdlpExtra    []string      // YTDLP_ARGS, ex.: --js-runtimes node no container
+	whisper       string        // WHISPER_URL
+	pausaEntrada  time.Duration // a pausa entre vídeos da Entrada (15 s; 0 nos testes)
+	acordaEntrada chan struct{}
 }
 
 // ligarIA registra os tipos de tarefa na fila (fase 3).
@@ -121,6 +129,13 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/criacoes", a.handleCriarComIA)
 	mux.HandleFunc("GET /api/trilhas/{id}/criacao", a.handleCriacao)
 	mux.HandleFunc("POST /api/trilhas/{id}/criacao/gerar", a.handleGerarPasso)
+	// Entrada (T35): vídeos do YouTube viram fontes para depois virar fragmentos.
+	mux.HandleFunc("POST /api/entrada", a.handleEntradaPost)
+	mux.HandleFunc("GET /api/entrada", a.handleEntradaListar)
+	mux.HandleFunc("GET /api/entrada/{id}", a.handleEntradaFonte)
+	mux.HandleFunc("POST /api/entrada/{id}/tentar", a.handleEntradaTentar)
+	mux.HandleFunc("DELETE /api/entrada/{id}", a.handleEntradaExcluir)
+
 	mux.HandleFunc("GET /api/tarefas", a.handleTarefas)
 	mux.HandleFunc("POST /api/tarefas/{id}/cancelar", a.handleCancelarTarefa)
 	mux.HandleFunc("GET /api/ajustes", a.handleAjustes)

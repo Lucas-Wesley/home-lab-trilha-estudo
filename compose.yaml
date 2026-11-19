@@ -6,6 +6,7 @@ services:
       context: .
       args:
         VERSION: ${VERSION:-dev}
+        YTDLP_EM: ${YTDLP_EM:-nunca}
     image: trilha:${VERSION:-dev}
     restart: unless-stopped
     ports:

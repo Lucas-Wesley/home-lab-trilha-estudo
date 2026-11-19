@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# yt-dlp falso para os testes da Entrada (dados inventados). O id do vídeo decide o caso:
+#   AAAAAAAAAAA português com legenda manual e capítulos · EEEEEEEEEEE inglês só automática
+#   SSSSSSSSSSS sem legenda · FFFFFFFFFFF vídeo indisponível · B/CCCCCCCCCCC sem legenda
+url="${!#}"
+
+# Playlist (--flat-playlist -J): três vídeos inventados.
+case "$*" in
+  *--flat-playlist*)
+    printf '{"title":"Curso de teste","entries":[{"id":"AAAAAAAAAAA","title":"Aula 1"},{"id":"BBBBBBBBBBB","title":"Aula 2"},{"id":"CCCCCCCCCCC","title":"Aula 3"}]}\n'
+    exit 0 ;;
+esac
+
+id="${url##*v=}"
+json=0 out="" lang="" audio=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -J) json=1; shift ;;
+    -o) out="$2"; shift 2 ;;
+    --sub-langs) lang="$2"; shift 2 ;;
+    -f) audio=1; shift 2 ;;
+    *) shift ;;
+  esac
+done
+if [ "$id" = FFFFFFFFFFF ]; then
+  echo "ERROR: [youtube] $id: Video unavailable" >&2
+  exit 1
+fi
+if [ $json = 1 ]; then
+  case "$id" in
+    AAAAAAAAAAA) idioma='"pt-BR"'; subs='{"pt-BR":[{}]}'; autos='{}'; caps='[{"start_time":0.0,"end_time":30.0,"title":"Introdução"},{"start_time":30.0,"end_time":60.0,"title":"O assunto"}]' ;;
+    EEEEEEEEEEE) idioma='"en"'; subs='{"live_chat":[{}]}'; autos='{"en-orig":[{}],"en":[{}]}'; caps='[]' ;;
+    *) idioma=null; subs='{}'; autos='{}'; caps='[]' ;;
+  esac
+  printf '{"id":"%s","title":"Vídeo %s","channel":"Canal de Teste","duration":60.0,"duration_string":"1:00","language":%s,"webpage_url":"%s","upload_date":"20260101","chapters":%s,"subtitles":%s,"automatic_captions":%s}\n' \
+    "$id" "$id" "$idioma" "$url" "$caps" "$subs" "$autos"
+  exit 0
+fi
+# Só o áudio (o vídeo sem legenda): o Whisper falso não lê o arquivo, basta ele existir.
+if [ $audio = 1 ]; then
+  printf 'audio de mentira' > "${out/\%(ext)s/mp3}"
+  exit 0
+fi
+cp "$(dirname "$0")/legenda.json3" "$out.$lang.json3"

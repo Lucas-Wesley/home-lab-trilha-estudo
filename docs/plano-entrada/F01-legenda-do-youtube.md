@@ -133,3 +133,42 @@ Commit: `Entrada (T35): a Trilha lê vídeos e playlists do YouTube (legenda com
 ## Dúvidas
 
 ## Feito
+
+Feito em 19/11/2026. O que entrou:
+
+- **Imagem:** `Dockerfile` instala `python3`, `py3-pip`, `ffmpeg` e o yt-dlp pelo pip com
+  `ARG YTDLP_EM`, e o `ENV` ganhou `YTDLP_ARGS="--js-runtimes node"` (o Node da imagem é o motor
+  de JS do yt-dlp), tudo como no Acervo. `compose.yaml` passa o `YTDLP_EM` no build e o
+  `scripts/remote-deploy.sh` exporta a data (o `deploy.sh` não foi tocado).
+- **Banco:** tabela `fontes` no esquema de `backend/banco.go`, como a fase pede.
+- **`backend/youtube.go` (novo):** `videoDoLink` (watch, youtu.be, shorts, live, embed,
+  m.youtube.com, com ou sem `&t=`), `ehPlaylist` (`list=` sem `v=`), `a.lerVideo` (`yt-dlp -J` →
+  título, canal, duração, idioma e capítulos na fonte; legenda json3 → transcrição em blocos de
+  **10 s** com os capítulos no cabeçalho, em `entrada/<id>/transcricao.md`), `a.baixarLegenda`,
+  `legendaParaCru`, `escolhaDeLegenda` (a ordem do Acervo), `a.transcreverVideo` +
+  `a.pedirTranscricao` (áudio `bestaudio` numa pasta temporária → `WHISPER_URL` com
+  `verbose_json`; sem `WHISPER_URL` a fonte fica em `erro` com a mensagem) e
+  `a.expandirPlaylist` (`--flat-playlist -J`, uma fonte por vídeo).
+- **`backend/entrada.go` (novo):** tipo `fonte`, `criarFonte` (`INSERT OR IGNORE` + `SELECT`: o
+  mesmo vídeo não duplica), a fila própria do yt-dlp (`recuperarEntrada`, `acordarEntrada`,
+  `rodarEntrada`, `lerProximaFonte`, `esvaziarEntrada`; pausa `pausaEntrada` no app, 15 s em
+  produção e 0 nos testes) e os cinco handlers da API.
+- **`servidor.go`/`main.go`:** as cinco rotas e a config (`YTDLP_BIN`, `YTDLP_ARGS`,
+  `WHISPER_URL`, a fila da Entrada subindo junto com a do Claude).
+- **Decisão T35** em `docs/DECISOES.md` e a seção **Entrada (T35)** no `CLAUDE.md`.
+
+Testes (`backend/entrada_test.go`, com `backend/testdata/yt-dlp-falso` e `legenda.json3`
+inventados): os 8 formatos de link (+ 3 inválidos), `ehPlaylist`, a legenda json3 → transcrição
+com `[00:00]`/`[00:10]` e capítulos, vídeo ponta a ponta (fila lê, `pronta`, transcrição na API,
+repostar não duplica), playlist com 3 fontes, link não-YouTube → 400, sem legenda sem Whisper →
+`erro` e com o Whisper falso → transcrição com os minutos, e excluir a fonte apaga a pasta.
+
+Comandos rodados no Mac, com o resultado:
+
+- `cd backend && go vet ./... && go test ./...` → `ok` (8,4 s).
+- `cd frontend && npm test` → 29 testes passaram (6 arquivos).
+- `cd frontend && npm run build` → build e PWA gerados.
+
+Ficou de fora (como a fase manda): a tela da Entrada (fase 2), fragmentar e destino/encaixe
+(fases 3 e 4). Nota: `videoDoLink` exige `http(s)://` como no Acervo — `youtu.be/ID` sem esquema
+não é aceito.

@@ -1,0 +1,8 @@
+{"events":[
+{"tStartMs":0,"segs":[{"utf8":"Olá, hoje vamos"},{"utf8":" falar de redes."}]},
+{"tStartMs":2000,"aAppend":1,"segs":[{"utf8":"\n"}]},
+{"tStartMs":5000,"segs":[{"utf8":"Primeiro assunto."}]},
+{"tStartMs":10000,"segs":[{"utf8":"Segundo\nassunto."}]},
+{"tStartMs":21000,"segs":[{"utf8":"Terceiro assunto."}]},
+{"tStartMs":3725000,"segs":[{"utf8":"Fim."}]}
+]}

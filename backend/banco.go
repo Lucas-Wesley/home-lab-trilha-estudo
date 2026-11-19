@@ -267,4 +267,22 @@ CREATE TABLE IF NOT EXISTS anotacoes (
 	atualizado_em TEXT NOT NULL,
 	PRIMARY KEY (trilha_id, etapa_chave)
 );
+
+-- Entrada (T35): vídeos que chegaram para virar fragmentos nas trilhas.
+CREATE TABLE IF NOT EXISTS fontes (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	tipo        TEXT NOT NULL,              -- youtube · acervo · telegram
+	url         TEXT NOT NULL DEFAULT '',   -- o link do vídeo (youtube: https://www.youtube.com/watch?v=ID)
+	video_id    TEXT NOT NULL DEFAULT '',   -- youtube: o id; acervo: o id da Referência; telegram: link#mensagem
+	titulo      TEXT NOT NULL DEFAULT '',
+	canal       TEXT NOT NULL DEFAULT '',
+	duracao     INTEGER NOT NULL DEFAULT 0, -- segundos
+	idioma      TEXT NOT NULL DEFAULT '',
+	capitulos   TEXT NOT NULL DEFAULT '[]', -- [{"inicio":0,"fim":120,"titulo":"…"}] do autor do vídeo
+	estado      TEXT NOT NULL DEFAULT 'na_fila', -- na_fila · lendo · pronta · erro (as fases 3+ acrescentam)
+	erro        TEXT NOT NULL DEFAULT '',
+	playlist    TEXT NOT NULL DEFAULT '',   -- o título da playlist de onde veio, se veio de uma
+	criado_em   TEXT NOT NULL,
+	UNIQUE (tipo, video_id)
+);
 `

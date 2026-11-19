@@ -19,6 +19,8 @@ PREV=$(cat "$STATE" 2>/dev/null || true)
 mkdir -p /srv/data/trilha
 
 export VERSION="$SHA"
+# O YouTube quebra o yt-dlp com frequência: a data no build arg faz o yt-dlp sempre sair novo.
+export YTDLP_EM="$(date +%F)"
 "${COMPOSE[@]}" build --quiet
 
 if ! "${COMPOSE[@]}" up -d --wait --wait-timeout 60; then
