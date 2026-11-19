@@ -10,8 +10,8 @@ acompanha meta, ritmo e domínio.
   (T1–T34), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
-- [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — o design **próprio** desta app (estilo Claude
-  Platform). **Não** usar o design system compartilhado das outras apps (T14).
+- [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — aponta para o design system do **Hub**, que é a
+  fonte de todas as apps desde 18/11/2026 (o design nasceu aqui, T14).
 
 ## Em uma frase
 Trilha → módulos → etapas; tudo que a IA decide é **proposta** que o Lucas comenta (geral ou
@@ -130,7 +130,7 @@ novas na seção 6 das regras. A trilha entra no app por `POST /api/importar` (p
 - **A IA propõe, o Lucas decide.** Toda ação de IA aceita um **pedido** em texto livre, e toda
   proposta aceita **comentários**. Nunca aplicar mudança da IA sem aprovação.
 - Toda chamada ao Claude passa pela **fila** (uma tarefa por vez).
-- Toda cor, raio e tamanho vem de um token de `style.css`; mudou o design, atualizar
-  `docs/DESIGN-SYSTEM.md` e a vitrine `#/design` (sem aba; só pelo endereço).
+- Toda cor, raio e tamanho vem de um token de `style.css`. O design system mora no Hub
+  (`hub-home-lab-web/docs/DESIGN-SYSTEM.md`): mudança de design é lá primeiro, depois copia aqui.
 - Só teoria por enquanto; ferramentas práticas por trilha só quando o Lucas pedir (T11).
 - **Commits:** autoria do Lucas; **sem linha `Co-Authored-By`**.
