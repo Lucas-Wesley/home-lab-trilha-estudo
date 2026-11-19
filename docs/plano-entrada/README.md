@@ -80,22 +80,25 @@ gasta crédito duas vezes. O Lucas quer:
 
 ## 4. As fases
 
-| Fase | Arquivo | O que entrega | IA? |
-|---|---|---|---|
-| 1 | [F01-legenda-do-youtube.md](F01-legenda-do-youtube.md) | A Trilha lê vídeo e playlist do YouTube (legenda com minutos, capítulos) e guarda como **fonte** | não |
-| 2 | [F02-tela-entrada.md](F02-tela-entrada.md) | Tela **Entrada**: colar link, compartilhar do celular, lista e página da fonte | não |
-| 3 | [F03-fragmentar.md](F03-fragmentar.md) | A IA divide a fonte em **fragmentos**; o Lucas ajusta e confirma | sim |
-| 4 | [F04-destino-e-encaixe.md](F04-destino-e-encaixe.md) | A IA sugere as trilhas de cada fragmento; o encaixe por trilha | sim |
-| 5 | [F05-trecho-do-youtube-na-etapa.md](F05-trecho-do-youtube-na-etapa.md) | O trecho do YouTube toca na etapa, com aviso do fim e progresso | não |
-| 6 | [F06-sem-destino-e-acervo.md](F06-sem-destino-e-acervo.md) | "Sem destino" some em 30 dias; trazer do Acervo (os vídeos do Akita) | não |
-| 7 | [F07-meus-arquivos.md](F07-meus-arquivos.md) | **Meus arquivos**: a árvore dos cursos do Streaming, baixar e lixeira | não |
-| 8 | [F08-trilha-igual-ao-curso.md](F08-trilha-igual-ao-curso.md) | Criar uma trilha igual a um curso; a aula baixa na etapa, por clique | não |
-| 9 | [F09-encaixar-cursos-pelos-titulos.md](F09-encaixar-cursos-pelos-titulos.md) | Encaixar cursos numa trilha pelos títulos; juntar cursos | sim |
-| 10 | [F10-processar-aula.md](F10-processar-aula.md) | Processar aulas do Telegram: transcrever e fragmentar como o YouTube | sim |
+| Fase | Arquivo | O que entrega | IA? | Situação |
+|---|---|---|---|---|
+| 1 | [F01-legenda-do-youtube.md](F01-legenda-do-youtube.md) | A Trilha lê vídeo e playlist do YouTube (legenda com minutos, capítulos) e guarda como **fonte** | não | ✅ no ar (92aa4d2) |
+| 2 | [F02-tela-entrada.md](F02-tela-entrada.md) | Tela **Entrada**: colar link, compartilhar do celular, lista e página da fonte | não | |
+| 3 | [F03-fragmentar.md](F03-fragmentar.md) | A IA divide a fonte em **fragmentos**; o Lucas ajusta e confirma | sim | |
+| 4 | [F04-destino-e-encaixe.md](F04-destino-e-encaixe.md) | A IA sugere as trilhas de cada fragmento; o encaixe por trilha | sim | |
+| 5 | [F05-trecho-do-youtube-na-etapa.md](F05-trecho-do-youtube-na-etapa.md) | O trecho do YouTube toca na etapa, com aviso do fim e progresso | não | |
+| 6 | [F06-sem-destino-e-acervo.md](F06-sem-destino-e-acervo.md) | "Sem destino" some em 30 dias; trazer do Acervo (os vídeos do Akita) | não | |
+| 7 | [F07-meus-arquivos.md](F07-meus-arquivos.md) | **Meus arquivos**: a árvore dos cursos do Streaming, baixar e lixeira | não | |
+| 8 | [F08-trilha-igual-ao-curso.md](F08-trilha-igual-ao-curso.md) | Criar uma trilha igual a um curso; a aula baixa na etapa, por clique | não | |
+| 9 | [F09-encaixar-cursos-pelos-titulos.md](F09-encaixar-cursos-pelos-titulos.md) | Encaixar cursos numa trilha pelos títulos; juntar cursos | sim | |
+| 10 | [F10-processar-aula.md](F10-processar-aula.md) | Processar aulas do Telegram: transcrever e fragmentar como o YouTube | sim | |
 
 Fora deste plano (ficam com o Claude): os roteiros das trilhas novas (DDD, Conhecimento de base,
 Algoritmos e Estruturas de Dados, Linux, Golang, AWS para engenharia de software, System Design) e o
 "stream" do Telegram sem baixar antes (no Streaming).
+
+Depois de cada fase, o Claude confere, às vezes acerta detalhes pequenos num commit próprio
+(leia o `git log` antes de começar a fase seguinte) e marca a fase como feita na tabela acima.
 
 ## 5. Vocabulário novo
 
