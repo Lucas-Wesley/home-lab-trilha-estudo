@@ -10,6 +10,11 @@ describe('lerRota', () => {
     expect(lerRota('#/trilhas/home-lab-rede/3')).toEqual({ secao: 'trilhas', partes: ['home-lab-rede', '3'], ancora: '' })
   })
 
+  it('lê a entrada e a fonte', () => {
+    expect(lerRota('#/entrada')).toEqual({ secao: 'entrada', partes: [], ancora: '' })
+    expect(lerRota('#/entrada/12')).toEqual({ secao: 'entrada', partes: ['12'], ancora: '' })
+  })
+
   it('separa a âncora de uma seção da página', () => {
     expect(lerRota('#/design#botoes')).toEqual({ secao: 'design', partes: [], ancora: 'botoes' })
   })

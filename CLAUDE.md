@@ -119,7 +119,7 @@ proposta `roteiro` (chave `@roteiro` ou `@roteiro:<etapa>`); `GET .../roteiro?et
 `roteiro.md` e `encaixe.md`. Telas: `RevisarRoteiro.vue`, `MudancaRoteiro.vue`; as páginas da
 trilha e da etapa usam `AbasPagina.vue`.
 
-## Entrada (T35)
+## Entrada (T35, T36)
 `backend/entrada.go` e `backend/youtube.go` (código copiado do Acervo, sem chamá-lo):
 `POST /api/entrada` com um link de vídeo do YouTube cria a **fonte** (tabela `fontes`); com uma
 playlist, uma por vídeo (`--flat-playlist`). Uma fila própria do yt-dlp — separada da do Claude,
@@ -127,8 +127,16 @@ sem gastar crédito, uma leitura por vez com 15 s de pausa entre vídeos (`lendo
 ao iniciar) — lê as informações e a legenda (`YTDLP_BIN`, `YTDLP_ARGS`; blocos de 10 s e os
 capítulos do autor no cabeçalho) e grava a transcrição em `entrada/<id>/transcricao.md` no
 conteúdo. Vídeo sem legenda vai ao Whisper (`WHISPER_URL`); sem ele, a fonte fica em `erro` e
-`POST /api/entrada/{id}/tentar` tenta de novo. `DELETE` apaga a fonte e a pasta dela. A tela é a
-fase 2 e fragmentar/encaixar são as fases 3+ do [plano-entrada](docs/plano-entrada/README.md).
+`POST /api/entrada/{id}/tentar` tenta de novo. `DELETE` apaga a fonte e a pasta dela.
+
+Telas: aba **Entrada** na navegação (com o número de fontes `pronta`), `telas/Entrada.vue` dividida
+em `ListaEntrada.vue` (`#/entrada`: colar/mandar link, lista com miniatura, estado e apagar;
+autoatualiza a cada 3 s enquanto lê) e `Fonte.vue` (`#/entrada/<id>`: capítulos e transcrição
+recolhível com os `[mm:ss]` clicáveis, `linkNoMinuto`). O compartilhar do celular cai em
+`/compartilhar` (share_target do manifesto, devolvido com o `index.html` pelo fallback do app);
+`linkDoYouTube`/`linkCompartilhado` (`frontend/src/entrada.js`) acham o link no texto e **completam
+`https://` quando falta o esquema** — `videoDoLink` só aceita com ele. Fragmentar/encaixar são as
+fases 3+ do [plano-entrada](docs/plano-entrada/README.md).
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

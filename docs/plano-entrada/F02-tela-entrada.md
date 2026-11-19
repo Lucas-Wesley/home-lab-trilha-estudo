@@ -66,3 +66,44 @@ Commit: `Entrada (T36): tela da Entrada (colar link, lista, transcrição com os
 ## Dúvidas
 
 ## Feito
+
+- Rotas `#/entrada` e `#/entrada/<id>` em `rotas.js` (`SECOES`) com teste novo em `rotas.test.js`.
+- Aba **Entrada** na navegação (desktop e celular, terceiro item; nav do celular passou a 3
+  colunas), com um contador discreto das fontes `pronta` (`buscarProntas` no `App.vue`, ao abrir e
+  ao trocar de seção) e ícone `entrada` novo em `Icone.vue`.
+- `frontend/src/entrada.js`: `linkDoYouTube` acha o link do YouTube no meio do texto e completa
+  `https://` quando vem sem esquema (`videoDoLink` só aceita com ele); `linkCompartilhado` junta
+  `title`/`text`/`url` do share_target; `linkNoMinuto` monta `youtu.be/<id>?t=<s>`;
+  `linhasDaTranscricao` marca os `[mm:ss]`/`[h:mm:ss]` com o segundo (reusa `tempoParaSegundos`).
+- `telas/Entrada.vue` decide a tela; `telas/ListaEntrada.vue` tem o campo com "Colar" +
+  "Mandar", a lista com miniatura `mqdefault.jpg` (ícone de vídeo quando a miniatura falha),
+  título, canal, duração, playlist e estado (`na fila`, `lendo…`, `pronta`, `erro` com a mensagem e
+  "Tentar de novo"), apagar com `confirm()` e autoatualização a cada 3 s enquanto houver `na_fila`
+  ou `lendo`.
+- `telas/Fonte.vue`: título, canal, duração, "Abrir no YouTube", capítulos clicáveis para o minuto,
+  transcrição em `<details>` com os `[mm:ss]` clicáveis (mostra só os blocos `[mm:ss]`; o
+  cabeçalho do arquivo repete o que a tela já tem), estado `erro` com a mensagem e "Tentar de
+  novo", e a seção "Fragmentos" com "Na próxima versão".
+- Compartilhar: `share_target` no manifesto (`/compartilhar`, GET, `title`/`text`/`url`); o
+  fallback do app já devolve o `index.html` nesse caminho (teste `TestCompartilharDevolveOApp`
+  trava isso); o `App.vue` lê o link, manda para `POST /api/entrada` e abre `#/entrada` com o aviso
+  "Na Entrada" (mostrado pela lista; sem link, o aviso diz que não achou).
+- `ESTADOS_FONTE` em `rotulos.js` dá nome e cor aos estados.
+
+Arquivos novos: `frontend/src/entrada.js`, `frontend/src/entrada.test.js`,
+`frontend/src/telas/Entrada.vue`, `frontend/src/telas/ListaEntrada.vue`,
+`frontend/src/telas/Fonte.vue`. Mudados: `frontend/src/rotas.js`, `frontend/src/rotas.test.js`,
+`frontend/src/rotulos.js`, `frontend/src/App.vue`, `frontend/src/Icone.vue`,
+`frontend/vite.config.js`, `backend/entrada_test.go`, `CLAUDE.md`, `docs/DECISOES.md` (T36).
+
+Testes rodados:
+- `cd backend && go vet ./... && go test ./...` → ok (inclui `TestCompartilharDevolveOApp`).
+- `cd frontend && npm test` → 7 arquivos, 38 testes, ok.
+- `cd frontend && npm run build` → ok; `share_target` conferido no `manifest.webmanifest` gerado.
+- Navegador em 360 px (app real, servidor local): lista, formulário, card de erro e nav sem
+  rolagem horizontal (`scrollWidth` = 360); o fluxo `/compartilhar?text=Veja youtu.be/<id>` (sem
+  esquema) criou a fonte e abriu `#/entrada` com o aviso "Na Entrada". Não há teste de navegador no
+  repo — a conferência foi manual e está descrita aqui.
+
+Não feito: nada de fragmentos ou IA (fases 3+). O aviso "Na Entrada" fica até sair da tela da
+Entrada; o contador de prontas atualiza ao trocar de seção, não em tempo real fora da aba.

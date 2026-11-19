@@ -30,6 +30,13 @@ export const BLOOM = {
   criar: 'Criar',
 }
 
+export const ESTADOS_FONTE = {
+  na_fila: { nome: 'na fila', cor: '' },
+  lendo: { nome: 'lendo…', cor: 'azul' },
+  pronta: { nome: 'pronta', cor: 'verde' },
+  erro: { nome: 'erro', cor: 'vermelho' },
+}
+
 export const TIPOS_MATERIAL = {
   documento: 'Documento',
   web: 'Web',

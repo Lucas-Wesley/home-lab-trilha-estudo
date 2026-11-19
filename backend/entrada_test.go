@@ -223,3 +223,12 @@ func TestEntradaExcluir(t *testing.T) {
 		t.Fatalf("a fonte devia ter sido apagada: %d", s)
 	}
 }
+
+// GET /compartilhar é a share_target do Android (T36): o fallback do app devolve o index.html e o
+// front acha o link no texto e manda para /api/entrada.
+func TestCompartilharDevolveOApp(t *testing.T) {
+	rec := pedir(novoTeste(t), "GET", "/compartilhar?text=V%C3%ADdeo%20https://youtu.be/AAAAAAAAAAA")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Trilha") {
+		t.Fatalf("compartilhar: %d %s", rec.Code, rec.Body.String())
+	}
+}

@@ -1,21 +1,60 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, provide, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import Icone from './Icone.vue'
 import Hoje from './telas/Hoje.vue'
+import Entrada from './telas/Entrada.vue'
 import Trilhas from './telas/Trilhas.vue'
 import Vitrine from './telas/Vitrine.vue'
 import Ajustes from './telas/Ajustes.vue'
+import { api } from './api.js'
+import { linkCompartilhado } from './entrada.js'
 import { lerRota, link } from './rotas.js'
 import { aplicarTema, lerTema, proximoTema } from './tema.js'
 
+// Aviso que a tela da Entrada mostra quando o app abre pelo compartilhar do celular.
+const avisoCompartilhar = ref('')
+provide('avisoCompartilhar', avisoCompartilhar)
+
+// Compartilhar do celular (T36): o share_target manda o link para /compartilhar; ele vai para a
+// Entrada e o app abre já na seção.
+if (location.pathname === '/compartilhar') {
+  const url = linkCompartilhado(location.search)
+  history.replaceState(null, '', '/#/entrada')
+  if (!url) {
+    avisoCompartilhar.value = 'Não achei um link do YouTube no que veio.'
+  } else {
+    api('/api/entrada', { metodo: 'POST', corpo: { url } })
+      .then(() => {
+        avisoCompartilhar.value = 'Na Entrada'
+        buscarProntas()
+      })
+      .catch((e) => {
+        avisoCompartilhar.value = e.message
+      })
+  }
+}
+
 const hash = ref(location.hash)
 const rota = computed(() => lerRota(hash.value))
-const telas = { hoje: Hoje, trilhas: Trilhas, ajustes: Ajustes, design: Vitrine }
+const telas = { hoje: Hoje, trilhas: Trilhas, entrada: Entrada, ajustes: Ajustes, design: Vitrine }
 
 const abas = [
   { secao: 'hoje', nome: 'Hoje', icone: 'hoje' },
   { secao: 'trilhas', nome: 'Trilhas', icone: 'trilhas' },
+  { secao: 'entrada', nome: 'Entrada', icone: 'entrada' },
 ]
+
+// Fontes prontas que ainda não viraram fragmentos: número discreto na aba Entrada.
+const prontas = ref(0)
+async function buscarProntas() {
+  try {
+    const fontes = await api('/api/entrada')
+    prontas.value = fontes.filter((f) => f.estado === 'pronta').length
+  } catch {
+    // Sem o número, a aba só fica sem o contador.
+  }
+}
+watch(() => rota.value.secao, buscarProntas)
 
 const tema = ref(lerTema())
 const NOMES_TEMA = { auto: 'Tema do aparelho', claro: 'Tema claro', escuro: 'Tema escuro' }
@@ -41,6 +80,7 @@ function aoMudarHash() {
 onMounted(() => {
   aplicarTema(tema.value)
   window.addEventListener('hashchange', aoMudarHash)
+  buscarProntas()
 })
 onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
 </script>
@@ -61,7 +101,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
         :href="link(aba.secao)"
         :class="{ ativa: rota.secao === aba.secao }"
         :aria-current="rota.secao === aba.secao ? 'page' : undefined"
-      >{{ aba.nome }}</a>
+      >{{ aba.nome }} <span v-if="aba.secao === 'entrada' && prontas" class="contador">{{ prontas }}</span></a>
     </nav>
     <div class="barra-direita">
       <a class="botao discreto icone" :class="{ ativa: rota.secao === 'ajustes' }" :href="link('ajustes')" title="Ajustes" aria-label="Ajustes">
@@ -88,7 +128,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
       :aria-current="rota.secao === aba.secao ? 'page' : undefined"
     >
       <Icone :nome="aba.icone" :tamanho="20" />
-      <span>{{ aba.nome }}</span>
+      <span>{{ aba.nome }} <span v-if="aba.secao === 'entrada' && prontas" class="contador">{{ prontas }}</span></span>
     </a>
   </nav>
 </template>
@@ -123,6 +163,16 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
 .barra-direita .botao.ativa { background: var(--superficie-2); color: var(--texto); }
 .so-celular { display: none; }
 
+.contador {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--verde-fundo);
+  color: var(--verde);
+}
+
 .abas-celular { display: none; }
 
 @media (max-width: 899px) {
@@ -139,7 +189,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
     bottom: 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     padding: var(--e1) var(--e2) calc(var(--e1) + env(safe-area-inset-bottom));
     background: var(--fundo);
     border-top: 1px solid var(--borda);
