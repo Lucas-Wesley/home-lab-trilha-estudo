@@ -38,6 +38,9 @@ var migracoes = []string{
 	`ALTER TABLE criacoes ADD COLUMN nivelamento TEXT NOT NULL DEFAULT ''`,
 	// T34: o encaixe mandado a um tópico só (chave da etapa; vazio = a trilha inteira).
 	`ALTER TABLE encaixes ADD COLUMN foco TEXT NOT NULL DEFAULT ''`,
+	// T37: a fonte guarda a tarefa de fragmentar e o pedido do Lucas para a IA.
+	`ALTER TABLE fontes ADD COLUMN tarefa_id INTEGER REFERENCES tarefas(id) ON DELETE SET NULL`,
+	`ALTER TABLE fontes ADD COLUMN pedido TEXT NOT NULL DEFAULT ''`,
 }
 
 // O esquema cresce fase a fase (DECISOES.md §9).
@@ -285,4 +288,23 @@ CREATE TABLE IF NOT EXISTS fontes (
 	criado_em   TEXT NOT NULL,
 	UNIQUE (tipo, video_id)
 );
+
+-- Entrada (T37): os trechos por assunto de uma fonte — é neles que as trilhas se apoiam.
+-- estado: sugerido (a IA propôs) · confirmado (o Lucas conferiu) · descartado. sugestao: fase 4.
+CREATE TABLE IF NOT EXISTS fragmentos (
+	id            INTEGER PRIMARY KEY AUTOINCREMENT,
+	fonte_id      INTEGER NOT NULL REFERENCES fontes(id) ON DELETE CASCADE,
+	ordem         INTEGER NOT NULL,
+	inicio        INTEGER NOT NULL,               -- segundos
+	fim           INTEGER NOT NULL,               -- segundos (fim > inicio)
+	titulo        TEXT NOT NULL,
+	resumo        TEXT NOT NULL DEFAULT '',       -- 2 a 4 frases: o que o trecho ensina
+	assuntos      TEXT NOT NULL DEFAULT '[]',     -- ["TLS", "certificados"]
+	tipo          TEXT NOT NULL DEFAULT 'conteudo', -- conteudo · opiniao · fora
+	estado        TEXT NOT NULL DEFAULT 'sugerido',
+	sugestao      TEXT NOT NULL DEFAULT '',
+	criado_em     TEXT NOT NULL,
+	atualizado_em TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS fragmentos_fonte ON fragmentos (fonte_id, ordem);
 `

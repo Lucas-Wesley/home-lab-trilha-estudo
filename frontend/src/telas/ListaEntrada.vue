@@ -20,7 +20,7 @@ let timer = null
 
 function ligarTimer() {
   if (timer) clearInterval(timer)
-  timer = fontes.value.some((f) => f.estado === 'na_fila' || f.estado === 'lendo') ? setInterval(buscar, 3000) : null
+  timer = fontes.value.some((f) => ['na_fila', 'lendo', 'fragmentando'].includes(f.estado)) ? setInterval(buscar, 3000) : null
 }
 
 async function buscar() {

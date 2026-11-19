@@ -27,11 +27,17 @@ type fonte struct {
 	Duracao     int        `json:"duracao"` // segundos
 	Idioma      string     `json:"idioma"`
 	Capitulos   []capitulo `json:"capitulos"`
-	Estado      string     `json:"estado"` // na_fila · lendo · pronta · erro
+	Estado      string     `json:"estado"` // na_fila · lendo · pronta · fragmentando · fragmentada · erro
 	Erro        string     `json:"erro"`
 	Playlist    string     `json:"playlist"`
 	CriadoEm    string     `json:"criado_em"`
 	Transcricao string     `json:"transcricao,omitempty"`
+	// T37: a tarefa que fragmentou (ou fragmenta) a fonte, o pedido do Lucas para ela,
+	// os fragmentos e a tarefa em si (só na página da fonte).
+	TarefaID   int64       `json:"tarefa_id"`
+	Pedido     string      `json:"pedido"`
+	Fragmentos []fragmento `json:"fragmentos,omitempty"`
+	Tarefa     *tarefa     `json:"tarefa,omitempty"`
 }
 
 // capitulo é um capítulo do autor do vídeo (início e fim em segundos), guardado em JSON na fonte.
@@ -46,13 +52,13 @@ func pastaDaFonte(id int64) string {
 }
 
 const colunasFonte = `id, tipo, url, video_id, titulo, canal, duracao, idioma, capitulos, estado, erro,
-	playlist, criado_em FROM fontes`
+	playlist, criado_em, COALESCE(tarefa_id, 0), pedido FROM fontes`
 
 func lerFonte(row interface{ Scan(...any) error }) (fonte, error) {
 	var f fonte
 	var capitulos string
 	err := row.Scan(&f.ID, &f.Tipo, &f.URL, &f.VideoID, &f.Titulo, &f.Canal, &f.Duracao, &f.Idioma,
-		&capitulos, &f.Estado, &f.Erro, &f.Playlist, &f.CriadoEm)
+		&capitulos, &f.Estado, &f.Erro, &f.Playlist, &f.CriadoEm, &f.TarefaID, &f.Pedido)
 	if err == nil {
 		f.Capitulos = []capitulo{}
 		json.Unmarshal([]byte(capitulos), &f.Capitulos)
@@ -210,18 +216,35 @@ func (a *app) handleEntradaListar(w http.ResponseWriter, r *http.Request) {
 	responderJSON(w, http.StatusOK, lista)
 }
 
+// entradaCompleta é a fonte da página: transcrição, fragmentos e a tarefa que a fragmentou (T37).
+func (a *app) entradaCompleta(ctx context.Context, id int64) (fonte, error) {
+	f, err := a.fontePorID(ctx, id)
+	if err != nil {
+		return f, err
+	}
+	f.Transcricao, _ = a.conteudo.ler(pastaDaFonte(id) + "/transcricao.md")
+	if f.Fragmentos, err = a.fragmentosDaFonte(ctx, id); err != nil {
+		return f, err
+	}
+	if f.TarefaID > 0 {
+		if t, err := lerTarefa(a.db.QueryRowContext(ctx, `SELECT `+colunasTarefa+` WHERE t.id = ?`, f.TarefaID)); err == nil {
+			f.Tarefa = t
+		}
+	}
+	return f, nil
+}
+
 func (a *app) handleEntradaFonte(w http.ResponseWriter, r *http.Request) {
 	id, err := idDaRota(r)
 	if err != nil {
 		a.responderErro(w, err)
 		return
 	}
-	f, err := a.fontePorID(r.Context(), id)
+	f, err := a.entradaCompleta(r.Context(), id)
 	if err != nil {
 		a.responderErro(w, err)
 		return
 	}
-	f.Transcricao, _ = a.conteudo.ler(pastaDaFonte(id) + "/transcricao.md")
 	responderJSON(w, http.StatusOK, f)
 }
 

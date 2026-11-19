@@ -46,6 +46,7 @@ func (a *app) ligarIA() {
 	a.fila.executores[tipoMateriais] = a.gerarMateriais
 	a.fila.executores[tipoReforco] = a.gerarReforco
 	a.fila.executores[tipoNivelamento] = a.gerarNivelamento
+	a.fila.executores[tipoFragmentar] = a.fragmentar
 	a.fila.aoTerminar = a.aoTerminarTarefa
 }
 
@@ -135,6 +136,13 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("GET /api/entrada/{id}", a.handleEntradaFonte)
 	mux.HandleFunc("POST /api/entrada/{id}/tentar", a.handleEntradaTentar)
 	mux.HandleFunc("DELETE /api/entrada/{id}", a.handleEntradaExcluir)
+	// Entrada (T37): a IA divide a fonte em fragmentos; o Lucas ajusta e confirma.
+	mux.HandleFunc("POST /api/entrada/{id}/fragmentar", a.handleEntradaFragmentar)
+	mux.HandleFunc("POST /api/entrada/{id}/confirmar", a.handleEntradaConfirmar)
+	mux.HandleFunc("PUT /api/fragmentos/{id}", a.handleFragmentoEditar)
+	mux.HandleFunc("POST /api/fragmentos/{id}/dividir", a.handleFragmentoDividir)
+	mux.HandleFunc("POST /api/fragmentos/{id}/juntar", a.handleFragmentoJuntar)
+	mux.HandleFunc("POST /api/fragmentos/{id}/descartar", a.handleFragmentoDescartar)
 
 	mux.HandleFunc("GET /api/tarefas", a.handleTarefas)
 	mux.HandleFunc("POST /api/tarefas/{id}/cancelar", a.handleCancelarTarefa)

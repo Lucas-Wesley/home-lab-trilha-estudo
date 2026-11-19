@@ -34,7 +34,16 @@ export const ESTADOS_FONTE = {
   na_fila: { nome: 'na fila', cor: '' },
   lendo: { nome: 'lendo…', cor: 'azul' },
   pronta: { nome: 'pronta', cor: 'verde' },
+  fragmentando: { nome: 'fragmentando…', cor: 'azul' },
+  fragmentada: { nome: 'fragmentada', cor: 'verde' },
   erro: { nome: 'erro', cor: 'vermelho' },
+}
+
+// T37: os tipos de fragmento (opinião e fora do tema em tom mais fraco).
+export const TIPOS_FRAGMENTO = {
+  conteudo: { nome: 'Conteúdo', cor: 'azul' },
+  opiniao: { nome: 'Opinião', cor: '' },
+  fora: { nome: 'Fora do tema', cor: '' },
 }
 
 export const TIPOS_MATERIAL = {

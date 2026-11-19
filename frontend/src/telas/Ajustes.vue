@@ -27,6 +27,7 @@ const MODELOS = [
   { campo: 'modelo_criacao', nome: 'Criação de trilhas', recomendado: 'opus', para: 'Entrevista, mapa, validação da lista, mini-teste de nível, plano e reforço. Roda poucas vezes e decide a trilha inteira: vale o mais cuidadoso. Também revisa o roteiro (os tópicos) quando você pede.' },
   { campo: 'modelo_estudo', nome: 'Exercícios e simulado', recomendado: 'haiku', para: 'Gerar os exercícios e as perguntas do simulado, a partir da lição aprovada. No teste, o Haiku acertou os gabaritos como o Sonnet.' },
   { campo: 'modelo_correcao', nome: 'Correção e conferência', recomendado: 'haiku', para: 'Corrigir o simulado (também o intercalado) e conferir o resumo com a aula. Vazio: o mesmo dos exercícios.' },
+  { campo: 'modelo_entrada', nome: 'Entrada: fragmentar e sugerir trilhas', recomendado: 'haiku', para: 'Dividir a fonte em fragmentos por assunto e sugerir as trilhas (fase 4). Tarefa estruturada sobre a transcrição: o Haiku dá conta.' },
 ]
 const NOMES_MODELO = { haiku: 'Haiku', sonnet: 'Sonnet', opus: 'Opus' }
 function opcoes(m) {

@@ -119,7 +119,7 @@ proposta `roteiro` (chave `@roteiro` ou `@roteiro:<etapa>`); `GET .../roteiro?et
 `roteiro.md` e `encaixe.md`. Telas: `RevisarRoteiro.vue`, `MudancaRoteiro.vue`; as páginas da
 trilha e da etapa usam `AbasPagina.vue`.
 
-## Entrada (T35, T36)
+## Entrada (T35, T36, T37)
 `backend/entrada.go` e `backend/youtube.go` (código copiado do Acervo, sem chamá-lo):
 `POST /api/entrada` com um link de vídeo do YouTube cria a **fonte** (tabela `fontes`); com uma
 playlist, uma por vídeo (`--flat-playlist`). Uma fila própria do yt-dlp — separada da do Claude,
@@ -135,8 +135,17 @@ autoatualiza a cada 3 s enquanto lê) e `Fonte.vue` (`#/entrada/<id>`: capítulo
 recolhível com os `[mm:ss]` clicáveis, `linkNoMinuto`). O compartilhar do celular cai em
 `/compartilhar` (share_target do manifesto, devolvido com o `index.html` pelo fallback do app);
 `linkDoYouTube`/`linkCompartilhado` (`frontend/src/entrada.js`) acham o link no texto e **completam
-`https://` quando falta o esquema** — `videoDoLink` só aceita com ele. Fragmentar/encaixar são as
-fases 3+ do [plano-entrada](docs/plano-entrada/README.md).
+`https://` quando falta o esquema** — `videoDoLink` só aceita com ele. Encaixar é a fase 4 do
+[plano-entrada](docs/plano-entrada/README.md).
+
+**Fragmentar** (`backend/fragmentos.go`, T37): `POST /api/entrada/{id}/fragmentar` enfileira a
+tarefa `fragmentar` (sem proposta; `fontes.tarefa_id` liga de volta). A IA lê a transcrição
+**uma vez** e devolve os trechos por assunto (regra `regras/fragmentar.md`, só `Read`, modelo
+`modelo_entrada`); `limparFragmentos` confere tempos, ordem, duração e sobreposição antes de
+gravar como `sugerido`. Na página da fonte o Lucas edita (`PUT /api/fragmentos/{id}`, tempos em
+`mm:ss`), divide (`/dividir`), junta (`/juntar`), descarta (`/descartar`) e confirma
+(`POST /api/entrada/{id}/confirmar`). Refazer apaga os sugeridos e mantém os confirmados; a
+tarefa que falha devolve a fonte a `pronta` com o erro.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

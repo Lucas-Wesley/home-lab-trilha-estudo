@@ -152,3 +152,53 @@ Commit: `Entrada (T37): a IA divide a fonte em fragmentos por assunto (regra fra
 ## Dúvidas
 
 ## Feito
+
+**Feito em 19/11/2026.**
+
+- Banco (`backend/banco.go`): tabela `fragmentos` (com `sugestao`, para a fase 4) e os `ALTER
+  TABLE` de `fontes` — `tarefa_id` (a tarefa de fragmentar) e `pedido` (o pedido do Lucas).
+- Tarefa `fragmentar` (`backend/fragmentos.go`, registrada em `servidor.go`/`ligarIA`):
+  `POST /api/entrada/{id}/fragmentar` aceita `{"pedido"}` opcional, só para fonte `pronta` ou
+  `fragmentada`; enfileira "Fragmentar: <título>", grava `tarefa_id`/`pedido` e a fonte vai a
+  `fragmentando`. O executor acha a fonte por `tarefa_id`, escreve `pedido.md`
+  (`# Pedido: fragmentar` + vídeo, canal, duração, capítulos, pedido do Lucas, confirmados) e
+  `transcricao.md` na pasta da tarefa e chama o Claude com `regras/fragmentar.md`, o esquema do
+  plano, só `Read` e o modelo da tarefa (`modelo_entrada`). `limparFragmentos` confere antes de
+  gravar: tempos legíveis, `fim > inicio`, dentro da duração (fim que passa fecha no fim do
+  vídeo), ordem e sem sobreposição (o fim do primeiro vira o início do segundo); o que saiu vai
+  para `fontes.erro` junto das `notas` da IA. Grava como `sugerido`; fonte a `fragmentada`.
+  Fragmentar de novo apaga os `sugerido`, mantém os `confirmado` (listados no pedido para a IA
+  não repetir) e reordena tudo pelo início.
+- Falha/cancelamento: `aoTerminarTarefa` (`propostas.go`) devolve a fonte a `pronta` — ou a
+  `fragmentada`, se já tinha fragmentos — com o erro da tarefa.
+- Revisão (`fragmentos.go` + `Fonte.vue`): `GET /api/entrada/{id}` traz `fragmentos` e `tarefa`;
+  `PUT /api/fragmentos/{id}` (tempos em `mm:ss` ou segundos, validados como na limpeza, com o
+  cruzamento entre irmãos proibido), `POST .../dividir` (`{"em":"mm:ss"}`, o segundo é
+  "(continuação)"), `.../juntar` (com o seguinte, títulos com " + "), `.../descartar` e
+  `POST /api/entrada/{id}/confirmar`. Na tela: campo de pedido + "Dividir em
+  fragmentos"/"Dividir de novo", estado da tarefa (na fila, dividindo, falhou com a mensagem e
+  "Tentar de novo" pelo mesmo botão), a lista com `mm:ss–mm:ss` clicável, duração, etiqueta do
+  tipo (`opinião`/`fora do tema` em tom fraco) e do estado, edição inline, dividir, juntar,
+  descartar (com "mostrar descartados") e "Confirmar N fragmentos". `ESTADOS_FONTE` ganhou
+  `fragmentando`/`fragmentada` e a lista da Entrada também autoatualiza durante a divisão.
+- Modelo: `modelo_entrada` ("Entrada: fragmentar e sugerir trilhas") em `ajustes`,
+  `chavesAjustes`, `modeloPara` (`fragmentar`; `destino` entra na fase 4) e a página Modelos de
+  `Ajustes.vue`, com `(recomendado)` Haiku e no "Usar os recomendados".
+- `scripts/claude-falso.mjs`: o caso `# Pedido: fragmentar` devolve 3 fragmentos tirados das
+  marcas `[mm:ss]` da `transcricao.md` (o do meio `opiniao`).
+
+**Testes** (`backend/fragmentos_test.go`): a tarefa com o Claude falso → 3 `sugerido`, fonte
+`fragmentada`, `tarefa` no GET, `pedido.md`/`transcricao.md` conferidos; a limpeza (fim < inicio,
+fora da duração, sem título, sobreposição, tipo inventado); re-fragmentar mantendo confirmados;
+editar/dividir/juntar/descartar/confirmar (com os erros de validação); tarefa falha → fonte
+`pronta` com o erro; `modeloPara(ctx, "fragmentar")` = `modelo_entrada`;
+`regraConhecida("fragmentar.md")`. Tempos do front: reusei `tempoParaSegundos`/
+`segundosParaTempo` (já testados em `entrada.test.js`/`videoaula.test.js`), sem função nova.
+
+**Rodado e passou:** `cd backend && go vet ./... && go test ./...` (ok); `cd frontend && npm
+test` (38 ok) `&& npm run build` (ok). Conferido no navegador a 360 px com o app de verdade
+(yt-dlp e Claude falsos): fragmentar → `fragmentada` com 3 fragmentos, cartões, edição e
+"Confirmar", sem rolagem horizontal.
+
+**Ficou de fora:** mandar fragmento para trilha e as sugestões de destino (fase 4); a coluna
+`sugestao` já está na tabela esperando.

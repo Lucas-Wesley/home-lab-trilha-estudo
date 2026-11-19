@@ -161,6 +161,26 @@ if (/^# Pedido: mini-teste de nível/m.test(pedido)) {
   })
 }
 
+// Entrada (T37): três fragmentos de teste nos terços das marcas [mm:ss] da transcrição.
+if (/^# Pedido: fragmentar/m.test(pedido)) {
+  const paraSeg = (t) => { const p = t.split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1] }
+  const paraTempo = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = String(s % 60).padStart(2, '0'); return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${String(m).padStart(2, '0')}:${ss}` }
+  const transcricao = existsSync('transcricao.md') ? readFileSync('transcricao.md', 'utf8') : ''
+  const marcas = [...transcricao.matchAll(/^\[((?:\d+:)?\d{1,2}:\d{2})\]/gm)].map((m) => paraSeg(m[1]))
+  const cortes = [0, marcas[Math.floor(marcas.length / 3)] ?? 20, marcas[Math.floor((2 * marcas.length) / 3)] ?? 40, (marcas.at(-1) ?? 50) + 10]
+  if (cortes[1] <= 0) cortes[1] = 20
+  if (cortes[2] <= cortes[1]) cortes[2] = cortes[1] + 20
+  if (cortes[3] <= cortes[2]) cortes[3] = cortes[2] + 20
+  responder({
+    fragmentos: ['Começo', 'Opinião do autor', 'Fim'].map((titulo, i) => ({
+      inicio: paraTempo(cortes[i]), fim: paraTempo(cortes[i + 1]), titulo,
+      resumo: `Resumo de teste do fragmento "${titulo}".`, assuntos: ['teste'],
+      tipo: i === 1 ? 'opiniao' : 'conteudo',
+    })),
+    notas: 'Fragmentos de teste (scripts/claude-falso.mjs).',
+  })
+}
+
 const titulo = (pedido.match(/^# Pedido: lição da etapa "(.*)"$/m) || [])[1] || 'Etapa'
 const deste = (pedido.match(/^- Deste pedido: (.*)$/m) || [])[1] || ''
 const comentarios = [...pedido.matchAll(/^- Comentário (\d+)(?: \(em [^)]*\))?(?:, sobre o trecho: «[\s\S]*?»)?: (.*)$/gm)].map((m) => ({ id: Number(m[1]), texto: m[2] }))

@@ -153,6 +153,7 @@ var regrasDoApp = []regra{
 	{Arquivo: "validar-lista.md", Titulo: "Validar a lista", Para: "Criar trilha (eu tenho a lista): o que falta na lista"},
 	{Arquivo: "espinha.md", Titulo: "Espinha dorsal", Para: "Criar trilha (a partir de material): o material vira a sequência de etapas"},
 	{Arquivo: "nivelamento.md", Titulo: "Mini-teste de nível", Para: "Criar trilha: perguntas para saber onde começar (opcional)"},
+	{Arquivo: "fragmentar.md", Titulo: "Fragmentar a fonte", Para: "Dividir a fonte da Entrada em fragmentos por assunto"},
 	{Arquivo: "plano.md", Titulo: "Plano da trilha", Para: "Criar trilha: módulos e etapas (vai junto com o método abaixo)"},
 	{Arquivo: "criar-trilha.md", Titulo: "Criar trilha (método)", Para: "O método e os critérios C1–C15, que vão junto com o plano"},
 }
@@ -279,6 +280,7 @@ type ajustes struct {
 	ModeloCriacao     string `json:"modelo_criacao"`
 	ModeloEstudo      string `json:"modelo_estudo"`   // gerar exercícios e simulado (fase 5)
 	ModeloCorrecao    string `json:"modelo_correcao"` // corrigir o simulado e conferir o resumo; vazio = o dos exercícios
+	ModeloEntrada     string `json:"modelo_entrada"`  // fragmentar a fonte e sugerir trilhas (T37; "destino" entra na fase 4)
 	NotaMinima        string `json:"nota_minima"`     // critério automático: % nos exercícios (vazio = 80)
 	ModeloPadrao      string `json:"modelo_padrao"`   // só leitura: CLAUDE_MODEL
 }
@@ -289,6 +291,7 @@ var chavesAjustes = map[string]func(*ajustes) *string{
 	"modelo_criacao":     func(x *ajustes) *string { return &x.ModeloCriacao },
 	"modelo_estudo":      func(x *ajustes) *string { return &x.ModeloEstudo },
 	"modelo_correcao":    func(x *ajustes) *string { return &x.ModeloCorrecao },
+	"modelo_entrada":     func(x *ajustes) *string { return &x.ModeloEntrada },
 	"nota_minima":        func(x *ajustes) *string { return &x.NotaMinima },
 }
 
@@ -333,7 +336,7 @@ func (a *app) handleSalvarAjustes(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, erroDeEntrada{fmt.Errorf("a nota mínima vai de 1 a 100 (%%), não %q", x.NotaMinima)})
 		return
 	}
-	for _, m := range []*string{&x.ModeloLicao, &x.ModeloCriacao, &x.ModeloEstudo, &x.ModeloCorrecao} {
+	for _, m := range []*string{&x.ModeloLicao, &x.ModeloCriacao, &x.ModeloEstudo, &x.ModeloCorrecao, &x.ModeloEntrada} {
 		*m = strings.TrimSpace(*m)
 		if !contem(modelosAceitos, *m) && !strings.HasPrefix(*m, "claude-") {
 			a.responderErro(w, erroDeEntrada{fmt.Errorf("modelo desconhecido: %q (use opus, sonnet, haiku ou o nome completo)", *m)})
@@ -376,6 +379,8 @@ func (a *app) modeloPara(ctx context.Context, tipo string) string {
 		return primeiro(ler("correcao"), ler("estudo"), a.ia.modelo)
 	case ehEstudo(tipo):
 		return primeiro(ler("estudo"), a.ia.modelo)
+	case tipo == tipoFragmentar: // a fase 4 acrescenta "destino"
+		return primeiro(ler("entrada"), a.ia.modelo)
 	default: // lição e "sugerir material"
 		return primeiro(ler("licao"), a.ia.modelo)
 	}

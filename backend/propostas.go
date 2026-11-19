@@ -480,6 +480,17 @@ func (a *app) aoTerminarTarefa(t *tarefa) {
 		a.aoTerminarNivelamento(t)
 		return
 	}
+	if t.Tipo == tipoFragmentar {
+		// A fonte sai de "fragmentando": volta a "pronta" (ou a "fragmentada", se já tinha
+		// fragmentos) com o erro da tarefa.
+		if _, err := a.db.Exec(`UPDATE fontes SET erro = ?, estado = CASE WHEN EXISTS (
+				SELECT 1 FROM fragmentos WHERE fonte_id = fontes.id AND estado != 'descartado'
+			) THEN 'fragmentada' ELSE 'pronta' END
+			WHERE tarefa_id = ? AND estado = 'fragmentando'`, t.Erro, t.ID); err != nil {
+			log.Printf("fonte da tarefa %d: %v", t.ID, err)
+		}
+		return
+	}
 	if t.PropostaID == 0 {
 		// A correção do simulado: a tentativa fica com o erro (e pode ser feita de novo).
 		if _, err := a.db.Exec(`UPDATE tentativas SET estado = ?, erro = ?, atualizado_em = ? WHERE tarefa_id = ? AND estado = ?`,
