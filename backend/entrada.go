@@ -83,6 +83,10 @@ func (a *app) criarFonte(ctx context.Context, tipo, link, videoID, titulo, playl
 // vídeos: o YouTube bloqueia quem pede muito seguido. Se o app para no meio, o que estava
 // "lendo" volta para a fila no próximo início.
 
+// limiteLeitura: o máximo para ler um vídeo (informações, legenda e, sem legenda, o áudio no
+// Whisper, que numa live de 3 h pode levar uns 20 min no Mac).
+const limiteLeitura = 45 * time.Minute
+
 func (a *app) recuperarEntrada(ctx context.Context) error {
 	_, err := a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'na_fila' WHERE estado = 'lendo'`)
 	return err
@@ -123,7 +127,11 @@ func (a *app) lerProximaFonte(ctx context.Context) bool {
 		log.Printf("entrada: %v", err)
 		return false
 	}
-	if err := a.lerVideo(ctx, f); err != nil {
+	// Um yt-dlp ou um Whisper travado não pode parar a fila para sempre.
+	cl, cancelar := context.WithTimeout(ctx, limiteLeitura)
+	err = a.lerVideo(cl, f)
+	cancelar()
+	if err != nil {
 		log.Printf("entrada: fonte %d: %v", f.ID, err)
 		a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'erro', erro = ? WHERE id = ?`, err.Error(), f.ID)
 	} else {
