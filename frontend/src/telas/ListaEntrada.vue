@@ -3,6 +3,7 @@ import { inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '../api.js'
 import { linkDoYouTube } from '../entrada.js'
 import Icone from '../Icone.vue'
+import Pagina from '../Pagina.vue'
 import { link } from '../rotas.js'
 import { ESTADOS_FONTE } from '../rotulos.js'
 import { segundosParaTempo } from '../videoaula.js'
@@ -81,6 +82,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <Pagina>
   <div class="pilha">
     <header class="cabecalho">
       <div>
@@ -127,6 +129,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </div>
+  </Pagina>
 </template>
 
 <style scoped>

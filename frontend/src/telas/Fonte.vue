@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '../api.js'
 import { linhasDaTranscricao, linkNoMinuto } from '../entrada.js'
 import Icone from '../Icone.vue'
+import Pagina from '../Pagina.vue'
 import { link } from '../rotas.js'
 import { ESTADOS_FONTE } from '../rotulos.js'
 import { segundosParaTempo } from '../videoaula.js'
@@ -58,6 +59,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <Pagina>
   <div class="pilha">
     <nav class="migalhas">
       <a :href="link('entrada')">Entrada</a>
@@ -122,6 +124,7 @@ onBeforeUnmount(() => {
       </section>
     </template>
   </div>
+  </Pagina>
 </template>
 
 <style scoped>
