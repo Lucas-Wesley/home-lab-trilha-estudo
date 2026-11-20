@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import EscolherMaterial from '../EscolherMaterial.vue'
 import AbasPagina from '../AbasPagina.vue'
+import ColarTranscricao from '../ColarTranscricao.vue'
 import DominioEtapa from '../DominioEtapa.vue'
 import EncaixarMaterial from '../EncaixarMaterial.vue'
 import EstudoEtapa from '../EstudoEtapa.vue'
@@ -137,6 +138,16 @@ async function mudarStatus(status) {
     if (status === 'concluida' && proxima.value) location.hash = link('trilhas', props.trilhaId, 'etapas', proxima.value.id)
   } catch (err) {
     aviso.value = err.message
+  }
+}
+
+// Transcrição colada (T49): a etapa passa a ter a fonte; com "gerar", já pede o texto da aula.
+async function aoColarTranscricao({ etapa, gerar }) {
+  e.value = etapa
+  t.value = await api(`/api/trilhas/${props.trilhaId}`)
+  if (gerar) {
+    await nextTick()
+    proposta.value?.pedir('Texto da aula a partir da transcrição colada: organize na ordem da aula e resuma, sem perder o que ela ensina.')
   }
 }
 
@@ -283,6 +294,7 @@ async function excluir() {
             </div>
             <p v-if="!e.licao && !propostaAberta && trechosYt.length" class="suave">A aula desta etapa é o trecho do vídeo. Se quiser, a IA pode escrever a lição a partir da transcrição dele, como proposta. <button class="botao discreto" @click="proposta?.abrir()">Gerar lição escrita (opcional)</button></p>
             <p v-else-if="!e.licao && !propostaAberta" class="suave">Esta etapa ainda não tem {{ e.tipo === 'projeto' ? 'enunciado' : 'lição' }}. A IA escreve na profundidade da etapa ({{ PROFUNDIDADES[profundidade] }}), a partir das fontes, trazendo para dentro tudo o que importa; chega como proposta, você comenta e aprova. Também dá para escrever à mão em Editar.</p>
+            <ColarTranscricao v-if="!propostaAberta && !edicao" :key="`colar-${e.id}`" :trilha-id="trilhaId" :etapa="e" @salva="aoColarTranscricao" />
             <PropostaLicao ref="proposta" :key="e.id" :etapa-id="e.id" :licao-atual="e.licao || ''" :base-docs="baseDocs" @aprovada="aoAprovar" @aberta="propostaAberta = $event" />
             <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancoraDaLicao" :base-docs="baseDocs" @titulos="titulos = $event" />
           </section>

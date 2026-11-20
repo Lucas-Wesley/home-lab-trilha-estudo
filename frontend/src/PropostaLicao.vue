@@ -177,7 +177,7 @@ const ESTADOS = {
 }
 const ESTADO_TAREFA = { na_fila: 'na fila', rodando: 'escrevendo', concluida: 'pronta', falhou: 'falhou', cancelada: 'cancelada' }
 
-defineExpose({ abrir: () => (abrirPedido.value = true) })
+defineExpose({ abrir: () => (abrirPedido.value = true), pedir })
 </script>
 
 <template>
