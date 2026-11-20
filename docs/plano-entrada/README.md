@@ -91,7 +91,7 @@ gasta crédito duas vezes. O Lucas quer:
 | 4 | [F04-destino-e-encaixe.md](F04-destino-e-encaixe.md) | A IA sugere as trilhas de cada fragmento; o encaixe por trilha | sim | ✅ no ar |
 | 5 | [F05-trecho-do-youtube-na-etapa.md](F05-trecho-do-youtube-na-etapa.md) | O trecho do YouTube toca na etapa, com aviso do fim e progresso | não | ✅ no ar |
 | 6 | [F06-sem-destino-e-acervo.md](F06-sem-destino-e-acervo.md) | "Sem destino" some em 30 dias; trazer do Acervo (os vídeos do Akita) | não | ✅ no ar |
-| 7 | [F07-meus-arquivos.md](F07-meus-arquivos.md) | **Meus arquivos**: a árvore dos cursos do Streaming, baixar e lixeira | não | |
+| 7 | [F07-meus-arquivos.md](F07-meus-arquivos.md) | **Meus arquivos**: a árvore dos cursos do Streaming, baixar e lixeira | não | ✅ no ar |
 | 8 | [F08-trilha-igual-ao-curso.md](F08-trilha-igual-ao-curso.md) | Criar uma trilha igual a um curso; a aula baixa na etapa, por clique | não | |
 | 9 | [F09-encaixar-cursos-pelos-titulos.md](F09-encaixar-cursos-pelos-titulos.md) | Encaixar cursos numa trilha pelos títulos; juntar cursos | sim | |
 | 10 | [F10-processar-aula.md](F10-processar-aula.md) | Processar aulas do Telegram: transcrever e fragmentar como o YouTube | sim | |
