@@ -25,7 +25,11 @@ Devolva:
    **um fragmento** com o vídeo inteiro. Live que pula de assunto = vários.
 2. **Assunto que volta mais tarde**: um fragmento só, no trecho principal (o mais longo e
    completo); não pique o mesmo assunto em vários.
-3. **Mínimo de ~2 minutos** por fragmento, salvo quando o assunto é mesmo curto e importante.
+3. **Poucos fragmentos, cada um estudável.** Mínimo de **3 minutos** por fragmento; assuntos
+   vizinhos e ligados (ex.: "bits x bytes", "modems" e "fibra" numa aula sobre meios físicos)
+   entram **juntos** num fragmento só, com um título que diga o conjunto. Como referência, um vídeo
+   de 30 a 60 minutos costuma dar **de 3 a 10 fragmentos**; mais que isso só numa live que pula de
+   assunto de verdade. Picotar demais obriga o Lucas a mandar dezenas de pedaços para as trilhas.
 4. **`inicio`** alguns segundos **antes** de o assunto começar (o começo da frase que o
    introduz); **`fim`** quando o assunto acaba de verdade, não no meio da última explicação.
 5. **Os capítulos do autor são pista, não verdade.** Use-os para achar os assuntos, mas corte
