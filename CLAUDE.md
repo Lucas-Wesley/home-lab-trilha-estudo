@@ -119,7 +119,7 @@ proposta `roteiro` (chave `@roteiro` ou `@roteiro:<etapa>`); `GET .../roteiro?et
 `roteiro.md` e `encaixe.md`. Telas: `RevisarRoteiro.vue`, `MudancaRoteiro.vue`; as páginas da
 trilha e da etapa usam `AbasPagina.vue`.
 
-## Entrada (T35, T36, T37)
+## Entrada (T35, T36, T37, T38)
 `backend/entrada.go` e `backend/youtube.go` (código copiado do Acervo, sem chamá-lo):
 `POST /api/entrada` com um link de vídeo do YouTube cria a **fonte** (tabela `fontes`); com uma
 playlist, uma por vídeo (`--flat-playlist`). Uma fila própria do yt-dlp — separada da do Claude,
@@ -146,6 +146,19 @@ gravar como `sugerido`. Na página da fonte o Lucas edita (`PUT /api/fragmentos/
 `mm:ss`), divide (`/dividir`), junta (`/juntar`), descarta (`/descartar`) e confirma
 (`POST /api/entrada/{id}/confirmar`). Refazer apaga os sugeridos e mantém os confirmados; a
 tarefa que falha devolve a fonte a `pronta` com o erro.
+
+**Destino e encaixe** (`backend/destinos.go`, T38): `POST /api/entrada/{id}/destino` enfileira a
+tarefa `destino` (a fonte guarda `tarefa_destino_id`/`pedido_destino`; as notas da IA ficam em
+`fontes.notas`), que compara resumo/assuntos de cada fragmento confirmado com as trilhas não
+concluídas (regra `regras/destino.md`, `modelo_entrada`) e grava `fragmentos.sugestao` — um
+fragmento pode ir para várias trilhas ou para nenhuma (`sem_destino_em`). `fragmento_destinos`
+guarda a seleção e o `proposta_id`; `PUT /api/fragmentos/{id}/destinos` troca a seleção não
+enviada ou marca "Sem destino". `POST /api/entrada/{id}/enviar` cria **um encaixe por trilha**
+com o material **`youtube`** (`referencia` = URL, `localizador` = todos os intervalos;
+`lerIntervalos`/`trechoDaTranscricao`) pelo `criarEncaixe` extraído do `handleEncaixar`; o pedido
+só leva os trechos escolhidos, `limparEncaixe` descarta encaixe fora dos intervalos e aprovar
+cria/atualiza etapas com um material `principal` por intervalo. Na lista da Entrada cada fonte
+resume "N fragmentos · M enviados · K sem destino". O trecho na etapa toca na fase 5.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

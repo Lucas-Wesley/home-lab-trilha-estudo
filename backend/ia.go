@@ -154,6 +154,7 @@ var regrasDoApp = []regra{
 	{Arquivo: "espinha.md", Titulo: "Espinha dorsal", Para: "Criar trilha (a partir de material): o material vira a sequência de etapas"},
 	{Arquivo: "nivelamento.md", Titulo: "Mini-teste de nível", Para: "Criar trilha: perguntas para saber onde começar (opcional)"},
 	{Arquivo: "fragmentar.md", Titulo: "Fragmentar a fonte", Para: "Dividir a fonte da Entrada em fragmentos por assunto"},
+	{Arquivo: "destino.md", Titulo: "Destino dos fragmentos", Para: "Sugerir a que trilha(s) vai cada fragmento confirmado"},
 	{Arquivo: "plano.md", Titulo: "Plano da trilha", Para: "Criar trilha: módulos e etapas (vai junto com o método abaixo)"},
 	{Arquivo: "criar-trilha.md", Titulo: "Criar trilha (método)", Para: "O método e os critérios C1–C15, que vão junto com o plano"},
 }
@@ -379,7 +380,7 @@ func (a *app) modeloPara(ctx context.Context, tipo string) string {
 		return primeiro(ler("correcao"), ler("estudo"), a.ia.modelo)
 	case ehEstudo(tipo):
 		return primeiro(ler("estudo"), a.ia.modelo)
-	case tipo == tipoFragmentar: // a fase 4 acrescenta "destino"
+	case tipo == tipoFragmentar || tipo == tipoDestino:
 		return primeiro(ler("entrada"), a.ia.modelo)
 	default: // lição e "sugerir material"
 		return primeiro(ler("licao"), a.ia.modelo)

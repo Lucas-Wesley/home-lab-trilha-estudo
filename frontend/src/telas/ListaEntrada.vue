@@ -115,6 +115,7 @@ onBeforeUnmount(() => {
           <strong>{{ f.titulo || 'Lendo o vídeo…' }}</strong>
           <span class="pequeno">{{ [f.canal, duracao(f)].filter(Boolean).join(' · ') }}</span>
           <span v-if="f.playlist" class="pequeno">da playlist {{ f.playlist }}</span>
+          <span v-if="f.resumo_fragmentos" class="pequeno">{{ f.resumo_fragmentos }}</span>
         </div>
       </a>
       <div class="fonte-lado">

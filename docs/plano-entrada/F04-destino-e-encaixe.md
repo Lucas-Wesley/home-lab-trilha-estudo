@@ -150,3 +150,77 @@ Commit: `Entrada (T38): a IA sugere as trilhas de cada fragmento; um encaixe por
 ## Dúvidas
 
 ## Feito
+
+**Feito em 19/11/2026.**
+
+- Banco (`backend/banco.go`): tabela `fragmento_destinos` (`fragmento_id`, `trilha_id`,
+  `proposta_id` nulo, `criado_em`, PK composta) e os `ALTER TABLE` — `fragmentos.sem_destino_em`
+  e `fontes.tarefa_destino`/`pedido_destino` (a tarefa de destino e o pedido do Lucas ficam
+  separados dos de fragmentar; as notas da IA continuam em `fontes.notas`, nunca em `erro`).
+- Material `youtube` (`backend/destinos.go`, `material.go`, `trilhas.go`): novo tipo aceito no
+  encaixe e na trilha (`tiposEncaixe`, `tiposMaterial`). `lerIntervalos`/`escreverIntervalos`
+  leem/gravam `mm:ss–mm:ss; ...` (também `h:mm:ss`, hífen comum e travessão; rejeita formato
+  errado e fim ≤ início) e `trechoDaTranscricao` corta a transcrição em blocos `[mm:ss]` dentro
+  do intervalo (fim que passa da duração é aceito). `trechosDoVideo` acha a fonte pela URL
+  (`youtube`/`acervo`), lê `entrada/<id>/transcricao.md` e monta uma seção `## início–fim ·
+  título do fragmento` + resumo por intervalo; sem fonte, devolve "o vídeo não está na Entrada".
+- Tarefa `destino` (`destinos.go`, executor `sugerirDestinos` na fila): `POST
+  /api/entrada/{id}/destino` (fonte `fragmentada`, aceita `{"pedido"}`) escreve `pedido.md`
+  (`# Pedido: destino` + vídeo, pedido, fragmentos confirmados — inclusive `opiniao`/`fora` — e
+  as trilhas não concluídas com título, objetivo, módulos e até ~40 etapas, com aviso de corte)
+  e chama o Claude com `regras/destino.md` (nova), só `Read` e `modelo_entrada` (`modeloPara`
+  ganhou `destino`). A resposta vira `fragmentos.sugestao`; trilhas sugeridas entram como
+  `fragmento_destinos` no estado `sugerido`. Falha da tarefa vai para a fonte como erro; as
+  notas da IA vão para `notas`.
+- Escolher e mandar (`destinos.go`, rotas em `servidor.go`): `PUT /api/fragmentos/{id}/destinos`
+  recebe `{"trilhas":[ids]}` (valida que existem, troca só os destinos não enviados, marca
+  `confirmado` e limpa `sem_destino_em`) ou `{"sem_destino":true}` (marca `sem_destino` com o
+  carimbo); devolve o fragmento com `destinos` (trilha + proposta + estado do encaixe) e
+  `sugestao`. `POST /api/entrada/{id}/enviar` agrupa os confirmados por trilha, cria **um
+  encaixe por trilha** (material `youtube` com título/canal da fonte, URL e todos os intervalos
+  escolhidos; pedido "São N fragmentos deste vídeo; encaixe cada um pelo seu intervalo."),
+  guarda `proposta_id` nos destinos e marca `enviado` só quem não tem destino pendente; devolve
+  `[{trilha_id, titulo, proposta_id}]`. `GET /api/entrada/{id}` passa a trazer `destinos`/
+  `sugestao`/`sem_destino_em` nos fragmentos, `tarefa_destino` e a lista ganha
+  `resumo_fragmentos` ("3 fragmentos · 2 enviados").
+- Encaixe (`backend/encaixe.go`, `propostas.go`): `handleEncaixar` extraído — `criarEncaixe`
+  recebe trilha/material/pedido/ctx e devolve a proposta, usado pelo handler e pelo enviar (sem
+  duplicar). `montarPedidoEncaixe` escreve os trechos `youtube` em `material.md` (via
+  `arquivosDoMaterial`); `limparEncaixe` rejeita encaixe cujo localizador não cabe nos
+  intervalos mandados (`lerIntervalos` no material e no encaixe). Aprovar insere cada
+  `localizador` como entrada de material `principal` na etapa; trilha vazia vale para `youtube`
+  (o encaixe propõe módulos/etapas novos, criados pelo título na aprovação via
+  `inserirEtapa`/`moduloOuNovo`). Regra `regras/encaixe.md` ganhou a seção "Vídeo
+  em fragmentos" (localizador dentro dos intervalos, não inventar tempos, mesmo fragmento em
+  duas etapas só se ensinar as duas, `principal` = o trecho é a aula).
+- Tela (`telas/Fonte.vue`, `rotulos.js`, `ListaEntrada.vue`): seção "Destino" após confirmar —
+  "Sugerir trilhas"/"Sugerir de novo" com pedido e estado da tarefa ("Tentar de novo"), e em
+  cada fragmento os chips "Foi para" (link `#/trilhas/<id>#encaixar` com o estado do encaixe),
+  trilhas sugeridas com o motivo da IA, "+ trilha" para escolher outra, "Trilha nova" (cria e já
+  seleciona), "Sem destino" e a nota quando a IA não viu destino. "Mandar para as trilhas (N
+  encaixes)" agrupa por trilha. `ESTADOS_ENCAIXE`/`rotulos` para "aguardando aprovação" etc. A
+  lista da Entrada mostra o `resumo_fragmentos`. `scripts/claude-falso.mjs`: casos `# Pedido:
+  destino` (primeira trilha do pedido para `conteudo`, nenhuma para `opiniao`) e o encaixe com
+  material `youtube` (uma etapa por intervalo).
+- Conserto à parte: `.cabecalho` (style.css) ganhou `flex-wrap: wrap` — com barra de rolagem no
+  celular, título de palavra longa + etiqueta esticavam a grade da página e geravam 7 px de
+  rolagem horizontal na fonte (e em qualquer cabeçalho apertado).
+
+**Testes** (`backend/destino_test.go`): `lerIntervalos`/`escreverIntervalos` (formatos, erros,
+`h:mm:ss`) e `trechoDaTranscricao` (trecho certo, cabeçalhos, fora da duração); tarefa `destino`
+com o `iaFalsa`/`claude-falso` → fragmentos de conteúdo com a primeira trilha, opinião sem, erros
+em `erro` e notas em `notas`; `PUT .../destinos` (várias trilhas, sem destino, trilha que não
+existe, destino já enviado intocado) e `POST .../enviar` (dois fragmentos na trilha A + um em A e
+B → **dois** encaixes, `fragmento_destinos` com `proposta_id`, `enviado` só nos com destino);
+pedido do encaixe `youtube` com só os intervalos e os títulos dos fragmentos; encaixe em trilha
+**vazia** → aprovar cria módulo e etapas com material `youtube` `principal`; `limparEncaixe`
+descartando localizador fora dos intervalos; `modeloPara(ctx, "destino")` = `modelo_entrada`.
+
+**Rodado e passou:** `cd backend && go vet ./... && go test ./...` (ok); `cd frontend && npm
+test` (38 ok) `&& npm run build` (ok). Conferido no navegador a 360 px com o app de verdade
+(yt-dlp e Claude falsos): fragmentar → confirmar → sugerir destinos (conteúdo → Redes, opinião
+sem) → "+ trilha" com duas trilhas → "Mandar" criou 2 encaixes `aguardando` com os links certos;
+sem rolagem horizontal depois do `flex-wrap` no `.cabecalho`.
+
+**Ficou de fora:** tocar o trecho na etapa e a contagem de enviados na trilha (fase 5); o
+`sem_destino` volta a ser considerado em futuras sugestões só se o Lucas pedir de novo.

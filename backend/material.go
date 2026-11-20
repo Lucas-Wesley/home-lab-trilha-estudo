@@ -479,6 +479,9 @@ func (a *app) arquivosDoMaterial(ctx context.Context, materiais []material, arqu
 			} else {
 				texto, err = a.textoDoAcervo(ctx, m.Referencia, m.Localizador)
 			}
+		case "youtube":
+			// T38: só os trechos dos intervalos, da transcrição da fonte da Entrada.
+			texto, err = a.trechosDoVideo(ctx, m.Referencia, m.Localizador)
 		default:
 			continue
 		}

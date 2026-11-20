@@ -42,6 +42,11 @@ var migracoes = []string{
 	`ALTER TABLE fontes ADD COLUMN tarefa_id INTEGER REFERENCES tarefas(id) ON DELETE SET NULL`,
 	`ALTER TABLE fontes ADD COLUMN pedido TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE fontes ADD COLUMN notas TEXT NOT NULL DEFAULT ''`, // T37: as notas da IA sobre a divisão (não é erro)
+	// T38: "sem destino" guarda quando foi marcado (a fase 6 o expira em 30 dias) e a fonte guarda
+	// a tarefa de sugerir trilhas (separada da de fragmentar).
+	`ALTER TABLE fragmentos ADD COLUMN sem_destino_em TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE fontes ADD COLUMN tarefa_destino INTEGER REFERENCES tarefas(id) ON DELETE SET NULL`,
+	`ALTER TABLE fontes ADD COLUMN pedido_destino TEXT NOT NULL DEFAULT ''`, // o pedido do Lucas à tarefa destino
 }
 
 // O esquema cresce fase a fase (DECISOES.md §9).
@@ -308,4 +313,14 @@ CREATE TABLE IF NOT EXISTS fragmentos (
 	atualizado_em TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS fragmentos_fonte ON fragmentos (fonte_id, ordem);
+
+-- Entrada (T38): as trilhas escolhidas para cada fragmento (pela IA, que já marca, ou pelo
+-- Lucas). proposta_id é o encaixe criado no "Mandar para as trilhas"; NULL = ainda não enviado.
+CREATE TABLE IF NOT EXISTS fragmento_destinos (
+	fragmento_id INTEGER NOT NULL REFERENCES fragmentos(id) ON DELETE CASCADE,
+	trilha_id    INTEGER NOT NULL REFERENCES trilhas(id) ON DELETE CASCADE,
+	proposta_id  INTEGER REFERENCES propostas(id) ON DELETE SET NULL,
+	criado_em    TEXT NOT NULL,
+	PRIMARY KEY (fragmento_id, trilha_id)
+);
 `

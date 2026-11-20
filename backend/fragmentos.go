@@ -18,38 +18,68 @@ import (
 
 // Entrada, fase 3 (T37): a IA divide a fonte em fragmentos por assunto — a única leitura da
 // transcrição inteira (D3 do plano). O Lucas vê os fragmentos, ajusta os tempos, junta, separa,
-// descarta e confirma; a fase 4 dá o destino de cada um.
+// descarta e confirma; a fase 4 (destinos.go) dá o destino de cada um.
 
 const tipoFragmentar = "fragmentar" // a tarefa da fila
 
 var tiposFragmento = []string{"conteudo", "opiniao", "fora"}
 
 type fragmento struct {
-	ID           int64    `json:"id"`
-	FonteID      int64    `json:"fonte_id"`
-	Ordem        int      `json:"ordem"`
-	Inicio       int      `json:"inicio"` // segundos
-	Fim          int      `json:"fim"`    // segundos
-	Titulo       string   `json:"titulo"`
-	Resumo       string   `json:"resumo"`
-	Assuntos     []string `json:"assuntos"`
-	Tipo         string   `json:"tipo"`   // conteudo · opiniao · fora
-	Estado       string   `json:"estado"` // sugerido · confirmado · descartado
-	CriadoEm     string   `json:"criado_em"`
-	AtualizadoEm string   `json:"atualizado_em"`
+	ID           int64            `json:"id"`
+	FonteID      int64            `json:"fonte_id"`
+	Ordem        int              `json:"ordem"`
+	Inicio       int              `json:"inicio"` // segundos
+	Fim          int              `json:"fim"`    // segundos
+	Titulo       string           `json:"titulo"`
+	Resumo       string           `json:"resumo"`
+	Assuntos     []string         `json:"assuntos"`
+	Tipo         string           `json:"tipo"`               // conteudo · opiniao · fora
+	Estado       string           `json:"estado"`             // sugerido · confirmado · sem_destino · enviado · descartado
+	Sugestao     *sugestaoDestino `json:"sugestao,omitempty"` // o que a IA sugeriu de destino (T38)
+	Destinos     []destino        `json:"destinos,omitempty"` // as trilhas marcadas para ele (T38)
+	SemDestinoEm string           `json:"sem_destino_em,omitempty"`
+	CriadoEm     string           `json:"criado_em"`
+	AtualizadoEm string           `json:"atualizado_em"`
+}
+
+// sugestaoDestino: o que a IA respondeu para um fragmento na tarefa "destino".
+type sugestaoDestino struct {
+	Trilhas       []sugestaoTrilha `json:"trilhas"`
+	TrilhaNova    string           `json:"trilha_nova,omitempty"`
+	MotivoNenhuma string           `json:"motivo_nenhuma,omitempty"`
+}
+
+type sugestaoTrilha struct {
+	TrilhaID int64  `json:"trilha_id"`
+	Titulo   string `json:"titulo"`
+	Motivo   string `json:"motivo"`
+}
+
+// destino: uma trilha marcada para o fragmento, e o encaixe quando já foi mandado.
+type destino struct {
+	TrilhaID   int64  `json:"trilha_id"`
+	Titulo     string `json:"titulo"`
+	PropostaID int64  `json:"proposta_id,omitempty"`
+	Estado     string `json:"estado,omitempty"` // do encaixe: aguardando · aprovada · descartada · falhou
 }
 
 const colunasFragmento = `id, fonte_id, ordem, inicio, fim, titulo, resumo, assuntos, tipo, estado,
-	criado_em, atualizado_em FROM fragmentos`
+	sugestao, sem_destino_em, criado_em, atualizado_em FROM fragmentos`
 
 func lerFragmento(row interface{ Scan(...any) error }) (fragmento, error) {
 	var f fragmento
-	var assuntos string
+	var assuntos, sug string
 	err := row.Scan(&f.ID, &f.FonteID, &f.Ordem, &f.Inicio, &f.Fim, &f.Titulo, &f.Resumo, &assuntos,
-		&f.Tipo, &f.Estado, &f.CriadoEm, &f.AtualizadoEm)
+		&f.Tipo, &f.Estado, &sug, &f.SemDestinoEm, &f.CriadoEm, &f.AtualizadoEm)
 	if err == nil {
 		f.Assuntos = []string{}
 		json.Unmarshal([]byte(assuntos), &f.Assuntos)
+		if sug != "" {
+			var s sugestaoDestino
+			if json.Unmarshal([]byte(sug), &s) == nil {
+				f.Sugestao = &s
+			}
+		}
 	}
 	return f, err
 }

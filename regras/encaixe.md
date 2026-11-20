@@ -40,6 +40,19 @@ Quando o material ensina algo **importante para o objetivo da trilha** que **nen
 Não proponha tópico que já existe com outro nome, nem detalhe pequeno que cabe dentro de uma etapa
 (isso é encaixe, com nota). Respeite o recorte da trilha: o que ele deixa de fora não vira tópico.
 
+## Vídeo em fragmentos
+
+Quando o material é do tipo `youtube`, ele veio da Entrada dividido em fragmentos e o texto traz
+**um bloco por fragmento** (`## início–fim · título`, com o resumo e as falas daquele trecho).
+Valem, além do que está acima:
+
+- O `localizador` de cada encaixe ou tópico novo é **exatamente um** desses intervalos (ou um
+  pedaço dele, `mm:ss–mm:ss`), nunca um tempo inventado.
+- Um fragmento pode encaixar em mais de uma etapa da mesma trilha **só se ensina as duas de
+  verdade**; não repita o mesmo trecho por proximidade.
+- `papel: principal` quando o trecho é a aula da etapa (o Lucas assiste ao fragmento no lugar de
+  ler); `apoio` quando é complemento.
+
 ## Revisões dos tópicos (`revisoes`)
 
 Quando o material mostra que um tópico **existente** devia mudar (o objetivo deixa de fora algo

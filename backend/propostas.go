@@ -491,6 +491,11 @@ func (a *app) aoTerminarTarefa(t *tarefa) {
 		}
 		return
 	}
+	if t.Tipo == tipoDestino {
+		// A fonte continua "fragmentada"; o erro da sugestão fica na própria tarefa
+		// (fonte.tarefa_destino), que a tela mostra com "Tentar de novo".
+		return
+	}
 	if t.PropostaID == 0 {
 		// A correção do simulado: a tentativa fica com o erro (e pode ser feita de novo).
 		if _, err := a.db.Exec(`UPDATE tentativas SET estado = ?, erro = ?, atualizado_em = ? WHERE tarefa_id = ? AND estado = ?`,

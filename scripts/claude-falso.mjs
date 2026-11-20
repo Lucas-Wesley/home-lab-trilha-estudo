@@ -181,6 +181,36 @@ if (/^# Pedido: fragmentar/m.test(pedido)) {
   })
 }
 
+// Entrada (T38): a primeira trilha do pedido para cada fragmento "conteudo" e nenhuma para os
+// outros tipos (opinião, fora do tema).
+if (/^# Pedido: destino/m.test(pedido)) {
+  const trilha = Number((pedido.match(/^- Trilha (\d+) —/m) || [])[1] || 0)
+  const destinos = [...pedido.matchAll(/^(\d+)\. \d{1,2}:\d{2}(?::\d{2})?–\d{1,2}:\d{2}(?::\d{2})? — "[^"]+" \((\w+)\)/gm)].map((m) => ({
+    fragmento: Number(m[1]),
+    trilhas: m[2] === 'conteudo' && trilha ? [{ trilha_id: trilha, motivo: 'Destino de teste.' }] : [],
+    trilha_nova: '',
+    motivo_nenhuma: m[2] === 'conteudo' ? '' : 'É opinião/fora do tema, não vira aula.',
+  }))
+  responder({ destinos, notas: 'Destino de teste.' })
+}
+
+// Encaixe (T32): um tópico novo por intervalo do localizador ("- Só este trecho: a–b; c–d"), ou
+// um encaixe na primeira etapa quando o material não é de trechos (teste do encaixe comum).
+if (/^# Pedido: encaixar um material/m.test(pedido)) {
+  const trecho = (pedido.match(/^- Só este trecho: (.*)$/m) || [])[1] || ''
+  const intervalos = trecho.split(';').map((s) => s.trim()).filter(Boolean)
+  const etapa = (pedido.match(/^- \*\*[\d.]+\*\* `([\w-]+)` —/m) || [])[1] || ''
+  responder({
+    encaixes: etapa ? [{ etapa_chave: etapa, localizador: intervalos[0] || '', papel: 'principal', nota: 'Encaixe de teste.', motivo: 'Teste.' }] : [],
+    novos: intervalos.map((iv, i) => ({
+      titulo: `Trecho ${iv}`, objetivo: `Explicar o trecho ${iv} de teste.`, bloom: 'entender',
+      minutos: 30, modulo: 'Vídeos da Entrada', depois_de: '', localizador: iv,
+      nota: 'Trecho de teste.', motivo: 'Teste.',
+    })),
+    revisoes: [], notas: 'Encaixe de teste.',
+  })
+}
+
 const titulo = (pedido.match(/^# Pedido: lição da etapa "(.*)"$/m) || [])[1] || 'Etapa'
 const deste = (pedido.match(/^- Deste pedido: (.*)$/m) || [])[1] || ''
 const comentarios = [...pedido.matchAll(/^- Comentário (\d+)(?: \(em [^)]*\))?(?:, sobre o trecho: «[\s\S]*?»)?: (.*)$/gm)].map((m) => ({ id: Number(m[1]), texto: m[2] }))

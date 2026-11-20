@@ -39,6 +39,12 @@ type fonte struct {
 	Notas      string      `json:"notas"` // o que a IA disse da divisão em fragmentos
 	Fragmentos []fragmento `json:"fragmentos,omitempty"`
 	Tarefa     *tarefa     `json:"tarefa,omitempty"`
+	// T38: a tarefa que sugere as trilhas dos fragmentos confirmados.
+	TarefaDestinoID int64   `json:"tarefa_destino_id"`
+	PedidoDestino   string  `json:"pedido_destino"`
+	TarefaDestino   *tarefa `json:"tarefa_destino,omitempty"`
+	// T38: na lista, "5 fragmentos · 3 enviados · 1 sem destino".
+	ResumoFragmentos string `json:"resumo_fragmentos,omitempty"`
 }
 
 // capitulo é um capítulo do autor do vídeo (início e fim em segundos), guardado em JSON na fonte.
@@ -53,13 +59,15 @@ func pastaDaFonte(id int64) string {
 }
 
 const colunasFonte = `id, tipo, url, video_id, titulo, canal, duracao, idioma, capitulos, estado, erro,
-	playlist, criado_em, COALESCE(tarefa_id, 0), pedido, notas FROM fontes`
+	playlist, criado_em, COALESCE(tarefa_id, 0), pedido, notas, COALESCE(tarefa_destino, 0), pedido_destino
+	FROM fontes`
 
 func lerFonte(row interface{ Scan(...any) error }) (fonte, error) {
 	var f fonte
 	var capitulos string
 	err := row.Scan(&f.ID, &f.Tipo, &f.URL, &f.VideoID, &f.Titulo, &f.Canal, &f.Duracao, &f.Idioma,
-		&capitulos, &f.Estado, &f.Erro, &f.Playlist, &f.CriadoEm, &f.TarefaID, &f.Pedido, &f.Notas)
+		&capitulos, &f.Estado, &f.Erro, &f.Playlist, &f.CriadoEm, &f.TarefaID, &f.Pedido, &f.Notas,
+		&f.TarefaDestinoID, &f.PedidoDestino)
 	if err == nil {
 		f.Capitulos = []capitulo{}
 		json.Unmarshal([]byte(capitulos), &f.Capitulos)
@@ -199,7 +207,8 @@ func (a *app) handleEntradaPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) handleEntradaListar(w http.ResponseWriter, r *http.Request) {
-	rows, err := a.db.QueryContext(r.Context(), `SELECT `+colunasFonte+` ORDER BY id DESC`)
+	ctx := r.Context()
+	rows, err := a.db.QueryContext(ctx, `SELECT `+colunasFonte+` ORDER BY id DESC`)
 	if err != nil {
 		a.responderErro(w, err)
 		return
@@ -214,7 +223,61 @@ func (a *app) handleEntradaListar(w http.ResponseWriter, r *http.Request) {
 		}
 		lista = append(lista, f)
 	}
+	if err := rows.Err(); err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	rows.Close()
+	resumos, err := a.resumosDaEntrada(ctx)
+	if err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	for i := range lista {
+		lista[i].ResumoFragmentos = resumos[lista[i].ID]
+	}
 	responderJSON(w, http.StatusOK, lista)
+}
+
+// resumosDaEntrada: por fonte, "N fragmentos · X enviados · Y sem destino" (só o que há).
+func (a *app) resumosDaEntrada(ctx context.Context) (map[int64]string, error) {
+	rows, err := a.db.QueryContext(ctx, `SELECT fonte_id, estado, COUNT(*) FROM fragmentos
+		WHERE estado != 'descartado' GROUP BY fonte_id, estado`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	porFonte := map[int64]map[string]int{}
+	for rows.Next() {
+		var fonteID, n int64
+		var estado string
+		if err := rows.Scan(&fonteID, &estado, &n); err != nil {
+			return nil, err
+		}
+		if porFonte[fonteID] == nil {
+			porFonte[fonteID] = map[string]int{}
+		}
+		porFonte[fonteID][estado] = int(n)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	resumos := map[int64]string{}
+	for fonteID, m := range porFonte {
+		total := 0
+		for _, n := range m {
+			total += n
+		}
+		partes := []string{fmt.Sprintf("%d fragmentos", total)}
+		if m["enviado"] > 0 {
+			partes = append(partes, fmt.Sprintf("%d enviados", m["enviado"]))
+		}
+		if m["sem_destino"] > 0 {
+			partes = append(partes, fmt.Sprintf("%d sem destino", m["sem_destino"]))
+		}
+		resumos[fonteID] = strings.Join(partes, " · ")
+	}
+	return resumos, nil
 }
 
 // entradaCompleta é a fonte da página: transcrição, fragmentos e a tarefa que a fragmentou (T37).
@@ -227,9 +290,21 @@ func (a *app) entradaCompleta(ctx context.Context, id int64) (fonte, error) {
 	if f.Fragmentos, err = a.fragmentosDaFonte(ctx, id); err != nil {
 		return f, err
 	}
+	destinos, err := a.destinosDaFonte(ctx, id)
+	if err != nil {
+		return f, err
+	}
+	for i := range f.Fragmentos {
+		f.Fragmentos[i].Destinos = destinos[f.Fragmentos[i].ID]
+	}
 	if f.TarefaID > 0 {
 		if t, err := lerTarefa(a.db.QueryRowContext(ctx, `SELECT `+colunasTarefa+` WHERE t.id = ?`, f.TarefaID)); err == nil {
 			f.Tarefa = t
+		}
+	}
+	if f.TarefaDestinoID > 0 {
+		if t, err := lerTarefa(a.db.QueryRowContext(ctx, `SELECT `+colunasTarefa+` WHERE t.id = ?`, f.TarefaDestinoID)); err == nil {
+			f.TarefaDestino = t
 		}
 	}
 	return f, nil

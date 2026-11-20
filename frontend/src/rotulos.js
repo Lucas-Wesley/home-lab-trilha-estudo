@@ -52,6 +52,16 @@ export const TIPOS_MATERIAL = {
   livro: 'Livro',
   acervo: 'Acervo',
   streaming: 'Streaming',
+  youtube: 'YouTube',
+}
+
+// T38: o estado do encaixe criado no "Mandar para as trilhas".
+export const ESTADOS_ENCAIXE = {
+  gerando: 'a IA está encaixando…',
+  aguardando: 'aguardando aprovação',
+  aprovada: 'encaixado',
+  descartada: 'encaixe descartado',
+  falhou: 'o encaixe falhou',
 }
 
 export const PAPEIS = {

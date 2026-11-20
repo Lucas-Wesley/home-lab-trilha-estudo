@@ -23,7 +23,8 @@ import (
 
 const tipoEncaixe = "encaixe"
 
-var tiposEncaixe = []string{"livro", "acervo", "web", "documento"}
+// T38: "youtube" chega só pelo enviar da Entrada (não é escolha da tela de encaixar).
+var tiposEncaixe = []string{"livro", "acervo", "web", "documento", "youtube"}
 
 type encaixeEtapa struct {
 	EtapaChave  string `json:"etapa_chave"`
@@ -107,47 +108,52 @@ func (a *app) handleEncaixar(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
-	m := corpo.Material
+	p, err := a.criarEncaixe(ctx, tr, corpo.Material, corpo.Pedido, corpo.EtapaChave)
+	if err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	responderJSON(w, http.StatusCreated, p)
+}
+
+// criarEncaixe: a proposta de encaixe do material na trilha, com a geração já na fila. Usada
+// pelo handleEncaixar e pelo "enviar" da Entrada (T38: um encaixe por trilha de destino).
+func (a *app) criarEncaixe(ctx context.Context, tr trilha, m material, pedido, etapaChave string) (proposta, error) {
 	m.Titulo, m.Referencia, m.Localizador = strings.TrimSpace(m.Titulo), strings.TrimSpace(m.Referencia), strings.TrimSpace(m.Localizador)
 	switch {
 	case !contem(tiposEncaixe, m.Tipo):
-		a.responderErro(w, erroDeEntrada{errors.New("escolha um livro, um item do Acervo, um documento ou um link")})
-		return
+		return proposta{}, erroDeEntrada{errors.New("escolha um livro, um item do Acervo, um documento ou um link")}
 	case m.Referencia == "":
-		a.responderErro(w, erroDeEntrada{errors.New("o material não tem referência")})
-		return
+		return proposta{}, erroDeEntrada{errors.New("o material não tem referência")}
 	case m.Tipo == "web" && !strings.HasPrefix(m.Referencia, "http://") && !strings.HasPrefix(m.Referencia, "https://"):
-		a.responderErro(w, erroDeEntrada{errors.New("o link precisa começar com http:// ou https://")})
-		return
+		return proposta{}, erroDeEntrada{errors.New("o link precisa começar com http:// ou https://")}
 	}
 	if m.Titulo == "" {
 		m.Titulo = m.Referencia
 	}
-	if len(tr.Modulos) == 0 {
-		a.responderErro(w, erroDeEntrada{errors.New("a trilha ainda não tem módulos para encaixar o material")})
-		return
+	// Num material youtube (vídeo em fragmentos, T38) a trilha vazia vale: a IA propõe só
+	// tópicos e módulos novos.
+	if len(tr.Modulos) == 0 && m.Tipo != "youtube" {
+		return proposta{}, erroDeEntrada{errors.New("a trilha ainda não tem módulos para encaixar o material")}
 	}
 	titulo := "Encaixar: " + m.Titulo
-	if corpo.EtapaChave != "" {
-		e, err := a.etapaPorChave(ctx, id, corpo.EtapaChave)
+	if etapaChave != "" {
+		e, err := a.etapaPorChave(ctx, tr.ID, etapaChave)
 		if err != nil {
-			a.responderErro(w, erroDeEntrada{errors.New("essa etapa não é desta trilha")})
-			return
+			return proposta{}, erroDeEntrada{errors.New("essa etapa não é desta trilha")}
 		}
 		titulo += " (em " + e.Titulo + ")"
 	}
 	bruto, _ := json.Marshal(m)
 	chave := fmt.Sprintf("@encaixe-%d", time.Now().UnixNano())
-	p, err := a.novaProposta(ctx, id, chave, tipoEncaixe, strings.TrimSpace(corpo.Pedido), 0, titulo)
+	p, err := a.novaProposta(ctx, tr.ID, chave, tipoEncaixe, strings.TrimSpace(pedido), 0, titulo)
 	if err != nil {
-		a.responderErro(w, err)
-		return
+		return proposta{}, err
 	}
-	if _, err := a.db.ExecContext(ctx, `INSERT INTO encaixes (proposta_id, material, foco) VALUES (?, ?, ?)`, p.ID, string(bruto), corpo.EtapaChave); err != nil {
-		a.responderErro(w, err)
-		return
+	if _, err := a.db.ExecContext(ctx, `INSERT INTO encaixes (proposta_id, material, foco) VALUES (?, ?, ?)`, p.ID, string(bruto), etapaChave); err != nil {
+		return proposta{}, err
 	}
-	responderJSON(w, http.StatusCreated, p)
+	return p, nil
 }
 
 // materialDoEncaixe: o material (e o tópico a que foi mandado) guardado na 1ª versão (os ajustes
@@ -307,7 +313,8 @@ func (a *app) gerarEncaixe(ctx context.Context, t *tarefa) error {
 }
 
 // limparEncaixe tira o que aponta para etapa que não existe ou repete o que a etapa já tem, e
-// completa o número e o título de cada etapa para a tela.
+// completa o número e o título de cada etapa para a tela. Num material youtube (T38) tira
+// também o encaixe/tópico cujo localizador não cai dentro de um dos intervalos mandados.
 func limparEncaixe(tr trilha, m material, encaixes []encaixeEtapa, novos []encaixeNovo) ([]encaixeEtapa, []encaixeNovo, []string) {
 	num := numeracao(tr)
 	etapas := map[string]etapa{}
@@ -318,6 +325,10 @@ func limparEncaixe(tr trilha, m material, encaixes []encaixeEtapa, novos []encai
 			etapas[e.Chave] = e
 		}
 	}
+	var mandados [][2]int
+	if m.Tipo == "youtube" {
+		mandados, _ = lerIntervalos(m.Localizador)
+	}
 	var tirados []string
 	var bons []encaixeEtapa
 	vistos := map[string]bool{}
@@ -326,6 +337,10 @@ func limparEncaixe(tr trilha, m material, encaixes []encaixeEtapa, novos []encai
 		e, ok := etapas[x.EtapaChave]
 		if !ok {
 			tirados = append(tirados, fmt.Sprintf("a etapa %q (não existe)", x.EtapaChave))
+			continue
+		}
+		if m.Tipo == "youtube" && !localizadorDentro(x.Localizador, mandados) {
+			tirados = append(tirados, fmt.Sprintf("%s %s (o trecho %q não é um dos intervalos)", num[e.Chave], e.Titulo, x.Localizador))
 			continue
 		}
 		if !contem(papeisMaterial, x.Papel) {
@@ -361,6 +376,10 @@ func limparEncaixe(tr trilha, m material, encaixes []encaixeEtapa, novos []encai
 		}
 		if _, ok := etapas[x.DepoisDe]; !ok {
 			x.DepoisDe = ""
+		}
+		if m.Tipo == "youtube" && !localizadorDentro(x.Localizador, mandados) {
+			tirados = append(tirados, fmt.Sprintf("o tópico %q (o trecho %q não é um dos intervalos)", x.Titulo, x.Localizador))
+			continue
 		}
 		x.ModuloNovo = !modulos[strings.ToLower(x.Modulo)]
 		novosBons = append(novosBons, x)
@@ -401,6 +420,15 @@ func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m 
 		}
 	case "documento":
 		escreva("- Arquivo `documentos/%s.md` (pasta `documentos`, adicionada ao seu acesso; procure-a com Glob se o caminho relativo não abrir).\n", m.Referencia)
+	case "youtube":
+		// T38: só os trechos dos intervalos mandados (um bloco "## início–fim · título" por
+		// fragmento); o localizador de cada encaixe é um desses intervalos ou um pedaço dele.
+		lidos := a.arquivosDoMaterial(ctx, []material{m}, arquivos)
+		if l := lidos[0]; l.Arquivo != "" {
+			escreva("- Os trechos do vídeo estão em `%s`: um bloco por fragmento, com o resumo e as falas.\n", l.Arquivo)
+		} else {
+			return nil, nil, fmt.Errorf("não deu para ler o material: %s", padrao(l.Erro, "sem texto"))
+		}
 	case "web":
 		escreva("- Abra o link com WebFetch e leia o conteúdo inteiro. Se for vídeo (YouTube, Instagram) e a página não trouxer o conteúdo, use o título e a descrição, e diga nas notas que o vídeo deve ir ao Acervo (que transcreve) para um encaixe fino.\n")
 	}

@@ -5,7 +5,7 @@ import { linhasDaTranscricao, linkNoMinuto } from '../entrada.js'
 import Icone from '../Icone.vue'
 import Pagina from '../Pagina.vue'
 import { link } from '../rotas.js'
-import { ESTADOS_FONTE, TIPOS_FRAGMENTO } from '../rotulos.js'
+import { ESTADOS_ENCAIXE, ESTADOS_FONTE, TIPOS_FRAGMENTO } from '../rotulos.js'
 import { segundosParaTempo } from '../videoaula.js'
 
 const props = defineProps({ fonteId: { type: Number, required: true } })
@@ -23,10 +23,19 @@ const edicao = ref({})
 const mostrarDescartados = ref(false)
 let pedidoIniciado = false
 
+// T38: o destino dos fragmentos confirmados.
+const trilhas = ref([])
+const pedidoDestino = ref('')
+let pedidoDestinoIniciado = false
+
+const destinoOcupando = computed(() => ['na_fila', 'rodando'].includes(fonte.value?.tarefa_destino?.estado))
+
 function ligarTimer() {
   if (timer) clearInterval(timer)
   timer =
-    fonte.value && ['na_fila', 'lendo', 'fragmentando'].includes(fonte.value.estado) ? setInterval(buscar, 3000) : null
+    fonte.value && (['na_fila', 'lendo', 'fragmentando'].includes(fonte.value.estado) || destinoOcupando.value)
+      ? setInterval(buscar, 3000)
+      : null
 }
 
 async function buscar() {
@@ -35,6 +44,13 @@ async function buscar() {
     if (!pedidoIniciado && fonte.value.pedido) {
       pedido.value = fonte.value.pedido
       pedidoIniciado = true
+    }
+    if (!pedidoDestinoIniciado && fonte.value.pedido_destino) {
+      pedidoDestino.value = fonte.value.pedido_destino
+      pedidoDestinoIniciado = true
+    }
+    if (fonte.value.estado === 'fragmentada' && !trilhas.value.length) {
+      trilhas.value = await api('/api/trilhas')
     }
     ligarTimer()
   } catch (e) {
@@ -134,6 +150,63 @@ const salvarEdicao = (fr) =>
     })
     editando.value = 0
   })
+
+// ---------- destino ----------
+
+const comDestino = computed(() => normais.value.filter((f) => ['confirmado', 'sem_destino', 'enviado'].includes(f.estado)))
+const confirmados = computed(() => fragmentos.value.filter((f) => f.estado === 'confirmado'))
+
+const sugerirDestinos = () =>
+  agir(() => api(`/api/entrada/${props.fonteId}/destino`, { metodo: 'POST', corpo: { pedido: pedidoDestino.value } }))
+
+const marcadas = (fr) => new Set((fr.destinos || []).map((d) => d.trilha_id))
+const trilhasDisponiveis = (fr) => trilhas.value.filter((t) => t.estado !== 'concluida' && !marcadas(fr).has(t.id))
+const motivoDe = (fr, d) => (fr.sugestao?.trilhas || []).find((s) => s.trilha_id === d.trilha_id)?.motivo || ''
+const naoMarcadas = (fr) => (fr.sugestao?.trilhas || []).filter((s) => !marcadas(fr).has(s.trilha_id))
+
+const marcar = (fr, trilhaId, marcar) => {
+  const atuais = (fr.destinos || []).map((d) => d.trilha_id)
+  const novas = marcar ? [...atuais, trilhaId] : atuais.filter((x) => x !== trilhaId)
+  return agir(() => api(`/api/fragmentos/${fr.id}/destinos`, { metodo: 'PUT', corpo: { trilhas: novas } }))
+}
+
+const adicionarTrilha = (fr, ev) => {
+  const id = Number(ev.target.value)
+  ev.target.value = ''
+  if (id) marcar(fr, id, true)
+}
+
+const trilhaNova = (fr) => {
+  const nome = prompt('Nome da trilha nova:', fr.sugestao?.trilha_nova || '')
+  if (!nome?.trim()) return
+  return agir(async () => {
+    const t = await api('/api/trilhas', { metodo: 'POST', corpo: { titulo: nome.trim() } })
+    trilhas.value = [...trilhas.value, t]
+    await marcarSemAgir(fr, t.id)
+  })
+}
+
+// marcarSemAgir: o PUT dentro de um agir já aberto (trilha nova cria e marca numa tacada só).
+const marcarSemAgir = (fr, trilhaId) => {
+  const atuais = (fr.destinos || []).map((d) => d.trilha_id)
+  return api(`/api/fragmentos/${fr.id}/destinos`, { metodo: 'PUT', corpo: { trilhas: [...atuais, trilhaId] } })
+}
+
+const semDestino = (fr) => agir(() => api(`/api/fragmentos/${fr.id}/destinos`, { metodo: 'PUT', corpo: { sem_destino: true } }))
+const voltarDestino = (fr) => agir(() => api(`/api/fragmentos/${fr.id}/destinos`, { metodo: 'PUT', corpo: { trilhas: [] } }))
+
+const encaixesPendentes = computed(() => {
+  const ids = new Set()
+  for (const fr of confirmados.value) {
+    for (const d of fr.destinos || []) {
+      if (!d.proposta_id) ids.add(d.trilha_id)
+    }
+  }
+  return ids.size
+})
+const mandar = () => agir(() => api(`/api/entrada/${props.fonteId}/enviar`, { metodo: 'POST' }))
+const linkEncaixe = (d) => `${link('trilhas', String(d.trilha_id))}#encaixar`
+const estadoEncaixe = (d) => ESTADOS_ENCAIXE[d.estado] || d.estado || 'escolhida'
 
 onMounted(buscar)
 onBeforeUnmount(() => {
@@ -247,6 +320,48 @@ onBeforeUnmount(() => {
               <button v-if="temProximo(fr)" class="botao discreto" :disabled="ocupado" @click="juntar(fr)">Juntar</button>
               <button class="botao discreto" :disabled="ocupado" @click="descartar(fr)">Descartar</button>
             </p>
+
+            <!-- T38: o destino do fragmento (só depois de confirmado). -->
+            <div v-if="fr.estado === 'enviado'" class="destinos pequeno">
+              <span class="fraco">Foi para:</span>
+              <a v-for="d in fr.destinos" :key="d.trilha_id" :href="linkEncaixe(d)" class="etiqueta link-destino"
+                >{{ d.titulo }} · {{ estadoEncaixe(d) }}</a
+              >
+            </div>
+            <div v-else-if="fr.estado === 'confirmado' || fr.estado === 'sem_destino'" class="destinos">
+              <button
+                v-for="d in fr.destinos"
+                :key="d.trilha_id"
+                class="etiqueta destino-marcado"
+                :title="motivoDe(fr, d) || 'Tirar desta trilha'"
+                :disabled="ocupado"
+                @click="marcar(fr, d.trilha_id, false)"
+              >
+                {{ d.titulo }} ✕
+              </button>
+              <button
+                v-for="s in naoMarcadas(fr)"
+                :key="s.trilha_id"
+                class="etiqueta destino-sugerido"
+                :title="s.motivo || 'Sugerida pela IA'"
+                :disabled="ocupado"
+                @click="marcar(fr, s.trilha_id, true)"
+              >
+                + {{ s.titulo }}
+              </button>
+              <select v-if="trilhasDisponiveis(fr).length" class="campo seletor-trilha" :disabled="ocupado" @change="adicionarTrilha(fr, $event)">
+                <option value="">+ trilha</option>
+                <option v-for="t in trilhasDisponiveis(fr)" :key="t.id" :value="t.id">{{ t.titulo }}</option>
+              </select>
+              <button class="botao discreto mini" :disabled="ocupado" @click="trilhaNova(fr)">Trilha nova</button>
+              <button v-if="fr.estado !== 'sem_destino'" class="botao discreto mini" :disabled="ocupado" @click="semDestino(fr)">Sem destino</button>
+              <template v-else>
+                <span class="etiqueta">sem destino</span>
+                <button class="botao discreto mini" :disabled="ocupado" @click="voltarDestino(fr)">desfazer</button>
+              </template>
+              <p v-if="fr.sugestao?.motivo_nenhuma" class="pequeno fraco destino-nota">A IA não viu destino: {{ fr.sugestao.motivo_nenhuma }}</p>
+              <p v-else-if="fr.sugestao?.trilha_nova" class="pequeno fraco destino-nota">A IA sugeriu a trilha nova "{{ fr.sugestao.trilha_nova }}".</p>
+            </div>
           </template>
           <form v-else class="pilha" @submit.prevent="salvarEdicao(fr)">
             <div class="linha">
@@ -280,6 +395,30 @@ onBeforeUnmount(() => {
             {{ mostrarDescartados ? 'Esconder descartados' : 'Mostrar descartados' }}
           </button>
         </div>
+
+        <!-- T38: sugerir trilhas e mandar — depois de confirmar os fragmentos. -->
+        <section v-if="comDestino.length" class="pilha destino-secao">
+          <div class="cabecalho">
+            <h2>Destino</h2>
+          </div>
+          <p v-if="destinoOcupando" class="aviso neutro">
+            {{ fonte.tarefa_destino?.estado === 'na_fila' ? 'A sugestão de trilhas está na fila.' : 'A IA está sugerindo as trilhas…' }}
+          </p>
+          <template v-else>
+            <p v-if="fonte.tarefa_destino?.estado === 'falhou'" class="aviso">A sugestão falhou: {{ fonte.tarefa_destino.erro }}</p>
+            <form class="linha" @submit.prevent="sugerirDestinos">
+              <input v-model="pedidoDestino" class="campo fragmentar-pedido" placeholder="Pedido para a IA (opcional)" />
+              <button class="botao" :class="{ primario: !fonte.tarefa_destino }" :disabled="ocupado || !confirmados.length">
+                {{ fonte.tarefa_destino ? 'Sugerir de novo' : 'Sugerir trilhas' }}
+              </button>
+            </form>
+          </template>
+          <div v-if="encaixesPendentes" class="linha">
+            <button class="botao primario" :disabled="ocupado" @click="mandar">
+              Mandar para as trilhas ({{ encaixesPendentes }} encaixe{{ encaixesPendentes > 1 ? 's' : '' }})
+            </button>
+          </div>
+        </section>
       </section>
     </template>
   </div>
@@ -344,5 +483,45 @@ onBeforeUnmount(() => {
   width: 88px;
   font-family: var(--fonte-mono);
   margin-left: var(--e1);
+}
+.destinos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+  margin-top: var(--e2);
+}
+.destino-marcado,
+.destino-sugerido {
+  cursor: pointer;
+  border: 1px solid var(--borda);
+  font: inherit;
+  font-size: 12.5px;
+}
+.destino-marcado {
+  background: var(--superficie-2);
+}
+.destino-sugerido {
+  opacity: 0.65;
+}
+.link-destino {
+  color: inherit;
+}
+.seletor-trilha {
+  width: auto;
+  font-size: 12.5px;
+  padding: 4px var(--e2);
+}
+.botao.mini {
+  font-size: 12.5px;
+  padding: 4px var(--e2);
+}
+.destino-nota {
+  flex-basis: 100%;
+  margin: 0;
+}
+.destino-secao {
+  border-top: 1px solid var(--borda);
+  padding-top: var(--e3);
 }
 </style>

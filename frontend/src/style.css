@@ -447,7 +447,7 @@ a.cartao:hover, button.cartao:hover { border-color: var(--borda-forte); backgrou
 .migalhas svg { color: var(--texto-fraco); }
 
 /* Cabeçalho de página: título serifado com ação pequena à direita. */
-.cabecalho { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--e4); }
+.cabecalho { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--e4); flex-wrap: wrap; }
 
 /* ---------- Barra de progresso ---------- */
 .progresso { height: 4px; background: var(--superficie-2); border-radius: 2px; overflow: hidden; }

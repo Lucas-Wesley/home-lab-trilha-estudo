@@ -47,6 +47,7 @@ func (a *app) ligarIA() {
 	a.fila.executores[tipoReforco] = a.gerarReforco
 	a.fila.executores[tipoNivelamento] = a.gerarNivelamento
 	a.fila.executores[tipoFragmentar] = a.fragmentar
+	a.fila.executores[tipoDestino] = a.sugerirDestinos
 	a.fila.aoTerminar = a.aoTerminarTarefa
 }
 
@@ -143,6 +144,10 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/fragmentos/{id}/dividir", a.handleFragmentoDividir)
 	mux.HandleFunc("POST /api/fragmentos/{id}/juntar", a.handleFragmentoJuntar)
 	mux.HandleFunc("POST /api/fragmentos/{id}/descartar", a.handleFragmentoDescartar)
+	// Entrada (T38): a IA sugere as trilhas, o Lucas marca e o enviar faz um encaixe por trilha.
+	mux.HandleFunc("POST /api/entrada/{id}/destino", a.handleEntradaDestino)
+	mux.HandleFunc("POST /api/entrada/{id}/enviar", a.handleEntradaEnviar)
+	mux.HandleFunc("PUT /api/fragmentos/{id}/destinos", a.handleFragmentoDestinos)
 
 	mux.HandleFunc("GET /api/tarefas", a.handleTarefas)
 	mux.HandleFunc("POST /api/tarefas/{id}/cancelar", a.handleCancelarTarefa)
