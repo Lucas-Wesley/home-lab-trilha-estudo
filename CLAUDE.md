@@ -119,7 +119,7 @@ proposta `roteiro` (chave `@roteiro` ou `@roteiro:<etapa>`); `GET .../roteiro?et
 `roteiro.md` e `encaixe.md`. Telas: `RevisarRoteiro.vue`, `MudancaRoteiro.vue`; as páginas da
 trilha e da etapa usam `AbasPagina.vue`.
 
-## Entrada (T35–T43)
+## Entrada (T35–T44)
 `backend/entrada.go` e `backend/youtube.go` (código copiado do Acervo, sem chamá-lo):
 `POST /api/entrada` com um link de vídeo do YouTube cria a **fonte** (tabela `fontes`); com uma
 playlist, uma por vídeo (`--flat-playlist`). Uma fila própria do yt-dlp — separada da do Claude,
@@ -228,7 +228,26 @@ usar só os números (`A12`, `A12–A15`, `A3, A7`), não chutar título genéri
 material `streaming` por aula (ordem dos números, papel do encaixe — `principal` nos tópicos novos)
 e registra nas notas os números fora do mapa. Na proposta, o localizador mostra os nomes das aulas
 pelo mapa `nomes`, e "Precisam ser ouvidas" lista as aulas com o botão "Processar estas aulas"
-desativado até a fase 10. Sem baixar nem transcrever nada.
+(T44). Sem baixar nem transcrever nada.
+
+**Processar aulas do Telegram** (`backend/telegram.go`, T44): `POST /api/entrada/telegram`
+`{refs, fragmentar}` cria uma fonte `telegram` por aula (`video_id` = a ref estável
+`telegram:<link>#<msg>`; repetida devolve a mesma). Na fila, `lerTelegram` pergunta o estado da
+aula: `no_telegram` → pede o download ao Streaming (`baixarAulaStreaming`, só aquela mensagem) e a
+fonte fica `baixando` — **a fila não espera**: uma sonda (`sondaTelegram`, 15 s) promove as
+`baixando` de volta à `na_fila`; `baixada` → `transcrevendo`: o ffmpeg (`FFMPEG_BIN`) lê o vídeo
+pela url interna (`STREAMING_URL/api/video/proprio/<id>.mp4`), mono 16 kHz em pedaços de 10 min, um
+POST por pedaço no Whisper (`WHISPER_URL` — nunca o Claude), somando o início de cada pedaço nos
+`[mm:ss]`; áudio apagado ao sair. `fontes.fragmentar` marcada → `pedirFragmentar` ao ficar `pronta`.
+No encaixe a fonte vira material **`streaming` com `referencia` telegram: e `localizador`
+`mm:ss–mm:ss`**; `trechosDoVideo` acha a fonte pelo `video_id`; `trechosPrincipais` aceita o
+streaming+telegram — "visto" e conclusão são os do trecho do YouTube (T39). Na tela: "Processar na
+Entrada" na pasta (contagem + tempo de áudio) e por aula em Meus arquivos, com "Dividir em
+fragmentos quando terminar" marcado; a processada mostra "na Entrada" (mapa `/api/entrada` por
+`video_id`); a lista tem ícone `telegram` e os estados `baixando`/`transcrevendo`. O que era igual
+entre `Videoaula` e `TrechoYouTube` virou `BarraTrecho.vue` + `estadoDoTrecho`/`pctDoTrecho`/
+`intervaloDoMaterial`/`chaveDoTrecho` (`trechoYoutube.js`): o trecho do Telegram começa no início
+do intervalo, com a mesma barra e o mesmo aviso.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

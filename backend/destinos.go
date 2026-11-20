@@ -97,11 +97,13 @@ func localizadorDentro(localizador string, mandados [][2]int) bool {
 	return false
 }
 
-// trechosDoVideo: o texto de um material youtube para a pasta da tarefa — um bloco
-// "## início–fim · título do fragmento" por intervalo, com o resumo e as falas dele.
+// trechosDoVideo: o texto de um material youtube (T38) ou streaming/telegram (T44) para a
+// pasta da tarefa — um bloco "## início–fim · título do fragmento" por intervalo, com o
+// resumo e as falas dele. youtube/acervo acham a fonte pela url; telegram, pela ref (video_id).
 func (a *app) trechosDoVideo(ctx context.Context, referencia, localizador string) (string, error) {
 	var fonteID int64
-	err := a.db.QueryRowContext(ctx, `SELECT id FROM fontes WHERE url = ? AND tipo IN ('youtube', 'acervo')`, referencia).Scan(&fonteID)
+	err := a.db.QueryRowContext(ctx, `SELECT id FROM fontes WHERE (url = ? AND tipo IN ('youtube', 'acervo'))
+		OR (video_id = ? AND tipo = 'telegram')`, referencia, referencia).Scan(&fonteID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", errors.New("o vídeo não está na Entrada")
 	}
@@ -639,9 +641,15 @@ func (a *app) handleEntradaEnviar(w http.ResponseWriter, r *http.Request) {
 			a.responderErro(w, err)
 			return
 		}
-		m := material{
-			Tipo: "youtube", Titulo: titulo, Referencia: f.URL,
-			Localizador: escreverIntervalos(g.intervalos),
+		// T44: a fonte telegram vira material `streaming` (a aula toca pelo player do
+		// Streaming, no minuto do trecho); as do YouTube seguem material `youtube`.
+		m := material{Titulo: titulo, Localizador: escreverIntervalos(g.intervalos)}
+		if f.Tipo == "telegram" {
+			m.Tipo = "streaming"
+			m.Referencia = f.VideoID // a ref telegram: estável, mesmo se a aula for baixada de novo
+		} else {
+			m.Tipo = "youtube"
+			m.Referencia = f.URL
 		}
 		pedido := fmt.Sprintf("São %d fragmentos deste vídeo; encaixe cada um pelo seu intervalo.", len(g.fragmentos))
 		if len(g.fragmentos) == 1 {

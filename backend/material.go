@@ -486,6 +486,13 @@ func (a *app) arquivosDoMaterial(ctx context.Context, materiais []material, arqu
 		case "youtube":
 			// T38: só os trechos dos intervalos, da transcrição da fonte da Entrada.
 			texto, err = a.trechosDoVideo(ctx, m.Referencia, m.Localizador)
+		case "streaming":
+			// T44: a aula do Telegram com intervalo lê o trecho da transcrição da fonte,
+			// como o youtube (a referência é a ref telegram: estável).
+			if !strings.HasPrefix(m.Referencia, "telegram:") {
+				continue
+			}
+			texto, err = a.trechosDoVideo(ctx, m.Referencia, m.Localizador)
 		default:
 			continue
 		}

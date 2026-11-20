@@ -8,7 +8,7 @@ import { link, linkPasta } from '../rotas.js'
 import { acharPasta, aulasPedidas, montarArvore, oQueFalta, tamanho } from '../pastas.js'
 import { segundosParaTempo } from '../videoaula.js'
 import { MODOS, modoRecomendado, pacoteDoCurso, resumoDoPacote } from '../cursoParaTrilha.js'
-import { referenciaDoCurso, selecaoCursos as marcadas, tituloDoCurso } from '../cursos.js'
+import { aulasDaPasta, referenciaDaAula, referenciaDoCurso, selecaoCursos as marcadas, tituloDoCurso } from '../cursos.js'
 
 // Meus arquivos (T41): os cursos do Telegram que estão no Streaming, em curso › módulo › aula
 // (a árvore é a do Streaming, S55 de lá — pastas.js copiado). A Trilha só chama a API dele:
@@ -77,6 +77,54 @@ async function carregar() {
     erro.value = ''
   } catch (e) {
     erro.value = e.status === 502 && /configurado/.test(e.message) ? 'O Streaming não está configurado neste servidor.' : e.message
+  }
+}
+
+// ---------- processar (T44): a aula do Telegram vira fonte da Entrada ----------
+// fontesDaEntrada: ref telegram: → fonte — as já processadas mostram "na Entrada".
+const fontesDaEntrada = ref({})
+async function buscarEntrada() {
+  try {
+    const lista = await api('/api/entrada')
+    const mapa = {}
+    for (const f of lista || []) if (f.tipo === 'telegram') mapa[f.video_id] = f
+    fontesDaEntrada.value = mapa
+  } catch { /* sem a lista, as aulas mostram "Processar" — o POST deduplica */ }
+}
+const fonteDaAula = (a) => fontesDaEntrada.value[referenciaDaAula(a)]
+
+const dialogoProcessar = ref(null) // {aulas, titulo}
+const fragmentarDepois = ref(true)
+const mandandoProcessar = ref(false)
+const erroProcessar = ref('')
+const tempoDeAudio = computed(() => (dialogoProcessar.value?.aulas || []).reduce((s, a) => s + (a.duracao || 0), 0))
+
+const abrirProcessarPasta = (p) => {
+  dialogoProcessar.value = { aulas: aulasDaPasta(p).filter(referenciaDaAula), titulo: `a pasta "${p.nome}"` }
+  fragmentarDepois.value = true
+  erroProcessar.value = ''
+}
+const abrirProcessarAula = (a) => {
+  dialogoProcessar.value = { aulas: [a], titulo: `a aula "${a.nome}"` }
+  fragmentarDepois.value = true
+  erroProcessar.value = ''
+}
+
+// Processar: a Trilha baixa (se preciso) e transcreve no Whisper — sem crédito do Claude.
+// As fontes aparecem na aba Vídeos da Entrada.
+async function processar() {
+  mandandoProcessar.value = true
+  erroProcessar.value = ''
+  try {
+    const refs = dialogoProcessar.value.aulas.map(referenciaDaAula).filter(Boolean)
+    const fontes = await api('/api/entrada/telegram', { metodo: 'POST', corpo: { refs, fragmentar: fragmentarDepois.value } })
+    dialogoProcessar.value = null
+    aviso.value = `${fontes.length === 1 ? '1 aula' : `${fontes.length} aulas`} na Entrada: a transcrição é pelo Whisper e cada fonte ${fragmentarDepois.value ? 'já vai fragmentar' : 'fica pronta'} ao terminar.`
+    await buscarEntrada()
+  } catch (e) {
+    erroProcessar.value = e.message
+  } finally {
+    mandandoProcessar.value = false
   }
 }
 
@@ -292,6 +340,7 @@ onMounted(async () => {
     /* se /api/integracoes falhar, tenta mesmo assim: o erro de /api/arquivos explica */
   }
   await carregar()
+  await buscarEntrada()
 })
 onBeforeUnmount(() => clearInterval(relogioDaFila))
 </script>
@@ -373,9 +422,16 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
             <p class="pequeno meta">
               {{ resumoDaPasta(pastaAtual) }}<template v-if="naFilaAqui > 0"> · {{ naFilaAqui }} na fila</template>
             </p>
-            <!-- T42: criar a trilha igual ao curso (Encaixar e Processar entram nas próximas fases). -->
+            <!-- T42: criar a trilha igual ao curso · T44: processar aulas na Entrada. -->
             <div class="acoes-curso">
               <button v-if="pastaAtual.total" class="botao" @click="abrirCriarTrilha">Criar trilha igual a este curso</button>
+              <button
+                v-if="aulasDaPasta(pastaAtual).some(referenciaDaAula)"
+                class="botao"
+                @click="abrirProcessarPasta(pastaAtual)"
+              >
+                Processar na Entrada
+              </button>
             </div>
             <div v-if="aulasQueFaltam || pastaAtual.baixadas" class="linha">
               <button v-if="aulasQueFaltam" class="botao primario" :disabled="baixandoAulas || !telegramInstalado || naoCabe" @click="baixarAulas(faltaAqui)">
@@ -422,6 +478,8 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
                   <span class="nome">{{ a.nome }}</span>
                   <span class="meta">{{ [segundosParaTempo(a.duracao), tamanho(a.video.tamanho)].filter(Boolean).join(' · ') }}</span>
                 </span>
+                <a v-if="fonteDaAula(a)" class="link mini" :href="link('entrada', String(fonteDaAula(a).id))">na Entrada</a>
+                <button v-else-if="referenciaDaAula(a)" class="botao discreto mini" @click="abrirProcessarAula(a)">Processar</button>
                 <a class="botao discreto mini" :href="linkAssistir(a)" target="_blank" rel="noopener">Assistir</a>
                 <button class="botao discreto mini perigo" aria-label="Apagar do servidor" @click="apagarAula(a)">
                   <Icone nome="lixeira" :tamanho="14" />
@@ -433,6 +491,8 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
                   <span class="nome">{{ a.nome }}</span>
                   <span class="meta">{{ [segundosParaTempo(a.duracao), tamanho(a.tamanho), 'no Telegram'].filter(Boolean).join(' · ') }}</span>
                 </span>
+                <a v-if="fonteDaAula(a)" class="link mini" :href="link('entrada', String(fonteDaAula(a).id))">na Entrada</a>
+                <button v-else-if="referenciaDaAula(a)" class="botao discreto mini" @click="abrirProcessarAula(a)">Processar</button>
                 <span v-if="estaPedida(a)" class="etiqueta">na fila</span>
                 <button v-else class="botao mini" :disabled="baixandoAulas || !telegramInstalado" @click="baixarAula(a)">Baixar</button>
               </template>
@@ -532,6 +592,31 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
               {{ mandandoEncaixe ? 'Criando…' : 'Criar e encaixar' }}
             </button>
             <button class="botao discreto" type="button" @click="criandoDosCursos = false">Cancelar</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- T44: processar aulas na Entrada — a Trilha baixa o que precisar e transcreve no Whisper. -->
+      <div v-if="dialogoProcessar" class="dialogo-fundo" @click.self="dialogoProcessar = null">
+        <form class="painel pilha" role="dialog" aria-label="Processar aulas na Entrada" @submit.prevent="processar">
+          <h3>Processar na Entrada</h3>
+          <p class="pequeno">
+            {{ dialogoProcessar.aulas.length === 1 ? '1 aula' : `${dialogoProcessar.aulas.length} aulas` }}
+            <template v-if="tempoDeAudio"> · ~{{ segundosParaTempo(tempoDeAudio) }} de áudio</template>
+            — {{ dialogoProcessar.titulo }}. Cada uma vira uma fonte da Entrada: a Trilha pede o
+            download ao Streaming se a aula ainda não estiver no servidor e transcreve o áudio no
+            Whisper, sem gastar a IA.
+          </p>
+          <label class="linha marca-linha">
+            <input v-model="fragmentarDepois" type="checkbox" class="marca" />
+            Dividir em fragmentos quando terminar
+          </label>
+          <p v-if="erroProcessar" class="aviso">{{ erroProcessar }}</p>
+          <div class="linha">
+            <button class="botao primario" type="submit" :disabled="mandandoProcessar || !dialogoProcessar.aulas.length">
+              {{ mandandoProcessar ? 'Mandando…' : 'Processar' }}
+            </button>
+            <button class="botao discreto" type="button" @click="dialogoProcessar = null">Cancelar</button>
           </div>
         </form>
       </div>
@@ -656,6 +741,12 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
 .linha-pasta {
   display: flex;
   align-items: center;
+}
+.marca-linha {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  font-size: var(--fonte-pequena);
 }
 .marca {
   flex-shrink: 0;

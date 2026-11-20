@@ -17,7 +17,8 @@ const tentando = ref(false)
 let timer = null
 
 // A fonte do Acervo tem video_id = id da Referência — o id do vídeo do YouTube sai do link.
-const videoId = computed(() => (fonte.value ? idDoVideo(fonte.value.url) || fonte.value.video_id : ''))
+// A do Telegram não tem vídeo do YouTube: os links "no minuto" ficam sem alvo (T44).
+const videoId = computed(() => (fonte.value?.tipo === 'telegram' ? '' : fonte.value ? idDoVideo(fonte.value.url) || fonte.value.video_id : ''))
 
 // T37: a divisão em fragmentos.
 const pedido = ref('')
@@ -37,7 +38,7 @@ const destinoOcupando = computed(() => ['na_fila', 'rodando'].includes(fonte.val
 function ligarTimer() {
   if (timer) clearInterval(timer)
   timer =
-    fonte.value && (['na_fila', 'lendo', 'fragmentando'].includes(fonte.value.estado) || destinoOcupando.value)
+    fonte.value && (['na_fila', 'lendo', 'baixando', 'transcrevendo', 'fragmentando'].includes(fonte.value.estado) || destinoOcupando.value)
       ? setInterval(buscar, 3000)
       : null
 }
@@ -237,7 +238,8 @@ onBeforeUnmount(() => {
           <p class="pequeno">
             <template v-if="fonte.canal">{{ fonte.canal }} · </template>
             <template v-if="fonte.duracao">{{ segundosParaTempo(fonte.duracao) }} · </template>
-            <a :href="fonte.url" target="_blank" rel="noopener noreferrer">Abrir no YouTube</a>
+            <a v-if="fonte.tipo !== 'telegram'" :href="fonte.url" target="_blank" rel="noopener noreferrer">Abrir no YouTube</a>
+            <span v-else class="fraco">aula do Telegram</span>
           </p>
         </div>
         <span class="etiqueta" :class="estado.cor">{{ estado.nome }}</span>
@@ -267,13 +269,14 @@ onBeforeUnmount(() => {
         <summary><h2>Transcrição</h2></summary>
         <p v-for="(b, i) in blocos" :key="i" class="bloco">
           <a
-            v-if="b.marca"
+            v-if="b.marca && videoId"
             class="marca"
             :href="linkNoMinuto(videoId, b.segundos)"
             target="_blank"
             rel="noopener noreferrer"
             >[{{ b.marca }}]</a
           >
+          <span v-else-if="b.marca" class="marca">[{{ b.marca }}]</span>
           {{ b.texto }}
         </p>
       </details>
@@ -305,9 +308,10 @@ onBeforeUnmount(() => {
         <div v-for="fr in visiveis" :key="fr.id" class="cartao fragmento" :class="{ descartado: fr.estado === 'descartado' }">
           <template v-if="editando !== fr.id">
             <p class="fragmento-topo pequeno">
-              <a :href="linkNoMinuto(videoId, fr.inicio)" target="_blank" rel="noopener noreferrer"
+              <a v-if="videoId" :href="linkNoMinuto(videoId, fr.inicio)" target="_blank" rel="noopener noreferrer"
                 >{{ segundosParaTempo(fr.inicio) }}–{{ segundosParaTempo(fr.fim) }}</a
               >
+              <template v-else>{{ segundosParaTempo(fr.inicio) }}–{{ segundosParaTempo(fr.fim) }}</template>
               · {{ segundosParaTempo(fr.fim - fr.inicio) }}
               <span class="etiqueta" :class="tipo(fr).cor">{{ tipo(fr).nome }}</span>
               <span v-if="fr.estado === 'confirmado'" class="etiqueta verde">confirmado</span>

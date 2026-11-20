@@ -246,7 +246,17 @@ async function excluir() {
         <p v-if="aviso" class="aviso topo">{{ aviso }}</p>
         <RevisarRoteiro ref="revisar" :key="`roteiro-${e.id}`" :trilha="t" :etapa="e" @aberta="revisaoAberta = $event" @mudou="aposRevisao" />
 
-        <Videoaula v-if="videos.length" ref="player" :key="`video-${e.id}`" :videos="videos" :etapa-id="e.id" class="topo" />
+        <Videoaula
+          v-if="videos.length"
+          ref="player"
+          :key="`video-${e.id}`"
+          :videos="videos"
+          :etapa-id="e.id"
+          :vistos="e.trechos_vistos"
+          :proxima="proxima ? link('trilhas', t.id, 'etapas', proxima.id) : ''"
+          class="topo"
+          @mudou="recarregarEtapa"
+        />
         <TrechoYouTube
           v-if="trechosYt.length"
           ref="playerYt"

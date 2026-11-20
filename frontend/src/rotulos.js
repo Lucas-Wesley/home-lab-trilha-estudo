@@ -33,6 +33,8 @@ export const BLOOM = {
 export const ESTADOS_FONTE = {
   na_fila: { nome: 'na fila', cor: '' },
   lendo: { nome: 'lendo…', cor: 'azul' },
+  baixando: { nome: 'baixando…', cor: 'azul' }, // T44: a aula está no Telegram; a fila segue
+  transcrevendo: { nome: 'transcrevendo…', cor: 'azul' },
   pronta: { nome: 'pronta', cor: 'verde' },
   fragmentando: { nome: 'fragmentando…', cor: 'azul' },
   fragmentada: { nome: 'fragmentada', cor: 'verde' },

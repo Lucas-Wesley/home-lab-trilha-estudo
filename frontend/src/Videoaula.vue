@@ -1,16 +1,21 @@
 <script setup>
 // Videoaula (T30): o vídeo principal da etapa no topo, como numa aula, e as notas que o Lucas toma
 // assistindo (salvas sozinhas; "Marcar o minuto" escreve [mm:ss] e cada marca volta ao ponto).
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import BarraTrecho from './BarraTrecho.vue'
 import Icone from './Icone.vue'
 import { api } from './api.js'
 import { ehAulaDoTelegram, linkNoStreaming, marcaDeTempo, momentosDasNotas, segundosParaTempo, tempoEstimado } from './videoaula.js'
+import { chaveDoTrecho, estadoDoTrecho, intervaloDoMaterial } from './trechoYoutube.js'
 import { tamanho } from './pastas.js'
 
 const props = defineProps({
   videos: { type: Array, required: true },
   etapaId: { type: Number, required: true },
+  vistos: { type: Array, default: () => [] }, // [{referencia, localizador, visto_em}]
+  proxima: { type: String, default: '' }, // link da próxima etapa, se houver
 })
+const emit = defineEmits(['mudou'])
 
 const parte = ref(0) // índice do vídeo tocando
 const video = ref(null)
@@ -23,6 +28,55 @@ const velocidade = ref(lerLocal('videoaula:velocidade', 1))
 
 const atual = computed(() => props.videos[parte.value])
 const momentos = computed(() => momentosDasNotas(notas.value))
+
+// ---------- trecho de aula do Telegram (T44) ----------
+// Material streaming com ref telegram: e localizador "mm:ss–mm:ss": começa no início do
+// trecho e mostra a mesma barra/aviso do TrechoYouTube (o comum está em BarraTrecho.vue).
+const trecho = computed(() => intervaloDoMaterial(atual.value))
+const posicao = ref(0)
+const estadoTrecho = computed(() => (trecho.value ? estadoDoTrecho(posicao.value, trecho.value.inicio, trecho.value.fim) : null))
+const avisoVisto = ref(false)
+const erroVisto = ref('')
+const vistosLocal = reactive(new Set())
+watch(() => props.vistos, (vs) => {
+  for (const v of vs || []) vistosLocal.add(`${v.referencia}|${v.localizador}`)
+}, { immediate: true })
+
+let tocouPedido = false
+async function tocou() {
+  if (tocouPedido) return
+  tocouPedido = true
+  try {
+    await api(`/api/etapas/${props.etapaId}/trechos/visto`, { metodo: 'POST', corpo: { tocou: true } })
+    emit('mudou')
+  } catch { /* sem servidor: só não marca */ }
+}
+const pedidosVisto = new Set()
+async function marcarVisto() {
+  const t = trecho.value
+  const chave = chaveDoTrecho(t)
+  if (pedidosVisto.has(chave) || vistosLocal.has(chave)) return
+  pedidosVisto.add(chave)
+  erroVisto.value = ''
+  try {
+    await api(`/api/etapas/${props.etapaId}/trechos/visto`, {
+      metodo: 'POST',
+      corpo: { referencia: t.referencia, localizador: t.localizador },
+    })
+    vistosLocal.add(chave)
+    avisoVisto.value = true
+    emit('mudou')
+  } catch (err) {
+    erroVisto.value = err.message || 'Não marcou: tente de novo.'
+  } finally {
+    pedidosVisto.delete(chave)
+  }
+}
+function voltarAoTrecho() {
+  if (!video.value || !trecho.value) return
+  video.value.currentTime = trecho.value.inicio
+  video.value.play().catch(() => {})
+}
 
 // ---------- aulas do Telegram (T42) ----------
 // infos[i]: onde a parte i está — baixada (com a url do vídeo), na_fila, no_telegram, carregando
@@ -90,12 +144,25 @@ function aoCarregar() {
     v.play().catch(() => {})
     return
   }
+  if (trecho.value) {
+    // Material de trecho: começa no início dele (a posição salva serve só quando já está
+    // dentro do trecho — fora dele não faz sentido voltar).
+    const onde = lerLocal(`videoaula:${atual.value.referencia}`, 0)
+    v.currentTime = onde >= trecho.value.inicio && onde < trecho.value.fim ? onde : trecho.value.inicio
+    posicao.value = v.currentTime
+    return
+  }
   const onde = lerLocal(`videoaula:${atual.value.referencia}`, 0)
   if (onde > 5 && onde < v.duration - 10) v.currentTime = onde
 }
 let ultimoGuardado = 0
 function aoAndar() {
   const t = video.value?.currentTime || 0
+  posicao.value = t
+  if (trecho.value) {
+    tocou()
+    if (estadoTrecho.value?.passou && !vistosLocal.has(chaveDoTrecho(trecho.value))) marcarVisto()
+  }
   if (Math.abs(t - ultimoGuardado) >= 5) {
     ultimoGuardado = t
     gravarLocal(`videoaula:${atual.value.referencia}`, Math.floor(t))
@@ -111,6 +178,9 @@ function mudarVelocidade(v) {
 }
 watch(parte, () => {
   erroVideo.value = ''
+  erroVisto.value = ''
+  avisoVisto.value = false
+  posicao.value = 0
   ultimoGuardado = 0
 })
 
@@ -238,8 +308,11 @@ function teclas(ev) {
         </template>
       </div>
     </div>
+    <BarraTrecho v-if="trecho && infoDoAtual.estado === 'baixada'" :titulo="atual.titulo" :inicio="trecho.inicio" :fim="trecho.fim" :posicao="posicao" :aviso="avisoVisto" :proxima="proxima" @continuar="avisoVisto = false">
+      <button class="botao discreto" type="button" @click="voltarAoTrecho">Voltar ao início do trecho</button>
+    </BarraTrecho>
     <div class="linha barra">
-      <span class="titulo-video">{{ atual.titulo }}</span>
+      <span v-if="!trecho" class="titulo-video">{{ atual.titulo }}</span>
       <span class="espaco" />
       <div v-if="infoDoAtual.estado === 'baixada'" class="linha velocidades" role="group" aria-label="Velocidade">
         <button v-for="v in VELOCIDADES" :key="v" class="botao discreto vel" :class="{ ativa: v === velocidade }" @click="mudarVelocidade(v)">{{ v }}×</button>
@@ -249,6 +322,7 @@ function teclas(ev) {
       </a>
     </div>
     <p v-if="erroVideo" class="aviso">{{ erroVideo }}</p>
+    <p v-if="erroVisto" class="aviso">{{ erroVisto }}</p>
 
     <div class="notas">
       <div class="linha entre">

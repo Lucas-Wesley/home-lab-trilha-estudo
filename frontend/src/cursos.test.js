@@ -1,7 +1,7 @@
 // T43: os helpers do material "curso" — referência, título, números de aula e "Precisam ser
 // ouvidas". A árvore de teste é a mesma do pastas.test.js.
 import { describe, expect, it } from 'vitest'
-import { aulasDoLocalizador, escreverCursos, linkDoGrupo, nomesDasAulas, precisamOuvir, referenciaDoCurso, tituloDoCurso } from './cursos.js'
+import { aulasDaPasta, aulasDoLocalizador, escreverCursos, linkDoGrupo, nomesDasAulas, precisamOuvir, referenciaDaAula, referenciaDoCurso, tituloDoCurso } from './cursos.js'
 
 const aula = (nome, link, chave = '') => ({ nome, link, chave })
 const pasta = (nome, caminho, aulas = [], pastas = []) => ({ nome, caminho, aulas, pastas })
@@ -65,5 +65,24 @@ describe('nomes das aulas e precisam ouvir', () => {
   it('precisamOuvir lê a linha das notas', () => {
     expect(precisamOuvir('Títulos bons.\nPrecisam ser ouvidas: A4, A7')).toEqual([4, 7])
     expect(precisamOuvir('sem a linha')).toEqual([])
+  })
+})
+
+describe('processar (T44)', () => {
+  const arvore = pasta(
+    'Curso',
+    ['G', 'Curso'],
+    [aula('A1', 'https://t.me/c/1'), { nome: 'Só disco', chave: 'd1' }],
+    [pasta('Módulo', ['G', 'Curso', 'Módulo'], [{ nome: 'A2', link: 'https://t.me/c/1', mensagem: 7, chave: 'a2' }])],
+  )
+
+  it('aulasDaPasta desce na árvore na ordem', () => {
+    expect(aulasDaPasta(arvore).map((a) => a.nome)).toEqual(['A1', 'Só disco', 'A2'])
+  })
+
+  it('referenciaDaAula monta a ref estável; aula sem link/mensagem não processa', () => {
+    expect(referenciaDaAula({ nome: 'A2', link: 'https://t.me/c/1', mensagem: 7 })).toBe('telegram:https://t.me/c/1#7')
+    expect(referenciaDaAula({ nome: 'Só disco' })).toBe('')
+    expect(referenciaDaAula({ link: 'https://t.me/c/1' })).toBe('') // sem mensagem
   })
 })

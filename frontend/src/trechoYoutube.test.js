@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chaveDoTrecho, estadoDoTrecho, idDoVideo, intervalos, linkNoMinuto, segundosDosTrechos, trechos } from './trechoYoutube.js'
+import { chaveDoTrecho, estadoDoTrecho, idDoVideo, intervaloDoMaterial, intervalos, linkNoMinuto, pctDoTrecho, segundosDosTrechos, trechos } from './trechoYoutube.js'
 
 describe('trechoYoutube', () => {
   it('acha o id do vídeo nos formatos do YouTube', () => {
@@ -45,5 +45,23 @@ describe('trechoYoutube', () => {
     expect(segundosDosTrechos([
       { tipo: 'youtube', papel: 'principal', referencia: 'https://youtu.be/A', localizador: '01:00–02:00; 03:00–04:00' },
     ])).toBe(120)
+  })
+})
+
+describe('intervalo do material do Telegram (T44)', () => {
+  it('lê ref telegram: + intervalo; sem intervalo é videoaula comum', () => {
+    const m = { referencia: 'telegram:https://t.me/c/1#45', localizador: '10:00–20:00' }
+    expect(intervaloDoMaterial(m)).toEqual({ inicio: 600, fim: 1200, localizador: '10:00–20:00', referencia: m.referencia })
+    expect(intervaloDoMaterial({ ...m, localizador: '' })).toBeNull()
+    expect(intervaloDoMaterial({ ...m, localizador: 'cap. 4' })).toBeNull()
+    expect(intervaloDoMaterial({ referencia: 'https://youtu.be/x', localizador: '10:00–20:00' })).toBeNull()
+    expect(intervaloDoMaterial(null)).toBeNull()
+  })
+
+  it('pctDoTrecho mede a janela do trecho', () => {
+    expect(pctDoTrecho(900, 600, 1200)).toBe(50)
+    expect(pctDoTrecho(0, 600, 1200)).toBe(0)
+    expect(pctDoTrecho(5000, 600, 1200)).toBe(100)
+    expect(pctDoTrecho(10, 0, 0)).toBe(0)
   })
 })

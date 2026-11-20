@@ -87,3 +87,18 @@ export function precisamOuvir(notas) {
   }
   return []
 }
+
+// ---------- processar (T44): a aula do Telegram vira fonte da Entrada ----------
+
+// aulasDaPasta: todas as aulas da pasta e das subpastas, na ordem da árvore.
+export function aulasDaPasta(pasta) {
+  const lista = [...(pasta?.aulas || [])]
+  for (const sub of pasta?.pastas || []) lista.push(...aulasDaPasta(sub))
+  return lista
+}
+
+// referenciaDaAula: a ref estável "telegram:<link do grupo>#<mensagem>" — só aulas do
+// catálogo têm (aula só do disco, sem link, não dá para processar).
+export function referenciaDaAula(a) {
+  return a?.link && a?.mensagem ? `telegram:${a.link}#${a.mensagem}` : ''
+}

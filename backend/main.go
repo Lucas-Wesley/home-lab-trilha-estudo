@@ -71,7 +71,9 @@ func main() {
 		ytdlpBin:      env("YTDLP_BIN", "yt-dlp"),
 		ytdlpExtra:    strings.Fields(os.Getenv("YTDLP_ARGS")),
 		whisper:       strings.TrimSuffix(os.Getenv("WHISPER_URL"), "/"),
+		ffmpegBin:     env("FFMPEG_BIN", "ffmpeg"),
 		pausaEntrada:  15 * time.Second,
+		sondaTelegram: 15 * time.Second,
 		acordaEntrada: make(chan struct{}, 1),
 	}
 	a.ligarIA()

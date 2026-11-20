@@ -43,6 +43,8 @@ type fonte struct {
 	TarefaDestinoID int64   `json:"tarefa_destino_id"`
 	PedidoDestino   string  `json:"pedido_destino"`
 	TarefaDestino   *tarefa `json:"tarefa_destino,omitempty"`
+	// T44: a fonte telegram marcada "dividir em fragmentos quando terminar".
+	Fragmentar bool `json:"fragmentar"`
 	// T38: na lista, "5 fragmentos · 3 enviados · 1 sem destino".
 	ResumoFragmentos string `json:"resumo_fragmentos,omitempty"`
 }
@@ -59,18 +61,21 @@ func pastaDaFonte(id int64) string {
 }
 
 const colunasFonte = `id, tipo, url, video_id, titulo, canal, duracao, idioma, capitulos, estado, erro,
-	playlist, criado_em, COALESCE(tarefa_id, 0), pedido, notas, COALESCE(tarefa_destino, 0), pedido_destino
+	playlist, criado_em, COALESCE(tarefa_id, 0), pedido, notas, COALESCE(tarefa_destino, 0), pedido_destino,
+	fragmentar
 	FROM fontes`
 
 func lerFonte(row interface{ Scan(...any) error }) (fonte, error) {
 	var f fonte
 	var capitulos string
+	var fragmentar int
 	err := row.Scan(&f.ID, &f.Tipo, &f.URL, &f.VideoID, &f.Titulo, &f.Canal, &f.Duracao, &f.Idioma,
 		&capitulos, &f.Estado, &f.Erro, &f.Playlist, &f.CriadoEm, &f.TarefaID, &f.Pedido, &f.Notas,
-		&f.TarefaDestinoID, &f.PedidoDestino)
+		&f.TarefaDestinoID, &f.PedidoDestino, &fragmentar)
 	if err == nil {
 		f.Capitulos = []capitulo{}
 		json.Unmarshal([]byte(capitulos), &f.Capitulos)
+		f.Fragmentar = fragmentar != 0
 	}
 	return f, err
 }
@@ -103,7 +108,9 @@ func (a *app) criarFonte(ctx context.Context, tipo, link, videoID, titulo, playl
 const limiteLeitura = 45 * time.Minute
 
 func (a *app) recuperarEntrada(ctx context.Context) error {
-	_, err := a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'na_fila' WHERE estado = 'lendo'`)
+	// A que estava "baixando" fica como está: o download continua no Streaming e a sonda a
+	// traz de volta para a fila. A que estava lendo/transcrevendo recomeça na fila.
+	_, err := a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'na_fila' WHERE estado IN ('lendo', 'transcrevendo')`)
 	return err
 }
 
@@ -122,6 +129,10 @@ func (a *app) rodarEntrada(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-a.acordaEntrada:
+			case <-time.After(a.sondaTelegram):
+				// T44: a fonte que está "baixando" volta para a fila e é verificada de novo —
+				// assim a fila nunca fica parada esperando um download do Telegram.
+				a.promoverBaixando(ctx)
 			}
 		}
 	}
@@ -130,27 +141,49 @@ func (a *app) rodarEntrada(ctx context.Context) {
 // lerProximaFonte pega a fonte mais antiga na fila e a lê; false quando não havia nenhuma.
 func (a *app) lerProximaFonte(ctx context.Context) bool {
 	var f fonte
-	err := a.db.QueryRowContext(ctx, `SELECT id, url FROM fontes WHERE estado = 'na_fila' ORDER BY id LIMIT 1`).
-		Scan(&f.ID, &f.URL)
+	var fragmentar int
+	err := a.db.QueryRowContext(ctx, `SELECT id, url, video_id, tipo, titulo, fragmentar FROM fontes WHERE estado = 'na_fila' ORDER BY id LIMIT 1`).
+		Scan(&f.ID, &f.URL, &f.VideoID, &f.Tipo, &f.Titulo, &fragmentar)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) && ctx.Err() == nil {
 			log.Printf("entrada: %v", err)
 		}
 		return false
 	}
+	f.Fragmentar = fragmentar != 0
 	if _, err := a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'lendo' WHERE id = ?`, f.ID); err != nil {
 		log.Printf("entrada: %v", err)
 		return false
 	}
-	// Um yt-dlp ou um Whisper travado não pode parar a fila para sempre.
+	// Um yt-dlp, um ffmpeg ou um Whisper travado não pode parar a fila para sempre.
 	cl, cancelar := context.WithTimeout(ctx, limiteLeitura)
-	err = a.lerVideo(cl, f)
-	cancelar()
-	if err != nil {
-		log.Printf("entrada: fonte %d: %v", f.ID, err)
-		a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'erro', erro = ? WHERE id = ?`, err.Error(), f.ID)
+	if f.Tipo == "telegram" {
+		// T44: devolve o estado final — "baixando" (o download foi pedido e a fonte espera
+		// a sonda a trazer de volta) ou "pronta" (transcrita).
+		var estado string
+		estado, err = a.lerTelegram(cl, f)
+		cancelar()
+		if err != nil {
+			log.Printf("entrada: fonte %d: %v", f.ID, err)
+			a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'erro', erro = ? WHERE id = ?`, err.Error(), f.ID)
+		} else {
+			a.db.ExecContext(ctx, `UPDATE fontes SET estado = ?, erro = '' WHERE id = ?`, estado, f.ID)
+			// "Dividir em fragmentos quando terminar": pronta → a fila do Claude.
+			if estado == "pronta" && f.Fragmentar {
+				if err := a.pedirFragmentar(ctx, f.ID, f.Titulo, ""); err != nil {
+					log.Printf("entrada: fonte %d, fragmentar: %v", f.ID, err)
+				}
+			}
+		}
 	} else {
-		a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'pronta', erro = '' WHERE id = ?`, f.ID)
+		err = a.lerVideo(cl, f)
+		cancelar()
+		if err != nil {
+			log.Printf("entrada: fonte %d: %v", f.ID, err)
+			a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'erro', erro = ? WHERE id = ?`, err.Error(), f.ID)
+		} else {
+			a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'pronta', erro = '' WHERE id = ?`, f.ID)
+		}
 	}
 	// A pausa entre vídeos (o YouTube bloqueia quem pede muito seguido); zero nos testes.
 	select {

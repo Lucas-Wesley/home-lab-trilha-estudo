@@ -25,6 +25,10 @@ type app struct {
 	whisper       string        // WHISPER_URL
 	pausaEntrada  time.Duration // a pausa entre vídeos da Entrada (15 s; 0 nos testes)
 	acordaEntrada chan struct{}
+	// T44: as fontes telegram — o ffmpeg corta o áudio para o Whisper e a sonda revisita as
+	// fontes "baixando" (a fila não fica parada esperando o download do Telegram).
+	ffmpegBin     string        // FFMPEG_BIN
+	sondaTelegram time.Duration // o intervalo em que as fontes "baixando" são verificadas (15 s)
 }
 
 // ligarIA registra os tipos de tarefa na fila (fase 3).
@@ -135,6 +139,7 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	// Entrada (T35): vídeos do YouTube viram fontes para depois virar fragmentos.
 	mux.HandleFunc("POST /api/entrada", a.handleEntradaPost)
 	mux.HandleFunc("POST /api/entrada/acervo", a.handleEntradaAcervo)
+	mux.HandleFunc("POST /api/entrada/telegram", a.handleEntradaTelegram)
 	// Entrada (T41): os cursos do Telegram do Streaming, pela API dele (ele continua o dono).
 	mux.HandleFunc("GET /api/arquivos", a.handleArquivos)
 	mux.HandleFunc("POST /api/arquivos/baixar", a.handleBaixarArquivos)

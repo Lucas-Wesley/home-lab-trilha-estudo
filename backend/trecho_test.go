@@ -59,6 +59,25 @@ func TestTrechoVistoGravaAndamentoEConclui(t *testing.T) {
 	}
 }
 
+// Fase 10 (T44): o trecho de aula do Telegram (material streaming com ref telegram:) usa a
+// mesma rota e conclui a etapa do mesmo jeito.
+func TestTrechoVistoTelegram(t *testing.T) {
+	c := novoCliente(t)
+	const ref = "telegram:https://t.me/c/1#2"
+	var tr trilha
+	c.ok("POST", "/api/trilhas", map[string]any{"titulo": "Curso", "profundidade": 3}, &tr)
+	c.ok("POST", fmt.Sprintf("/api/trilhas/%d/modulos", tr.ID), map[string]any{"titulo": "Módulo"}, nil)
+	var e etapa
+	c.ok("POST", "/api/modulos/1/etapas", map[string]any{"titulo": "Aula", "materiais": []map[string]any{{
+		"tipo": "streaming", "titulo": "A", "referencia": ref,
+		"localizador": "10:00–20:00", "papel": "principal"}}}, &e)
+
+	c.ok("POST", fmt.Sprintf("/api/etapas/%d/trechos/visto", e.ID), visto(ref, "10:00–20:00"), &e)
+	if e.Status != "concluida" || len(e.TrechosVistos) != 1 || e.TrechosVistos[0].Referencia != ref {
+		t.Fatalf("visto telegram: %+v", e)
+	}
+}
+
 func TestTrechoVistoDeOutraEtapaDa400(t *testing.T) {
 	c := novoCliente(t)
 	id, _, _ := etapaComTrecho(c, "00:30–01:00")

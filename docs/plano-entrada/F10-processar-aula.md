@@ -83,3 +83,61 @@ Commit: `Entrada (T44): processar aulas do Telegram (baixa, transcreve no Whispe
 ## Dúvidas
 
 ## Feito
+
+**Backend** (`backend/telegram.go` + fiação em `servidor.go`, `main.go`, `banco.go`, `entrada.go`)
+- `POST /api/entrada/telegram` `{"refs": [...], "fragmentar": true}` valida cada ref
+  `telegram:<link>#<msg>` (`referenciaTelegram`), acha a aula no catálogo do Streaming e cria a
+  fonte `tipo = "telegram"` (`video_id` = a ref, `titulo` = nome da aula, `canal` = grupo › curso ›
+  módulo, `duracao`, `estado = "na_fila"`). Ref repetida devolve a fonte existente (e honra o
+  `fragmentar` novo se ainda está em processamento). `fontes` ganhou a coluna `fragmentar`.
+- `lerTelegram` na fila da Entrada: `no_telegram` → `baixarAulaStreaming` pede só aquela mensagem e
+  devolve estado `baixando` — a fila passa para a próxima fonte e a sonda `promoverBaixando` (a
+  cada `sondaTelegram` = 15 s; 0 nos testes) a traz de volta à `na_fila`; `na_fila` idem; `baixada`
+  → `transcrevendo` e transcreve. `recuperarEntrada` devolve `transcrevendo` à fila ao reiniciar.
+- `transcreverAulaTelegram`: ffmpeg (`FFMPEG_BIN`, padrão `ffmpeg`) lê o vídeo da url **interna**
+  `STREAMING_URL/api/video/proprio/<id>.mp4`, `-vn -ac 1 -ar 16000 -f segment -segment_time 600
+  -c:a flac` (pedaços de 10 min, como o `podcast.go` do Acervo); um `pedirTranscricao` por pedaço
+  (`WHISPER_URL`, `verbose_json`), somando `i * 600` nos `[mm:ss]`; escreve
+  `entrada/<id>/transcricao.md` e apaga o temporário. Sem `WHISPER_URL` → "o Whisper não está
+  configurado"; falha do Whisper → fonte `erro` com "Tentar de novo" (`/tentar` já existia).
+- `pronta` + `fragmentar` → `pedirFragmentar` (a mesma tarefa do botão da página da fonte).
+- Encaixe/etapa: `enviar` cria material **`streaming`** (`referencia` = ref telegram:, `localizador`
+  = intervalos) para fonte `telegram`; `trechosDoVideo` acha a fonte pelo `video_id` (url só para
+  youtube/acervo); `arquivosDoMaterial` lê só o trecho para `streaming`+`telegram:`; `criarEncaixe`
+  aceita `streaming` com ref telegram: e trilha vazia; `trechosPrincipais` conta o streaming+telegram
+  → "visto" e auto-conclusão idênticos ao do YouTube (T39).
+
+**Frontend**
+- `BarraTrecho.vue` novo: o comum da `Videoaula` e do `TrechoYouTube` — título + localizador, barra
+  de progresso da janela do trecho, "faltam…", aviso "Trecho visto ✓" e "Ir para a próxima etapa".
+  `trechoYoutube.js` ganhou `pctDoTrecho` e `intervaloDoMaterial` (ref telegram: + intervalo →
+  `{inicio, fim, localizador, referencia}`); `TrechoYouTube.vue` usa o componente e seus testes
+  seguem passando.
+- `Videoaula.vue`: material `streaming`+`telegram:` com intervalo toca o vídeo baixado começando no
+  início do trecho (posição salva só vale dentro dele), mostra a `BarraTrecho`, "Voltar ao início
+  do trecho" e grava o "visto"/`tocou` na rota da fase 5. Aulas sem intervalo seguem videoaula
+  comum (T30/T42 inalterados).
+- Meus arquivos: "Processar na Entrada" na pasta e "Processar" por aula — diálogo com a contagem,
+  `~tempo` de áudio e "Dividir em fragmentos quando terminar" marcado; aulas já processadas
+  mostram "na Entrada" com link para a fonte (`aulasDaPasta`/`referenciaDaAula` em `cursos.js`;
+  o mapa `ref → fonte` vem do `GET /api/entrada` por `video_id`).
+- `EncaixarMaterial.vue`: "Processar estas aulas" manda as refs dos números do bloco ao mesmo
+  endpoint (fragmentar ligado) e vira etiqueta "na Entrada — veja a aba Vídeos".
+- `ListaEntrada.vue`: ícone `telegram` (novo em `Icone.vue`) no lugar da miniatura, estados
+  `baixando`/`transcrevendo` em `rotulos.js` e no timer; `Fonte.vue` esconde os links "no minuto"
+  do YouTube para fonte telegram (o `videoId` fica vazio → "aula do Telegram" no lugar de "Abrir no
+  YouTube", marcas `[mm:ss]` viram texto, intervalos dos fragmentos idem).
+
+**Testes** — `telegram_test.go` (Streaming + Whisper + `testdata/ffmpeg-falso`, todos falsos):
+baixada → `pronta` com transcrição e `[mm:ss]` somados entre pedaços e flags do ffmpeg conferidos;
+`no_telegram` → download pedido, fonte `baixando`, a fila segue e a sonda a reprocessa; sem Whisper
+→ erro; `fragmentar` enfileira a tarefa ao ficar pronta. `cursos_test.go` ganhou o encaixe de fonte
+`telegram` (material `streaming` + intervalo, pedido só com o trecho) e `trecho_test.go` o "visto"
+do trecho streaming que conclui a etapa. `cursos.test.js`: `aulasDaPasta`/`referenciaDaAula`;
+`trechoYoutube.test.js`: `intervaloDoMaterial`/`pctDoTrecho`. Suítes antigas intactas.
+
+**Verificação** — `go vet` + `go test` ok; `npm test` 71 ok; `npm run build` ok. Ao vivo a 360 px
+com Streaming/Whisper/ffmpeg falsos: "3 aulas · ~06:00 de áudio" no diálogo com a caixa marcada, as
+três fontes aparecendo na Entrada (`pronta`/`baixando`/`na_fila`), o `[10:00]` somado no 2º pedaço,
+"na Entrada" nas aulas, página da fonte sem link YouTube e a etapa com trecho do Telegram
+mostrando a `BarraTrecho` igual à do YouTube. Sem rolagem horizontal.

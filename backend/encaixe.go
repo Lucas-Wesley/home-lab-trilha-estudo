@@ -24,7 +24,14 @@ import (
 const tipoEncaixe = "encaixe"
 
 // T38: "youtube" chega só pelo enviar da Entrada; T43: "curso" chega de Meus arquivos.
-var tiposEncaixe = []string{"livro", "acervo", "web", "documento", "youtube", "curso"}
+var tiposEncaixe = []string{"livro", "acervo", "web", "documento", "youtube", "curso", "streaming"}
+
+// comIntervalo: o material de vídeo em trechos — youtube (T38) ou streaming/telegram (T44),
+// que chega só pelo enviar da Entrada — cujo localizador é "mm:ss–mm:ss" e precisa cair
+// dentro de um dos intervalos mandados.
+func comIntervalo(m material) bool {
+	return m.Tipo == "youtube" || m.Tipo == "streaming"
+}
 
 type encaixeEtapa struct {
 	EtapaChave  string `json:"etapa_chave"`
@@ -133,13 +140,15 @@ func (a *app) criarEncaixe(ctx context.Context, tr trilha, m material, pedido, e
 		return proposta{}, erroDeEntrada{errors.New("o link precisa começar com http:// ou https://")}
 	case m.Tipo == "curso" && len(lerCursos(m.Referencia)) == 0:
 		return proposta{}, erroDeEntrada{errors.New("o curso precisa de pastas do Telegram: telegram:<link>::<caminho>")}
+	case m.Tipo == "streaming" && !strings.HasPrefix(m.Referencia, "telegram:"):
+		return proposta{}, erroDeEntrada{errors.New("o material streaming precisa da ref telegram: de uma aula")}
 	}
 	if m.Titulo == "" {
 		m.Titulo = m.Referencia
 	}
-	// Num material youtube (vídeo em fragmentos, T38) ou curso (T43) a trilha vazia vale: a IA
-	// propõe só tópicos e módulos novos.
-	if len(tr.Modulos) == 0 && m.Tipo != "youtube" && m.Tipo != "curso" {
+	// Num material youtube (vídeo em fragmentos, T38), streaming (aula do Telegram, T44) ou
+	// curso (T43) a trilha vazia vale: a IA propõe só tópicos e módulos novos.
+	if len(tr.Modulos) == 0 && m.Tipo != "youtube" && m.Tipo != "curso" && m.Tipo != "streaming" {
 		return proposta{}, erroDeEntrada{errors.New("a trilha ainda não tem módulos para encaixar o material")}
 	}
 	titulo := "Encaixar: " + m.Titulo
@@ -335,7 +344,7 @@ func limparEncaixe(tr trilha, m material, encaixes []encaixeEtapa, novos []encai
 		}
 	}
 	var mandados [][2]int
-	if m.Tipo == "youtube" {
+	if comIntervalo(m) {
 		mandados, _ = lerIntervalos(m.Localizador)
 	}
 	var tirados []string
@@ -348,7 +357,7 @@ func limparEncaixe(tr trilha, m material, encaixes []encaixeEtapa, novos []encai
 			tirados = append(tirados, fmt.Sprintf("a etapa %q (não existe)", x.EtapaChave))
 			continue
 		}
-		if m.Tipo == "youtube" && !localizadorDentro(x.Localizador, mandados) {
+		if comIntervalo(m) && !localizadorDentro(x.Localizador, mandados) {
 			tirados = append(tirados, fmt.Sprintf("%s %s (o trecho %q não é um dos intervalos)", num[e.Chave], e.Titulo, x.Localizador))
 			continue
 		}
@@ -390,7 +399,7 @@ func limparEncaixe(tr trilha, m material, encaixes []encaixeEtapa, novos []encai
 		if _, ok := etapas[x.DepoisDe]; !ok {
 			x.DepoisDe = ""
 		}
-		if m.Tipo == "youtube" && !localizadorDentro(x.Localizador, mandados) {
+		if comIntervalo(m) && !localizadorDentro(x.Localizador, mandados) {
 			tirados = append(tirados, fmt.Sprintf("o tópico %q (o trecho %q não é um dos intervalos)", x.Titulo, x.Localizador))
 			continue
 		}
@@ -445,9 +454,9 @@ func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m 
 		}
 	case "documento":
 		escreva("- Arquivo `documentos/%s.md` (pasta `documentos`, adicionada ao seu acesso; procure-a com Glob se o caminho relativo não abrir).\n", m.Referencia)
-	case "youtube":
-		// T38: só os trechos dos intervalos mandados (um bloco "## início–fim · título" por
-		// fragmento); o localizador de cada encaixe é um desses intervalos ou um pedaço dele.
+	case "youtube", "streaming":
+		// T38/T44: só os trechos dos intervalos mandados (um bloco "## início–fim · título"
+		// por fragmento); o localizador de cada encaixe é um desses intervalos ou um pedaço.
 		lidos := a.arquivosDoMaterial(ctx, []material{m}, arquivos)
 		if l := lidos[0]; l.Arquivo != "" {
 			escreva("- Os trechos do vídeo estão em `%s`: um bloco por fragmento, com o resumo e as falas.\n", l.Arquivo)

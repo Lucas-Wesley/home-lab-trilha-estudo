@@ -116,6 +116,17 @@ const ehCurso = (x) => x.material?.tipo === 'curso'
 const textoLocalizador = (x, localizador) =>
   ehCurso(x) ? nomesDasAulas(localizador, x.proposta.conteudo?.nomes || {}) : localizador
 const ouvir = (x) => (ehCurso(x) ? precisamOuvir(x.proposta.conteudo?.notas) : [])
+
+// T44: as aulas que a IA não chutou vão à Entrada — a Trilha baixa e transcreve cada uma
+// (Whisper, sem a IA) e fragmenta ao terminar; as fontes aparecem na aba Vídeos.
+const naEntrada = ref(new Set())
+async function processarOuvir(x) {
+  const aulas = x.proposta.conteudo?.aulas || {}
+  const refs = ouvir(x).map((n) => aulas[`A${n}`]).filter(Boolean)
+  if (!refs.length) return
+  const ok = await acao(() => api('/api/entrada/telegram', { metodo: 'POST', corpo: { refs, fragmentar: true } }))
+  if (ok) naEntrada.value = new Set([...naEntrada.value, x.proposta.id])
+}
 </script>
 
 <template>
@@ -182,14 +193,15 @@ const ouvir = (x) => (ehCurso(x) ? precisamOuvir(x.proposta.conteudo?.notas) : [
       <template v-else-if="x.proposta.conteudo">
         <p v-if="x.proposta.conteudo.notas" class="suave sem-margem pre">{{ x.proposta.conteudo.notas }}</p>
 
-        <!-- T43: aulas com título genérico que a IA não chutou — processar vem na fase 10. -->
+        <!-- T43+T44: aulas com título genérico que a IA não chutou — o botão as manda à Entrada. -->
         <div v-if="ouvir(x).length" class="ouvir">
           <span class="rotulo">Precisam ser ouvidas</span>
           <ul>
             <li v-for="n in ouvir(x)" :key="n">A{{ n }} · {{ x.proposta.conteudo?.nomes?.[`A${n}`] || '' }}</li>
           </ul>
           <div>
-            <button class="botao" disabled title="Chega na próxima versão">Processar estas aulas (na próxima versão)</button>
+            <span v-if="naEntrada.has(x.proposta.id)" class="etiqueta">na Entrada — veja a aba Vídeos</span>
+            <button v-else class="botao" :disabled="ocupado" @click="processarOuvir(x)">Processar estas aulas</button>
           </div>
         </div>
 

@@ -57,6 +57,20 @@ export function trechos(materiais) {
   return lista
 }
 
+// intervaloDoMaterial: o trecho de um material streaming do Telegram (T44) — a ref é a
+// aula estável e o localizador é "mm:ss–mm:ss". Sem intervalo, é uma videoaula comum.
+export function intervaloDoMaterial(m) {
+  if (!m || !/^telegram:https:\/\/t\.me\/.+#\d+$/.test(m.referencia || '')) return null
+  const [iv] = intervalos(m.localizador)
+  return iv ? { inicio: iv[0], fim: iv[1], localizador: escreverIntervalo(iv[0], iv[1]), referencia: m.referencia } : null
+}
+
+// pctDoTrecho: a posição do vídeo como porcentagem da janela do trecho (0–100).
+export function pctDoTrecho(posicao, inicio, fim) {
+  if (!fim || fim <= inicio) return 0
+  return Math.min(100, Math.max(0, ((posicao - inicio) / (fim - inicio)) * 100))
+}
+
 // estadoDoTrecho: onde o vídeo está em relação ao trecho ("passou" aos fim − 2 s, a régua do
 // aviso; "faltam" o que falta para o fim, sem negativo).
 export function estadoDoTrecho(posicao, inicio, fim) {

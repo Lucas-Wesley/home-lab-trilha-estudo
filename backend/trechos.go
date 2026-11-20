@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 )
 
 // Entrada, fase 5 (T39): o trecho do YouTube como aula da etapa — ver o intervalo até o fim
@@ -39,11 +40,15 @@ func (a *app) mudarStatusEtapa(ctx context.Context, etapaID int64, status string
 	return nil
 }
 
-// trechosPrincipais: os materiais `youtube` com papel `principal` da etapa (a aula em vídeo).
+// trechosPrincipais: os materiais de vídeo em trecho com papel `principal` da etapa —
+// `youtube` (T39) e `streaming` com ref telegram: (T44: a aula toca no minuto do trecho).
 func trechosPrincipais(e etapa) []material {
 	var lista []material
 	for _, m := range e.Materiais {
-		if m.Tipo == "youtube" && m.Papel == "principal" && m.Referencia != "" {
+		if m.Papel != "principal" || m.Referencia == "" {
+			continue
+		}
+		if m.Tipo == "youtube" || (m.Tipo == "streaming" && strings.HasPrefix(m.Referencia, "telegram:")) {
 			lista = append(lista, m)
 		}
 	}

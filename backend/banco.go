@@ -47,6 +47,9 @@ var migracoes = []string{
 	`ALTER TABLE fragmentos ADD COLUMN sem_destino_em TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE fontes ADD COLUMN tarefa_destino INTEGER REFERENCES tarefas(id) ON DELETE SET NULL`,
 	`ALTER TABLE fontes ADD COLUMN pedido_destino TEXT NOT NULL DEFAULT ''`, // o pedido do Lucas à tarefa destino
+	// T44: a fonte telegram marcada para "dividir em fragmentos quando terminar" entra na fila
+	// de fragmentar sozinha ao ficar pronta.
+	`ALTER TABLE fontes ADD COLUMN fragmentar INTEGER NOT NULL DEFAULT 0`,
 }
 
 // O esquema cresce fase a fase (DECISOES.md §9).

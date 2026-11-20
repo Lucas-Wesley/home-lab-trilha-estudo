@@ -31,7 +31,7 @@ let timer = null
 
 function ligarTimer() {
   if (timer) clearInterval(timer)
-  timer = fontes.value.some((f) => ['na_fila', 'lendo', 'fragmentando'].includes(f.estado)) ? setInterval(buscar, 3000) : null
+  timer = fontes.value.some((f) => ['na_fila', 'lendo', 'baixando', 'transcrevendo', 'fragmentando'].includes(f.estado)) ? setInterval(buscar, 3000) : null
 }
 
 async function buscar() {
@@ -190,7 +190,8 @@ onBeforeUnmount(() => {
 
     <div v-for="f in fontes" :key="f.id" class="cartao fonte">
       <a class="fonte-info" :href="link('entrada', String(f.id))">
-        <img v-if="!semCapa[f.id]" class="capa" :src="capa(f)" alt="" loading="lazy" @error="semCapa[f.id] = true" />
+        <div v-if="f.tipo === 'telegram'" class="capa capa-vazia"><Icone nome="telegram" :tamanho="20" /></div>
+        <img v-else-if="!semCapa[f.id]" class="capa" :src="capa(f)" alt="" loading="lazy" @error="semCapa[f.id] = true" />
         <div v-else class="capa capa-vazia"><Icone nome="video" :tamanho="20" /></div>
         <div class="fonte-texto">
           <strong>{{ f.titulo || 'Lendo o vídeo…' }}</strong>

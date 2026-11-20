@@ -181,42 +181,15 @@ func referenciaTelegram(ref string) (link string, msg int, err error) {
 // handleAulaArquivos: GET /api/arquivos/aula?ref=telegram:<link>#<msg> diz o estado da aula:
 // baixada (com a url do vídeo), na_fila ou no_telegram. A etapa pergunta antes de tocar.
 func (a *app) handleAulaArquivos(w http.ResponseWriter, r *http.Request) {
-	link, msg, err := referenciaTelegram(r.URL.Query().Get("ref"))
-	if err != nil {
-		a.responderErro(w, erroDeEntrada{err})
-		return
-	}
-	dados, st, err := a.meusVideos(r.Context())
+	au, st, err := a.estadoDaAulaTelegram(r.Context(), r.URL.Query().Get("ref"))
 	if err != nil {
 		erroJSON(w, statusOu(st, http.StatusBadGateway), err.Error())
 		return
 	}
-	achada := dados.acharAulaSalva(link, msg)
-	if !achada.achou {
-		erroJSON(w, http.StatusNotFound, "aula não encontrada no Streaming")
-		return
-	}
-	v := dados.aulaDaSalva(achada)
-	saida := map[string]any{"nome": v.Nome, "tamanho": v.Tamanho, "duracao": v.Duracao}
-	if v.Video != 0 {
-		saida["estado"] = "baixada"
-		saida["video"] = v.Video
-		saida["url"] = fmt.Sprintf("%s/api/video/proprio/%d.mp4", a.integra.streamingLink, v.Video)
-	} else {
-		naFila := false
-		for _, p := range dados.Pedidos {
-			if !p.Tudo || p.Link != link || (p.Estado != "na fila" && p.Estado != "baixando") {
-				continue
-			}
-			if len(p.Mensagens) == 0 || contemInt(p.Mensagens, msg) {
-				naFila = true
-			}
-		}
-		if naFila {
-			saida["estado"] = "na_fila"
-		} else {
-			saida["estado"] = "no_telegram"
-		}
+	saida := map[string]any{"estado": au.Estado, "nome": au.Nome, "tamanho": au.Tamanho, "duracao": au.Duracao}
+	if au.Estado == "baixada" {
+		saida["video"] = au.Video
+		saida["url"] = fmt.Sprintf("%s/api/video/proprio/%d.mp4", a.integra.streamingLink, au.Video)
 	}
 	responderJSON(w, http.StatusOK, saida)
 }
@@ -246,14 +219,12 @@ func (a *app) handleBaixarAulaArquivos(w http.ResponseWriter, r *http.Request) {
 		erroJSON(w, http.StatusNotFound, "aula não encontrada no Streaming")
 		return
 	}
-	pedido := map[string]any{"link": link, "tudo": true, "pasta": achada.grupo, "mensagens": []int{msg}}
-	saida := map[string]any{}
-	st, err = chamarApp(r.Context(), a.integra.streaming, "Streaming", http.MethodPost, "/api/meus-videos/telegram", pedido, &saida)
+	st, err = a.baixarAulaStreaming(r.Context(), link, achada.grupo, msg)
 	if err != nil {
 		erroJSON(w, statusOu(st, http.StatusBadGateway), err.Error())
 		return
 	}
-	responderJSON(w, http.StatusOK, saida)
+	responderJSON(w, http.StatusOK, map[string]any{})
 }
 
 func (a *app) meusVideos(ctx context.Context) (*meusVideosStreaming, int, error) {

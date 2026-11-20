@@ -397,34 +397,40 @@ func (a *app) handleEntradaFragmentar(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, erroDeEntrada{fmt.Errorf("só dá para fragmentar fonte pronta ou já fragmentada (esta está %s)", f.Estado)})
 		return
 	}
+	if err := a.pedirFragmentar(ctx, id, f.Titulo, strings.TrimSpace(corpo.Pedido)); err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	f, _ = a.entradaCompleta(ctx, id)
+	responderJSON(w, http.StatusAccepted, f)
+}
+
+// pedirFragmentar põe a divisão na fila: apaga os sugeridos (os confirmados ficam e vão no
+// pedido), cria a tarefa `fragmentar` e marca a fonte "fragmentando". Usado pelo botão da
+// página da fonte e pelo "dividir em fragmentos quando terminar" da fonte telegram (T44).
+func (a *app) pedirFragmentar(ctx context.Context, fonteID int64, titulo, pedido string) error {
 	modelo := a.modeloPara(ctx, tipoFragmentar)
 	tx, err := a.db.BeginTx(ctx, nil)
 	if err != nil {
-		a.responderErro(w, err)
-		return
+		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `DELETE FROM fragmentos WHERE fonte_id = ? AND estado = 'sugerido'`, id); err != nil {
-		a.responderErro(w, err)
-		return
+	if _, err := tx.ExecContext(ctx, `DELETE FROM fragmentos WHERE fonte_id = ? AND estado = 'sugerido'`, fonteID); err != nil {
+		return err
 	}
-	tarefaID, err := a.fila.enfileirar(ctx, tx, tipoFragmentar, 0, "Fragmentar: "+primeiraLinha(f.Titulo, f.URL), modelo)
+	tarefaID, err := a.fila.enfileirar(ctx, tx, tipoFragmentar, 0, "Fragmentar: "+primeiraLinha(titulo, strconv.FormatInt(fonteID, 10)), modelo)
 	if err != nil {
-		a.responderErro(w, err)
-		return
+		return err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE fontes SET estado = 'fragmentando', erro = '', tarefa_id = ?, pedido = ? WHERE id = ?`,
-		tarefaID, strings.TrimSpace(corpo.Pedido), id); err != nil {
-		a.responderErro(w, err)
-		return
+		tarefaID, pedido, fonteID); err != nil {
+		return err
 	}
 	if err := tx.Commit(); err != nil {
-		a.responderErro(w, err)
-		return
+		return err
 	}
 	a.fila.acordar()
-	f, _ = a.entradaCompleta(ctx, id)
-	responderJSON(w, http.StatusAccepted, f)
+	return nil
 }
 
 // handleEntradaConfirmar: todos os sugeridos da fonte viram confirmados.
