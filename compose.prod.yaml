@@ -5,6 +5,9 @@ services:
       - /srv/data/trilha:/data
       # A conta do Claude escolhida no Hub (H11 do Hub), lida a cada chamada; só leitura.
       - /srv/data/claude/ativa:/claude:ro
+      # T50: os vídeos dos cursos (Branas.io, LINUXtips), fora de /srv/data (não vão ao backup).
+      # Provisório no disco do sistema enquanto o SSD está fora; com ele de volta: /srv/ssd/cursos.
+      - /srv/cursos:/cursos
     environment:
       CLAUDE_TOKEN_ARQUIVO: /claude/token
       # Material de apoio (fase 6) e flashcards (fase 5), pela rede interna do Docker.
@@ -16,6 +19,7 @@ services:
       STREAMING_LINK: https://streaming.internal
       # Entrada (T35): vídeo sem legenda vai ao Whisper large-v3 do Mac mini, como no Acervo.
       WHISPER_URL: http://192.168.1.160:8000
+      CURSOS_DIR: /cursos
     networks:
       - proxy
 

@@ -17,9 +17,10 @@ const avisoCompartilhar = inject('avisoCompartilhar', ref(''))
 const abas = [
   { id: 'videos', nome: 'Vídeos' },
   { id: 'arquivos', nome: 'Meus arquivos' },
+  { id: 'cursos', nome: 'Cursos' }, // T50: as aulas da Branas.io e da LINUXtips
 ]
 const mudarAba = (id) => {
-  if (id === 'arquivos') location.hash = '#/entrada/arquivos'
+  if (id !== 'videos') location.hash = `#/entrada/${id}`
 }
 
 const fontes = ref([])

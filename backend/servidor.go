@@ -29,6 +29,11 @@ type app struct {
 	// fontes "baixando" (a fila não fica parada esperando o download do Telegram).
 	ffmpegBin     string        // FFMPEG_BIN
 	sondaTelegram time.Duration // o intervalo em que as fontes "baixando" são verificadas (15 s)
+	// T50: as aulas das plataformas de curso — a pasta dos vídeos e a fila de downloads.
+	cursosDir     string // CURSOS_DIR
+	acordaCursos  chan struct{}
+	download      downloadAtual
+	clienteCursos *http.Client // nos testes, o do servidor falso
 }
 
 // ligarIA registra os tipos de tarefa na fila (fase 3).
@@ -148,6 +153,12 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("GET /api/arquivos/aula", a.handleAulaArquivos)
 	mux.HandleFunc("GET /api/arquivos/usos", a.handleUsosArquivos)
 	mux.HandleFunc("POST /api/arquivos/aula/baixar", a.handleBaixarAulaArquivos)
+	mux.HandleFunc("POST /api/cursos/estimar", a.handleEstimarAula)
+	mux.HandleFunc("GET /api/cursos/aulas", a.handleListarAulas)
+	mux.HandleFunc("POST /api/cursos/aulas", a.handlePedirAula)
+	mux.HandleFunc("POST /api/cursos/aulas/{id}/tentar", a.handleTentarAula)
+	mux.HandleFunc("DELETE /api/cursos/aulas/{id}", a.handleApagarAula)
+	mux.HandleFunc("GET /api/cursos/aulas/{id}/video", a.handleVideoAula)
 	mux.HandleFunc("GET /api/entrada", a.handleEntradaListar)
 	mux.HandleFunc("GET /api/entrada/{id}", a.handleEntradaFonte)
 	mux.HandleFunc("POST /api/entrada/{id}/tentar", a.handleEntradaTentar)

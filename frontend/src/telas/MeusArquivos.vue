@@ -21,9 +21,11 @@ const props = defineProps({
 const ABAS = [
   { id: 'videos', nome: 'Vídeos' },
   { id: 'arquivos', nome: 'Meus arquivos' },
+  { id: 'cursos', nome: 'Cursos' },
 ]
 const mudarAba = (id) => {
   if (id === 'videos') location.hash = '#/entrada'
+  if (id === 'cursos') location.hash = '#/entrada/cursos'
 }
 
 const dados = ref(null)

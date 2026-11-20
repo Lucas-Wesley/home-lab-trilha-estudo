@@ -75,6 +75,8 @@ func main() {
 		pausaEntrada:  15 * time.Second,
 		sondaTelegram: 15 * time.Second,
 		acordaEntrada: make(chan struct{}, 1),
+		cursosDir:     env("CURSOS_DIR", filepath.Join(dataDir, "cursos")),
+		acordaCursos:  make(chan struct{}, 1),
 	}
 	a.ligarIA()
 	if err := a.fila.recuperar(ctx); err != nil {
@@ -85,6 +87,10 @@ func main() {
 	}
 	go a.fila.rodar(ctx)
 	go a.rodarEntrada(ctx)
+	if err := a.recuperarCursos(ctx); err != nil {
+		log.Fatal(err)
+	}
+	go a.rodarCursos(ctx)
 	go a.limparSemDestino(ctx)
 
 	srv := &http.Server{

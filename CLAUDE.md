@@ -251,6 +251,13 @@ entre `Videoaula` e `TrechoYouTube` virou `BarraTrecho.vue` + `estadoDoTrecho`/`
 `intervaloDoMaterial`/`chaveDoTrecho` (`trechoYoutube.js`): o trecho do Telegram começa no início
 do intervalo, com a mesma barra e o mesmo aviso.
 
+**Cursos de plataformas** (`backend/plataformas.go`, `telas/CursosPlataforma.vue`, T50): a aba
+`#/entrada/cursos` lista as aulas da Branas.io e da LINUXtips que a extensão do Chrome mandou
+(`POST /api/cursos/estimar` e `POST /api/cursos/aulas`, com o manifesto HLS e o Referer do player).
+Uma fila própria baixa uma por vez com o ffmpeg, em vídeo na qualidade máxima, para
+`CURSOS_DIR/<plataforma>/<curso>/<módulo>/<aula>.mp4` (no servidor `/srv/cursos`, fora do backup).
+Mudar o corpo desses pedidos é mudar a extensão (`home-lab-plugin-web`) também.
+
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,
 critérios C1–C15) → correção → nova rodada, até passar; registre cada rodada e acrescente as lições
