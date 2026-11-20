@@ -340,10 +340,9 @@ function trocarAba(id) {
         <p v-else class="suave">Crie os módulos e as etapas primeiro (aba Estrutura).</p>
       </section>
 
-      <!-- Encaixar material (T32) -->
+      <!-- Encaixar material (T32; T43: a proposta de um curso numa trilha vazia também aparece aqui) -->
       <section v-show="aba === 'encaixar'" id="encaixar" class="secao">
-        <EncaixarMaterial v-if="t.modulos.length" :trilha="t" @mudou="carregar" />
-        <p v-else class="suave">Crie os módulos e as etapas primeiro (aba Estrutura).</p>
+        <EncaixarMaterial :trilha="t" @mudou="carregar" />
       </section>
 
       <!-- Documentos -->

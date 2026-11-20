@@ -8,6 +8,7 @@ import MudancaRoteiro from './MudancaRoteiro.vue'
 import { api } from './api.js'
 import { link } from './rotas.js'
 import { BLOOM, PAPEIS, TIPOS_MATERIAL } from './rotulos.js'
+import { nomesDasAulas, precisamOuvir } from './cursos.js'
 
 const props = defineProps({
   trilha: { type: Object, required: true },
@@ -108,6 +109,13 @@ async function ajustar(p) {
 const descartar = (p) => acao(() => api(`/api/propostas/${p.id}/descartar`, { metodo: 'POST' }))
 const cancelar = (p) => p.tarefa && acao(() => api(`/api/tarefas/${p.tarefa.id}/cancelar`, { metodo: 'POST' }))
 const onde = (n) => porChave.value[n.depois_de] ? `depois de ${porChave.value[n.depois_de].numero} ${porChave.value[n.depois_de].titulo}` : 'no fim do módulo'
+
+// Curso (T43): o localizador "A12–A15" mostra os nomes das aulas (o mapa `nomes` da proposta),
+// e a linha "Precisam ser ouvidas:" das notas vira uma lista com o botão da fase 10.
+const ehCurso = (x) => x.material?.tipo === 'curso'
+const textoLocalizador = (x, localizador) =>
+  ehCurso(x) ? nomesDasAulas(localizador, x.proposta.conteudo?.nomes || {}) : localizador
+const ouvir = (x) => (ehCurso(x) ? precisamOuvir(x.proposta.conteudo?.notas) : [])
 </script>
 
 <template>
@@ -174,6 +182,17 @@ const onde = (n) => porChave.value[n.depois_de] ? `depois de ${porChave.value[n.
       <template v-else-if="x.proposta.conteudo">
         <p v-if="x.proposta.conteudo.notas" class="suave sem-margem pre">{{ x.proposta.conteudo.notas }}</p>
 
+        <!-- T43: aulas com título genérico que a IA não chutou — processar vem na fase 10. -->
+        <div v-if="ouvir(x).length" class="ouvir">
+          <span class="rotulo">Precisam ser ouvidas</span>
+          <ul>
+            <li v-for="n in ouvir(x)" :key="n">A{{ n }} · {{ x.proposta.conteudo?.nomes?.[`A${n}`] || '' }}</li>
+          </ul>
+          <div>
+            <button class="botao" disabled title="Chega na próxima versão">Processar estas aulas (na próxima versão)</button>
+          </div>
+        </div>
+
         <div v-if="x.proposta.conteudo.encaixes.length">
           <span class="rotulo">Entra nestas etapas</span>
           <label v-for="(e, i) in x.proposta.conteudo.encaixes" :key="'e' + i" class="opcao">
@@ -181,7 +200,7 @@ const onde = (n) => porChave.value[n.depois_de] ? `depois de ${porChave.value[n.
             <span>
               <strong class="num">{{ e.numero }}</strong>
               <a :href="link('trilhas', trilha.id, 'etapas', porChave[e.etapa_chave]?.id)" target="_blank">{{ e.titulo }}</a>
-              <span class="fraco"> · {{ e.localizador || 'o material todo' }} · {{ PAPEIS[e.papel] }}</span>
+              <span class="fraco"> · {{ textoLocalizador(x, e.localizador) || 'o material todo' }} · {{ PAPEIS[e.papel] }}</span>
               <span class="bloco-nota">{{ e.nota }}<span v-if="e.motivo" class="fraco"> — {{ e.motivo }}</span></span>
             </span>
           </label>
@@ -193,7 +212,7 @@ const onde = (n) => porChave.value[n.depois_de] ? `depois de ${porChave.value[n.
             <input type="checkbox" :checked="marcados[x.proposta.id]?.novos.has(i)" @change="alternar(x.proposta.id, 'novos', i)" />
             <span>
               <strong>Novo:</strong> {{ n.titulo }}
-              <span class="fraco"> · em "{{ n.modulo }}"<template v-if="n.modulo_novo"> (módulo novo)</template>, {{ onde(n) }} · {{ BLOOM[n.bloom] }} · {{ n.minutos }} min</span>
+              <span class="fraco"> · em "{{ n.modulo }}"<template v-if="n.modulo_novo"> (módulo novo)</template>, {{ onde(n) }} · {{ BLOOM[n.bloom] }} · {{ n.minutos }} min<template v-if="ehCurso(x) && n.localizador"> · {{ textoLocalizador(x, n.localizador) }}</template></span>
               <span class="bloco-nota">{{ n.objetivo }}<span v-if="n.motivo" class="fraco"> — {{ n.motivo }}</span></span>
             </span>
           </label>
@@ -240,4 +259,5 @@ const onde = (n) => porChave.value[n.depois_de] ? `depois de ${porChave.value[n.
 .bloco-nota { display: block; color: var(--texto-suave); font-size: 13.5px; }
 .ajuste .campo { flex: 1 1 260px; }
 .num { margin-right: var(--e2); font-variant-numeric: tabular-nums; }
+.ouvir ul { margin: 4px 0 var(--e2); padding-left: var(--e5); font-size: 14px; color: var(--texto-suave); display: grid; gap: 2px; }
 </style>

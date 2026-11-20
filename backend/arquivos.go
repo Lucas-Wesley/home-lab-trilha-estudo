@@ -93,25 +93,31 @@ func (a *app) handleApagarVideoArquivos(w http.ResponseWriter, r *http.Request) 
 
 // ---------- fase 8 (T42): uma aula do Telegram pela referência estável ----------
 
+// videoSalvo: uma aula do catálogo do Telegram (`caminho` = curso › módulo dentro do grupo).
+type videoSalvo struct {
+	Mensagem int      `json:"mensagem"`
+	Nome     string   `json:"nome"`
+	Caminho  []string `json:"caminho"`
+	Tamanho  int64    `json:"tamanho"`
+	Duracao  int      `json:"duracao"`
+	Video    int64    `json:"video"` // id do baixado; 0 = só no Telegram
+}
+
 // meusVideosStreaming: só os campos do /api/meus-videos do Streaming que a Trilha usa.
 type meusVideosStreaming struct {
 	Videos []struct {
-		ID      int64 `json:"id"`
-		Tamanho int64 `json:"tamanho"`
-		Duracao int   `json:"duracao"`
+		ID      int64  `json:"id"`
+		Pasta   string `json:"pasta"`
+		Nome    string `json:"nome"`
+		Tamanho int64  `json:"tamanho"`
+		Duracao int    `json:"duracao"`
 	} `json:"videos"`
 	Salvos []struct {
-		Tudo   bool   `json:"tudo"`
-		Link   string `json:"link"`
-		Pasta  string `json:"pasta"`
-		Titulo string `json:"titulo"`
-		Videos []struct {
-			Mensagem int    `json:"mensagem"`
-			Nome     string `json:"nome"`
-			Tamanho  int64  `json:"tamanho"`
-			Duracao  int    `json:"duracao"`
-			Video    int64  `json:"video"` // id do baixado; 0 = só no Telegram
-		} `json:"videos"`
+		Tudo   bool         `json:"tudo"`
+		Link   string       `json:"link"`
+		Pasta  string       `json:"pasta"`
+		Titulo string       `json:"titulo"`
+		Videos []videoSalvo `json:"videos"`
 	} `json:"salvos"`
 	Pedidos []struct {
 		Tudo      bool   `json:"tudo"`
@@ -150,13 +156,7 @@ func (d *meusVideosStreaming) acharAulaSalva(link string, msg int) aulaSalva {
 	return aulaSalva{}
 }
 
-func (d *meusVideosStreaming) aulaDaSalva(a aulaSalva) *struct {
-	Mensagem int    `json:"mensagem"`
-	Nome     string `json:"nome"`
-	Tamanho  int64  `json:"tamanho"`
-	Duracao  int    `json:"duracao"`
-	Video    int64  `json:"video"`
-} {
+func (d *meusVideosStreaming) aulaDaSalva(a aulaSalva) *videoSalvo {
 	return &d.Salvos[a.indiceS].Videos[a.indiceV]
 }
 

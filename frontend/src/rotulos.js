@@ -53,6 +53,7 @@ export const TIPOS_MATERIAL = {
   acervo: 'Acervo',
   streaming: 'Streaming',
   youtube: 'YouTube',
+  curso: 'Curso',
 }
 
 // T38: o estado do encaixe criado no "Mandar para as trilhas".

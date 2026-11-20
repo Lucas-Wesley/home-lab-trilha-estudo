@@ -101,3 +101,41 @@ Commit: `Entrada (T43): encaixar cursos do Telegram numa trilha pelos títulos d
 ## Dúvidas
 
 ## Feito
+
+- **Material `curso`** (`backend/cursos.go`, novo): `tipo="curso"` entrou em `tiposEncaixe`;
+  `referencia` = `telegram:<link do grupo>::<caminho>` por pasta separadas por ` | `
+  (`lerCursos`/`escreverCursos`, puras, com teste); validação recusa referência sem pasta
+  Telegram válida; trilha vazia aceita para `curso` (como já era para `youtube`).
+- **Árvore no servidor**: `arvoreDosArquivos` replica `pastas.js` (salvos `tudo` na ordem das
+  mensagens, `grupo = pasta || titulo`, dedup dos vídeos já no catálogo, pastas só de disco por
+  último em ordem alfabética); structs do `/api/meus-videos` ganharam `caminho` (aula salva) e
+  `pasta`/`nome` (vídeo do disco). Teste com a mesma árvore inventada do `pastas.test.js`.
+- **Sumário**: para cada pasta selecionada, `##`/`###` por nível e `- A<n> · <nome> (N min)` com
+  números seguidos entre os cursos; vai para `material/01-curso.md` no pedido. Os mapas
+  `A<n>` → `telegram:<link>#<msg>` e `A<n>` → nome ficam em `conteudoEncaixe.aulas`/`.nomes` —
+  o mapa gravado vale na aprovação.
+- **Regra**: seção "Curso em vídeo pelos títulos" em `regras/encaixe.md` (só o sumário;
+  localizadores `A<n>`/faixas/listas; nunca inventar número; título genérico vai para
+  `Precisam ser ouvidas:`; juntar cursos sem duplicar; trilha vazia em ordem de aprendizado).
+- **Aprovar**: `limparEncaixe` tira encaixe/tópico cujo localizador não tem `A<n>` (`lerAulas`
+  exige o prefixo `A` — "cap. 4"/"p. 45–60" não contam); `aprovarEncaixe` expande cada número
+  em um material `streaming` (referência do mapa, título = nome da aula, `localizador` = `A<n>`,
+  papel do encaixe, `principal` nos novos), na ordem, e anota nas notas os números fora do mapa.
+- **Tela** (`MeusArquivos.vue`, `frontend/src/cursos.js` novo): checkbox em cada pasta; seleção
+  `selecaoCursos` em escopo de módulo (sobrevive à navegação entre pastas); com marcações,
+  "Encaixar numa trilha" (seletor + pedido) e "Criar trilha a partir destes cursos" (nome +
+  pedido → `POST /api/trilhas` vazia → mesmo encaixe); "Encaixe pedido na trilha X" com link
+  para `#/trilhas/<id>#encaixar`. `Trilha.vue` deixou de esconder a aba Encaixar em trilha vazia.
+- **Proposta** (`EncaixarMaterial.vue`): localizador `A<n>` do `curso` mostra os **nomes** das
+  aulas pelo mapa `nomes`; a linha `Precisam ser ouvidas:` das notas vira uma lista com
+  "Processar estas aulas (na próxima versão)" desativado; `TIPOS_MATERIAL` ganhou `curso`.
+- **Testes**: `lerCursos`/`escreverCursos`, `lerAulas`, `arvoreDosArquivos` (árvore do
+  `pastas.test.js`), encaixe `curso` com duas pastas de dois grupos (sumário `A1…A4` + mapa na
+  proposta; falso com `A1–A2` + novo `A3` + `Precisam ser ouvidas: A4`; aprovar → 2 materiais
+  `streaming` em ordem na etapa + tópico novo com a aula A3 + `A9` ignorado e registrado) e
+  encaixe em trilha vazia criando módulo/etapas. `cursos.test.js` para os helpers JS.
+- **Verificação**: `go vet` + `go test` ok; `npm test` 67 ok; `npm run build` ok. Ao vivo a
+  360 px com Streaming e claude falsos: marcou pastas em dois grupos (seleção sobrevive à
+  navegação), os dois diálogos, "Encaixe pedido na trilha X", proposta com nomes das aulas e
+  "Precisam ser ouvidas", aprovação criando as partes `telegram:` na etapa — sem rolagem
+  horizontal. Decisão **T43** registrada.

@@ -53,6 +53,26 @@ Valem, além do que está acima:
 - `papel: principal` quando o trecho é a aula da etapa (o Lucas assiste ao fragmento no lugar de
   ler); `apoio` quando é complemento.
 
+## Curso em vídeo pelos títulos
+
+Quando o material é do tipo `curso`, o texto é **só o sumário** de um ou mais cursos do Telegram:
+títulos das aulas com um número `A<n>` cada e a duração. Sem transcrição e sem baixar nada —
+encaixe só pelo que o título diz. Valem, além do que está acima:
+
+- O `localizador` de cada encaixe ou tópico novo usa **os números das aulas**: `A12`, a faixa
+  `A12–A15`, a lista `A3, A7`. Nunca invente um número que não está no sumário.
+- Só encaixe o que o título **estabelece com segurança**. Título genérico (`Aula 3`, `Parte 2`,
+  `Live`, `Bônus`) não diz o assunto: **não adivinhe** — liste esses números nas `notas`, numa
+  linha que começa com `Precisam ser ouvidas:`.
+- Cada aula vira um material à parte na etapa (a lição dela é assistir ao vídeo). Numa etapa,
+  a aula que ensina o centro leva `principal`; as de suporte, `apoio`.
+- Dois cursos do **mesmo assunto** se encaixam juntos: o que se repete entre eles (o conceito
+  que os dois ensinam) **não vira tópico duplicado** — uma etapa pode receber a aula principal
+  de um curso e a correspondente do outro como `apoio`.
+- Trilha **vazia**: monte os tópicos e módulos numa ordem de aprendizado que faça sentido —
+  não precisa ser a ordem das aulas no curso (introduções e fundamentos antes, ainda que o curso
+  comece por outro ponto).
+
 ## Revisões dos tópicos (`revisoes`)
 
 Quando o material mostra que um tópico **existente** devia mudar (o objetivo deixa de fora algo

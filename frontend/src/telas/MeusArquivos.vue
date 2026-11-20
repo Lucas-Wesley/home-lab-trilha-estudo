@@ -4,10 +4,11 @@ import AbasPagina from '../AbasPagina.vue'
 import Icone from '../Icone.vue'
 import Pagina from '../Pagina.vue'
 import { api } from '../api.js'
-import { linkPasta } from '../rotas.js'
+import { link, linkPasta } from '../rotas.js'
 import { acharPasta, aulasPedidas, montarArvore, oQueFalta, tamanho } from '../pastas.js'
 import { segundosParaTempo } from '../videoaula.js'
 import { MODOS, modoRecomendado, pacoteDoCurso, resumoDoPacote } from '../cursoParaTrilha.js'
+import { referenciaDoCurso, selecaoCursos as marcadas, tituloDoCurso } from '../cursos.js'
 
 // Meus arquivos (T41): os cursos do Telegram que estão no Streaming, em curso › módulo › aula
 // (a árvore é a do Streaming, S55 de lá — pastas.js copiado). A Trilha só chama a API dele:
@@ -172,6 +173,108 @@ const irParaPasta = (caminho) => {
   location.hash = linkPasta(caminho)
 }
 
+// ---------- fase 9 (T43): encaixar os cursos marcados pelos títulos das aulas ----------
+// Cada pasta ganha uma caixa de marcar; uma ou mais marcadas mostram as duas ações:
+// encaixar numa trilha existente ou criar a trilha vazia e encaixar nela — mesmo encaixe.
+const chavePasta = (p) => p.caminho.join('/')
+const alternarMarcada = (p) => {
+  const s = new Set(marcadas.value)
+  s.has(chavePasta(p)) ? s.delete(chavePasta(p)) : s.add(chavePasta(p))
+  marcadas.value = s
+}
+// As pastas marcadas, na ordem da árvore (o título do material segue essa ordem).
+const pastasMarcadas = computed(() => {
+  const lista = []
+  const anda = (p) => {
+    for (const f of p?.pastas || []) {
+      if (marcadas.value.has(chavePasta(f))) lista.push(f)
+      anda(f)
+    }
+  }
+  anda(arvore.value)
+  return lista
+})
+const materialDoCurso = computed(() => {
+  if (!pastasMarcadas.value.length) return null
+  const referencia = referenciaDoCurso(pastasMarcadas.value)
+  if (!referencia) return null
+  return { tipo: 'curso', titulo: tituloDoCurso(pastasMarcadas.value), referencia }
+})
+
+// "Encaixar numa trilha": seletor de trilha + pedido opcional.
+const encaixando = ref(false)
+const trilhas = ref([])
+const trilhaEscolhida = ref('')
+const pedidoCurso = ref('')
+const mandandoEncaixe = ref(false)
+const erroEncaixe = ref('')
+// "Criar trilha a partir destes cursos": nome da trilha + pedido opcional.
+const criandoDosCursos = ref(false)
+const tituloTrilhaCursos = ref('')
+const pedidoCursoNovo = ref('')
+// Aviso depois de pedir: "Encaixe pedido na trilha X" com link para a aba Encaixar.
+const avisoEncaixe = ref(null) // {id, titulo}
+
+async function abrirEncaixar() {
+  erroEncaixe.value = ''
+  pedidoCurso.value = ''
+  try {
+    trilhas.value = await api('/api/trilhas')
+  } catch (e) {
+    erroEncaixe.value = e.message
+  }
+  trilhaEscolhida.value = ''
+  encaixando.value = true
+}
+
+// O material "curso" vai pelo encaixe de sempre — a IA lê só os títulos das aulas.
+async function pedirEncaixe(trilhaId, trilhaTitulo, pedido) {
+  const material = materialDoCurso.value
+  if (!material) {
+    erroEncaixe.value = 'Uma das pastas marcadas não é de um grupo do Telegram.'
+    return false
+  }
+  await api(`/api/trilhas/${trilhaId}/encaixar`, { metodo: 'POST', corpo: { material, pedido } })
+  avisoEncaixe.value = { id: trilhaId, titulo: trilhaTitulo }
+  marcadas.value = new Set()
+  return true
+}
+
+async function encaixarCursos() {
+  const t = trilhas.value.find((x) => String(x.id) === trilhaEscolhida.value)
+  if (!t) return
+  mandandoEncaixe.value = true
+  erroEncaixe.value = ''
+  try {
+    if (await pedirEncaixe(t.id, t.titulo, pedidoCurso.value)) encaixando.value = false
+  } catch (e) {
+    erroEncaixe.value = e.message
+  } finally {
+    mandandoEncaixe.value = false
+  }
+}
+
+// A trilha nasce vazia (rascunho) com o nome escolhido e o mesmo encaixe roda nela.
+async function criarTrilhaDosCursos() {
+  mandandoEncaixe.value = true
+  erroEncaixe.value = ''
+  try {
+    const t = await api('/api/trilhas', { metodo: 'POST', corpo: { titulo: tituloTrilhaCursos.value.trim() } })
+    if (await pedirEncaixe(t.id, t.titulo, pedidoCursoNovo.value)) criandoDosCursos.value = false
+  } catch (e) {
+    erroEncaixe.value = e.message
+  } finally {
+    mandandoEncaixe.value = false
+  }
+}
+
+function abrirCriarDosCursos() {
+  tituloTrilhaCursos.value = tituloDoCurso(pastasMarcadas.value)
+  pedidoCursoNovo.value = ''
+  erroEncaixe.value = ''
+  criandoDosCursos.value = true
+}
+
 let relogioDaFila
 watch(andando, (sim) => {
   clearInterval(relogioDaFila)
@@ -217,9 +320,31 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
         Nenhum curso ainda. Os grupos de aulas salvos no Streaming aparecem aqui.
       </p>
 
+      <!-- T43: com pastas marcadas, encaixar numa trilha ou criar a trilha dos cursos. -->
+      <div v-if="pastasMarcadas.length" class="acoes-cursos">
+        <span class="pequeno meta">{{ pastasMarcadas.length }} {{ pastasMarcadas.length === 1 ? 'curso marcado' : 'cursos marcados' }}</span>
+        <button class="botao primario" :disabled="!materialDoCurso" @click="abrirEncaixar">Encaixar numa trilha</button>
+        <button class="botao" :disabled="!materialDoCurso" @click="abrirCriarDosCursos">Criar trilha a partir destes cursos</button>
+      </div>
+      <p v-if="pastasMarcadas.length && !materialDoCurso" class="aviso">
+        Uma das pastas marcadas não é de um grupo do Telegram — só cursos do Telegram entram num encaixe.
+      </p>
+      <p v-if="avisoEncaixe" class="aviso neutro">
+        Encaixe pedido na trilha
+        <a class="link" :href="`${link('trilhas', String(avisoEncaixe.id))}#encaixar`">{{ avisoEncaixe.titulo }}</a>
+        — a proposta aparece na aba Encaixar material.
+      </p>
+
       <!-- Raiz: um cartão por grupo/curso. -->
       <ul v-if="!pasta && arvore.pastas.length" class="lista-arvore">
-        <li v-for="g in arvore.pastas" :key="g.nome">
+        <li v-for="g in arvore.pastas" :key="g.nome" class="linha-pasta">
+          <input
+            type="checkbox"
+            class="marca"
+            :checked="marcadas.has(chavePasta(g))"
+            :aria-label="`Marcar ${g.nome}`"
+            @change="alternarMarcada(g)"
+          />
           <button class="item" type="button" @click="irParaPasta(g.caminho.join('/'))">
             <Icone nome="pasta" :tamanho="17" />
             <span class="sobre">
@@ -270,7 +395,14 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
           </div>
 
           <ul v-if="pastaAtual.pastas.length" class="lista-arvore">
-            <li v-for="g in pastaAtual.pastas" :key="g.nome">
+            <li v-for="g in pastaAtual.pastas" :key="g.nome" class="linha-pasta">
+              <input
+                type="checkbox"
+                class="marca"
+                :checked="marcadas.has(chavePasta(g))"
+                :aria-label="`Marcar ${g.nome}`"
+                @change="alternarMarcada(g)"
+              />
               <button class="item" type="button" @click="irParaPasta(g.caminho.join('/'))">
                 <Icone nome="pasta" :tamanho="17" />
                 <span class="sobre">
@@ -345,6 +477,61 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
               {{ mandandoTrilha ? 'Criando…' : 'Criar a trilha' }}
             </button>
             <button class="botao discreto" type="button" @click="criandoTrilha = false">Cancelar</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- T43: encaixar os cursos marcados numa trilha existente. -->
+      <div v-if="encaixando" class="dialogo-fundo" @click.self="encaixando = false">
+        <form class="painel pilha" role="dialog" aria-label="Encaixar cursos numa trilha" @submit.prevent="encaixarCursos">
+          <h3>Encaixar numa trilha</h3>
+          <p class="pequeno">
+            A IA lê só os títulos das aulas ({{ tituloDoCurso(pastasMarcadas) }}) e diz em que
+            etapas elas entram e o que falta. Nada é baixado.
+          </p>
+          <div>
+            <label class="rotulo" for="e-trilha">Trilha</label>
+            <select id="e-trilha" v-model="trilhaEscolhida" class="campo" required>
+              <option value="" disabled>Escolher…</option>
+              <option v-for="t in trilhas" :key="t.id" :value="String(t.id)">{{ t.titulo }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="rotulo" for="e-pedido">Pedido para a IA <span class="fraco">(opcional)</span></label>
+            <textarea id="e-pedido" v-model="pedidoCurso" class="campo" rows="2" placeholder="Ex.: priorize as aulas de DDD tático; a parte de eventos já está coberta." />
+          </div>
+          <p v-if="erroEncaixe" class="aviso">{{ erroEncaixe }}</p>
+          <div class="linha">
+            <button class="botao primario" type="submit" :disabled="mandandoEncaixe || !trilhaEscolhida">
+              {{ mandandoEncaixe ? 'Pedindo…' : 'Pedir o encaixe' }}
+            </button>
+            <button class="botao discreto" type="button" @click="encaixando = false">Cancelar</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- T43: criar a trilha vazia com o nome escolhido e encaixar os cursos nela. -->
+      <div v-if="criandoDosCursos" class="dialogo-fundo" @click.self="criandoDosCursos = false">
+        <form class="painel pilha" role="dialog" aria-label="Criar trilha a partir destes cursos" @submit.prevent="criarTrilhaDosCursos">
+          <h3>Criar trilha a partir destes cursos</h3>
+          <p class="pequeno">
+            A trilha nasce vazia e a IA monta os módulos e as etapas pelos títulos das aulas
+            ({{ tituloDoCurso(pastasMarcadas) }}). Nada é baixado.
+          </p>
+          <div>
+            <label class="rotulo" for="c-titulo">Nome da trilha</label>
+            <input id="c-titulo" v-model="tituloTrilhaCursos" class="campo" type="text" required />
+          </div>
+          <div>
+            <label class="rotulo" for="c-pedido">Pedido para a IA <span class="fraco">(opcional)</span></label>
+            <textarea id="c-pedido" v-model="pedidoCursoNovo" class="campo" rows="2" />
+          </div>
+          <p v-if="erroEncaixe" class="aviso">{{ erroEncaixe }}</p>
+          <div class="linha">
+            <button class="botao primario" type="submit" :disabled="mandandoEncaixe || !tituloTrilhaCursos.trim()">
+              {{ mandandoEncaixe ? 'Criando…' : 'Criar e encaixar' }}
+            </button>
+            <button class="botao discreto" type="button" @click="criandoDosCursos = false">Cancelar</button>
           </div>
         </form>
       </div>
@@ -465,4 +652,24 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
 }
 .modo.ativa { border-color: var(--marca); background: var(--superficie); }
 .nome-modo { display: flex; align-items: center; gap: var(--e2); font-weight: 550; }
+
+.linha-pasta {
+  display: flex;
+  align-items: center;
+}
+.marca {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-left: var(--e1);
+  accent-color: var(--marca);
+}
+.acoes-cursos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+}
+.acoes-cursos .pequeno { flex-basis: 100%; }
+.link { color: var(--marca); }
 </style>

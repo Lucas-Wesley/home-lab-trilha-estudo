@@ -23,8 +23,8 @@ import (
 
 const tipoEncaixe = "encaixe"
 
-// T38: "youtube" chega só pelo enviar da Entrada (não é escolha da tela de encaixar).
-var tiposEncaixe = []string{"livro", "acervo", "web", "documento", "youtube"}
+// T38: "youtube" chega só pelo enviar da Entrada; T43: "curso" chega de Meus arquivos.
+var tiposEncaixe = []string{"livro", "acervo", "web", "documento", "youtube", "curso"}
 
 type encaixeEtapa struct {
 	EtapaChave  string `json:"etapa_chave"`
@@ -59,12 +59,16 @@ type conteudoEncaixe struct {
 	Revisoes  []mudancaRoteiro     `json:"revisoes"`
 	Notas     string               `json:"notas,omitempty"`
 	Respostas []respostaComentario `json:"respostas,omitempty"`
+	// Material "curso" (T43): o mapa do sumário — "A12" → a referência da aula e o nome dela
+	// (a árvore pode mudar entre pedir e aprovar; vale o mapa guardado aqui).
+	Aulas map[string]string `json:"aulas,omitempty"`
+	Nomes map[string]string `json:"nomes,omitempty"`
 }
 
 const esquemaEncaixe = `{"type":"object","properties":{
 "encaixes":{"type":"array","items":{"type":"object","properties":{
   "etapa_chave":{"type":"string","description":"a chave da etapa (coluna chave do pedido)"},
-  "localizador":{"type":"string","description":"livro: cap. N, caps. 2–4 ou p. A–B; vídeo ou texto: o trecho ou minutos; vazio = o material todo"},
+  "localizador":{"type":"string","description":"livro: cap. N, caps. 2–4 ou p. A–B; vídeo ou texto: o trecho ou minutos; curso: as aulas pelos números (A12, A12–A15, A3, A7); vazio = o material todo"},
   "papel":{"type":"string","enum":["principal","apoio","aprofundar"]},
   "nota":{"type":"string","description":"o que essa parte do material traz para a etapa, para o Lucas (vai junto com o material)"},
   "motivo":{"type":"string","description":"por que encaixa aqui (só na proposta)"}},
@@ -76,7 +80,7 @@ const esquemaEncaixe = `{"type":"object","properties":{
   "minutos":{"type":"integer"},
   "modulo":{"type":"string","description":"o título exato de um módulo existente, ou o de um módulo novo"},
   "depois_de":{"type":"string","description":"a chave da etapa depois da qual o tópico entra, ou vazio para o fim do módulo"},
-  "localizador":{"type":"string","description":"a parte do material que ensina o tópico"},
+  "localizador":{"type":"string","description":"a parte do material que ensina o tópico (curso: as aulas pelos números, A3, A7–A9)"},
   "nota":{"type":"string"},
   "motivo":{"type":"string","description":"por que a trilha precisa deste tópico"}},
   "required":["titulo","objetivo","bloom","minutos","modulo","depois_de","localizador","nota","motivo"]}},
@@ -127,13 +131,15 @@ func (a *app) criarEncaixe(ctx context.Context, tr trilha, m material, pedido, e
 		return proposta{}, erroDeEntrada{errors.New("o material não tem referência")}
 	case m.Tipo == "web" && !strings.HasPrefix(m.Referencia, "http://") && !strings.HasPrefix(m.Referencia, "https://"):
 		return proposta{}, erroDeEntrada{errors.New("o link precisa começar com http:// ou https://")}
+	case m.Tipo == "curso" && len(lerCursos(m.Referencia)) == 0:
+		return proposta{}, erroDeEntrada{errors.New("o curso precisa de pastas do Telegram: telegram:<link>::<caminho>")}
 	}
 	if m.Titulo == "" {
 		m.Titulo = m.Referencia
 	}
-	// Num material youtube (vídeo em fragmentos, T38) a trilha vazia vale: a IA propõe só
-	// tópicos e módulos novos.
-	if len(tr.Modulos) == 0 && m.Tipo != "youtube" {
+	// Num material youtube (vídeo em fragmentos, T38) ou curso (T43) a trilha vazia vale: a IA
+	// propõe só tópicos e módulos novos.
+	if len(tr.Modulos) == 0 && m.Tipo != "youtube" && m.Tipo != "curso" {
 		return proposta{}, erroDeEntrada{errors.New("a trilha ainda não tem módulos para encaixar o material")}
 	}
 	titulo := "Encaixar: " + m.Titulo
@@ -258,7 +264,7 @@ func (a *app) gerarEncaixe(ctx context.Context, t *tarefa) error {
 		return err
 	}
 	defer os.RemoveAll(pasta)
-	arquivos, comentarios, err := a.montarPedidoEncaixe(ctx, tr, p, m, foco)
+	arquivos, comentarios, cursoMapa, err := a.montarPedidoEncaixe(ctx, tr, p, m, foco)
 	if err != nil {
 		return err
 	}
@@ -292,6 +298,9 @@ func (a *app) gerarEncaixe(ctx context.Context, t *tarefa) error {
 		return err
 	}
 	c.Material, c.Foco = m, foco
+	if cursoMapa != nil {
+		c.Aulas, c.Nomes = cursoMapa.Aulas, cursoMapa.Nomes
+	}
 	var tirados, tiradas []string
 	c.Encaixes, c.Novos, tirados = limparEncaixe(tr, m, c.Encaixes, c.Novos)
 	for i := range c.Revisoes {
@@ -343,6 +352,10 @@ func limparEncaixe(tr trilha, m material, encaixes []encaixeEtapa, novos []encai
 			tirados = append(tirados, fmt.Sprintf("%s %s (o trecho %q não é um dos intervalos)", num[e.Chave], e.Titulo, x.Localizador))
 			continue
 		}
+		if m.Tipo == "curso" && len(lerAulas(x.Localizador)) == 0 {
+			tirados = append(tirados, fmt.Sprintf("%s %s (%q não tem número de aula)", num[e.Chave], e.Titulo, x.Localizador))
+			continue
+		}
 		if !contem(papeisMaterial, x.Papel) {
 			x.Papel = "apoio"
 		}
@@ -381,16 +394,27 @@ func limparEncaixe(tr trilha, m material, encaixes []encaixeEtapa, novos []encai
 			tirados = append(tirados, fmt.Sprintf("o tópico %q (o trecho %q não é um dos intervalos)", x.Titulo, x.Localizador))
 			continue
 		}
+		if m.Tipo == "curso" && len(lerAulas(x.Localizador)) == 0 {
+			tirados = append(tirados, fmt.Sprintf("o tópico %q (%q não tem número de aula)", x.Titulo, x.Localizador))
+			continue
+		}
 		x.ModuloNovo = !modulos[strings.ToLower(x.Modulo)]
 		novosBons = append(novosBons, x)
 	}
 	return vazioSeNulo(bons), vazioSeNulo(novosBons), tirados
 }
 
-func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m material, foco string) (map[string]string, map[int64]bool, error) {
+// mapaCurso: os números A<n> do sumário do material "curso" (T43) — referência e nome de cada
+// aula. Vai para a proposta e é o que vale na aprovação, mesmo se a árvore mudou depois.
+type mapaCurso struct {
+	Aulas map[string]string
+	Nomes map[string]string
+}
+
+func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m material, foco string) (map[string]string, map[int64]bool, *mapaCurso, error) {
 	cfg, err := a.lerAjustes(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	arquivos := map[string]string{}
 	var s strings.Builder
@@ -406,6 +430,7 @@ func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m 
 	if m.Localizador != "" {
 		escreva("- Só este trecho: %s\n", m.Localizador)
 	}
+	var cursoMapa *mapaCurso
 	switch m.Tipo {
 	case "livro", "acervo":
 		lidos := a.arquivosDoMaterial(ctx, []material{m}, arquivos)
@@ -416,7 +441,7 @@ func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m 
 			}
 			escreva(".\n")
 		} else {
-			return nil, nil, fmt.Errorf("não deu para ler o material: %s", padrao(l.Erro, "sem texto"))
+			return nil, nil, nil, fmt.Errorf("não deu para ler o material: %s", padrao(l.Erro, "sem texto"))
 		}
 	case "documento":
 		escreva("- Arquivo `documentos/%s.md` (pasta `documentos`, adicionada ao seu acesso; procure-a com Glob se o caminho relativo não abrir).\n", m.Referencia)
@@ -427,8 +452,17 @@ func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m 
 		if l := lidos[0]; l.Arquivo != "" {
 			escreva("- Os trechos do vídeo estão em `%s`: um bloco por fragmento, com o resumo e as falas.\n", l.Arquivo)
 		} else {
-			return nil, nil, fmt.Errorf("não deu para ler o material: %s", padrao(l.Erro, "sem texto"))
+			return nil, nil, nil, fmt.Errorf("não deu para ler o material: %s", padrao(l.Erro, "sem texto"))
 		}
+	case "curso":
+		// T43: só os títulos das aulas, com os números A<n> — sem baixar nem transcrever.
+		texto, aulas, nomes, err := a.sumarioDoCurso(ctx, m.Referencia)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("não deu para ler o curso: %s", err)
+		}
+		arquivos["material/01-curso.md"] = texto
+		cursoMapa = &mapaCurso{Aulas: aulas, Nomes: nomes}
+		escreva("- O sumário do curso está em `material/01-curso.md`: só os títulos das aulas, cada uma com um número `A<n>` e a duração. Sem transcrição: encaixe pelo que o título diz.\n")
 	case "web":
 		escreva("- Abra o link com WebFetch e leia o conteúdo inteiro. Se for vídeo (YouTube, Instagram) e a página não trouxer o conteúdo, use o título e a descrição, e diga nas notas que o vídeo deve ir ao Acervo (que transcreve) para um encaixe fino.\n")
 	}
@@ -472,10 +506,10 @@ func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m 
 	if p.AnteriorID > 0 {
 		ant, err := a.propostaPorID(ctx, p.AnteriorID)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		if err := a.completar(ctx, &ant); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		arquivos["versao-anterior.json"] = string(ant.Conteudo)
 		escreva("\n## É um ajuste da versão %d\n\nA versão anterior está em `versao-anterior.json`. Parta dela: mude o que o pedido e os comentários dizem e mantenha o resto. Responda **cada** comentário em `respostas`, pelo número.\n\n", ant.Versao)
@@ -492,7 +526,7 @@ func (a *app) montarPedidoEncaixe(ctx context.Context, tr trilha, p proposta, m 
 		}
 	}
 	arquivos["pedido.md"] = s.String()
-	return arquivos, comentarios, nil
+	return arquivos, comentarios, cursoMapa, nil
 }
 
 // ---------- aprovar ----------
@@ -539,6 +573,30 @@ func (a *app) aprovarEncaixe(w http.ResponseWriter, r *http.Request, p proposta)
 	}
 	mudadas := map[string]etapa{}
 	var ordemMudadas []string
+	var semMapa []string // curso: números A<n> que a IA citou mas não estão no mapa do sumário
+	// materiaisDoEncaixe: um material por encaixe — ou, no curso (T43), um material `streaming`
+	// por aula numerada (partes, na ordem dos números).
+	materiaisDoEncaixe := func(localizador, papel, nota string) []material {
+		if c.Material.Tipo != "curso" {
+			mm := c.Material
+			mm.Localizador, mm.Papel, mm.Nota = localizador, papel, nota
+			return []material{mm}
+		}
+		var ms []material
+		for _, n := range lerAulas(localizador) {
+			chave := fmt.Sprintf("A%d", n)
+			ref, ok := c.Aulas[chave]
+			if !ok {
+				semMapa = append(semMapa, chave)
+				continue
+			}
+			ms = append(ms, material{
+				Tipo: "streaming", Papel: papel, Titulo: padrao(c.Nomes[chave], chave),
+				Referencia: ref, Localizador: chave, Nota: nota,
+			})
+		}
+		return ms
+	}
 	vistos := map[int]bool{}
 	for _, i := range corpo.Encaixes {
 		if i < 0 || i >= len(c.Encaixes) {
@@ -558,9 +616,7 @@ func (a *app) aprovarEncaixe(w http.ResponseWriter, r *http.Request, p proposta)
 			}
 			ordemMudadas = append(ordemMudadas, x.EtapaChave)
 		}
-		mm := c.Material
-		mm.Localizador, mm.Papel, mm.Nota = x.Localizador, x.Papel, x.Nota
-		e.Materiais = append(e.Materiais, mm)
+		e.Materiais = append(e.Materiais, materiaisDoEncaixe(x.Localizador, x.Papel, x.Nota)...)
 		if err := validarEtapa(&e); err != nil {
 			a.responderErro(w, erroDeEntrada{err})
 			return
@@ -620,16 +676,33 @@ func (a *app) aprovarEncaixe(w http.ResponseWriter, r *http.Request, p proposta)
 	}
 	var criadas []string
 	for _, x := range novos {
-		mm := c.Material
-		mm.Localizador, mm.Papel, mm.Nota = x.Localizador, "principal", x.Nota
 		nova := etapa{TrilhaID: p.TrilhaID, Titulo: x.Titulo, Objetivo: x.Objetivo, Bloom: x.Bloom, Tipo: "normal",
-			Minutos: x.Minutos, Requer: []int64{}, Materiais: []material{mm}}
+			Minutos: x.Minutos, Requer: []int64{}, Materiais: materiaisDoEncaixe(x.Localizador, "principal", x.Nota)}
 		chave, err := a.inserirEtapa(ctx, tx, modulos, etapas, x.Modulo, x.DepoisDe, nova)
 		if err != nil {
 			a.responderErro(w, err)
 			return
 		}
 		criadas = append(criadas, chave)
+	}
+	// Número que não está no mapa do sumário: ignorado, e fica registrado nas notas da proposta.
+	if len(semMapa) > 0 {
+		vistos := map[string]bool{}
+		var unicos []string
+		for _, chave := range semMapa {
+			if !vistos[chave] {
+				vistos[chave] = true
+				unicos = append(unicos, chave)
+			}
+		}
+		c.Notas = strings.TrimSpace(c.Notas + "\n\n(O app ignorou aulas que a IA citou mas não estão no curso: " + strings.Join(unicos, ", ") + ".)")
+		bruto, err := json.Marshal(c)
+		if err == nil {
+			if _, err := tx.ExecContext(ctx, `UPDATE propostas SET conteudo = ? WHERE id = ?`, string(bruto), p.ID); err != nil {
+				a.responderErro(w, err)
+				return
+			}
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		a.responderErro(w, err)

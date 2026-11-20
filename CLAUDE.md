@@ -119,7 +119,7 @@ proposta `roteiro` (chave `@roteiro` ou `@roteiro:<etapa>`); `GET .../roteiro?et
 `roteiro.md` e `encaixe.md`. Telas: `RevisarRoteiro.vue`, `MudancaRoteiro.vue`; as páginas da
 trilha e da etapa usam `AbasPagina.vue`.
 
-## Entrada (T35–T42)
+## Entrada (T35–T43)
 `backend/entrada.go` e `backend/youtube.go` (código copiado do Acervo, sem chamá-lo):
 `POST /api/entrada` com um link de vídeo do YouTube cria a **fonte** (tabela `fontes`); com uma
 playlist, uma por vídeo (`--flat-playlist`). Uma fila própria do yt-dlp — separada da do Claude,
@@ -211,6 +211,24 @@ a `url` `…/api/video/proprio/<id>.mp4`), `na_fila` ou `no_telegram`; a faltant
 `POST /api/arquivos/aula/baixar` baixa só aquela mensagem; `na_fila` mostra "Baixando…" e sonda a
 cada 5 s até o vídeo aparecer. `ehAulaDoTelegram` e `tempoEstimado` ficam em
 `frontend/src/videoaula.js`.
+
+**Encaixar cursos pelos títulos** (`backend/cursos.go`, `frontend/src/cursos.js`, T43): cada pasta
+de Meus arquivos tem uma caixa de marcar (a seleção `selecaoCursos` vive no módulo — a tela remonta
+a cada troca de pasta). Com uma ou mais marcadas aparecem "Encaixar numa trilha" (seletor de trilha
++ pedido) e "Criar trilha a partir destes cursos" (nome + pedido; cria a trilha vazia por
+`POST /api/trilhas` e encaixa nela). O material **`curso`** tem `referencia`
+`telegram:<link>::<caminho>` por pasta, separadas por ` | ` (`lerCursos`/`escreverCursos`), e
+`titulo` = os nomes com " + ". O servidor remonta a árvore em Go (`arvoreDosArquivos`, mesma regra
+do `pastas.js`), escreve o sumário (`##`/`###` por nível, `- A<n> · <nome> (N min)`, números
+seguidos entre os cursos) e guarda na proposta os mapas `aulas` (`A<n>` → referência da mensagem) e
+`nomes` — o mapa gravado vale na aprovação, não uma nova consulta. A regra `encaixe.md` manda a IA
+usar só os números (`A12`, `A12–A15`, `A3, A7`), não chutar título genérico (vai para
+`Precisam ser ouvidas:` nas notas) e juntar cursos do mesmo assunto sem duplicar etapas.
+`limparEncaixe` tira encaixe/tópico sem nenhum `A<n>`; `aprovarEncaixe` expande cada número em um
+material `streaming` por aula (ordem dos números, papel do encaixe — `principal` nos tópicos novos)
+e registra nas notas os números fora do mapa. Na proposta, o localizador mostra os nomes das aulas
+pelo mapa `nomes`, e "Precisam ser ouvidas" lista as aulas com o botão "Processar estas aulas"
+desativado até a fase 10. Sem baixar nem transcrever nada.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,
