@@ -329,8 +329,14 @@ onBeforeUnmount(() => {
               <button class="botao discreto" :disabled="ocupado" @click="descartar(fr)">Descartar</button>
             </p>
 
+            <!-- T46: no modo automático a IA já sugeriu as trilhas antes da confirmação. -->
+            <div v-if="fr.estado === 'sugerido' && (fr.destinos?.length || fr.sugestao)" class="destinos pequeno">
+              <span class="fraco">A IA sugere:</span>
+              <span v-for="d in fr.destinos" :key="d.trilha_id" class="etiqueta destino-marcado" :title="motivoDe(fr, d)">{{ d.titulo }}</span>
+              <span v-if="!fr.destinos?.length" class="fraco">{{ fr.sugestao?.motivo_nenhuma || 'nenhuma trilha' }}</span>
+            </div>
             <!-- T38: o destino do fragmento (só depois de confirmado). -->
-            <div v-if="fr.estado === 'enviado'" class="destinos pequeno">
+            <div v-else-if="fr.estado === 'enviado'" class="destinos pequeno">
               <span class="fraco">Foi para:</span>
               <a v-for="d in fr.destinos" :key="d.trilha_id" :href="linkEncaixe(d)" class="etiqueta link-destino"
                 >{{ d.titulo }} · {{ estadoEncaixe(d) }}</a
@@ -397,7 +403,7 @@ onBeforeUnmount(() => {
 
         <div v-if="sugeridos.length || haDescartados" class="linha">
           <button v-if="sugeridos.length" class="botao primario" :disabled="ocupado" @click="confirmar">
-            Confirmar {{ sugeridos.length }} fragmento{{ sugeridos.length > 1 ? 's' : '' }}
+            Confirmar {{ sugeridos.length }} fragmento{{ sugeridos.length > 1 ? 's' : '' }}{{ sugeridos.some((f) => f.destinos?.length) ? ' e as trilhas' : '' }}
           </button>
           <button v-if="haDescartados" class="botao discreto" @click="mostrarDescartados = !mostrarDescartados">
             {{ mostrarDescartados ? 'Esconder descartados' : 'Mostrar descartados' }}

@@ -23,7 +23,7 @@ if (location.pathname === '/compartilhar') {
   if (!url) {
     avisoCompartilhar.value = 'Não achei um link do YouTube no que veio.'
   } else {
-    api('/api/entrada', { metodo: 'POST', corpo: { url } })
+    api('/api/entrada', { metodo: 'POST', corpo: { url, automatico: true } })
       .then(() => {
         avisoCompartilhar.value = 'Na Entrada'
         buscarProntas()

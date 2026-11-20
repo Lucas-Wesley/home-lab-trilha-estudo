@@ -292,8 +292,17 @@ func (a *app) sugerirDestinos(ctx context.Context, t *tarefa) error {
 			fragmentos = append(fragmentos, fr)
 		}
 	}
+	// Modo automático (T46): a sugestão vem antes de o Lucas confirmar, sobre os sugeridos; as
+	// trilhas marcadas ficam com o fragmento quando ele confirmar.
 	if len(fragmentos) == 0 {
-		return errors.New("a fonte não tem fragmentos confirmados")
+		for _, fr := range todos {
+			if fr.Estado == "sugerido" {
+				fragmentos = append(fragmentos, fr)
+			}
+		}
+	}
+	if len(fragmentos) == 0 {
+		return errors.New("a fonte não tem fragmentos para sugerir trilhas")
 	}
 	trilhas, err := a.trilhasParaDestino(ctx)
 	if err != nil {
@@ -411,6 +420,30 @@ func (a *app) destinosDaFonte(ctx context.Context, fonteID int64) (map[int64][]d
 	return destinos, rows.Err()
 }
 
+// pedirDestinos põe a sugestão de trilhas da fonte na fila. Usado pelo botão "Sugerir trilhas" e,
+// no modo automático (T46), logo depois da divisão em fragmentos.
+func (a *app) pedirDestinos(ctx context.Context, f fonte, pedido string) error {
+	modelo := a.modeloPara(ctx, tipoDestino)
+	tx, err := a.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	tarefaID, err := a.fila.enfileirar(ctx, tx, tipoDestino, 0, "Destino: "+primeiraLinha(f.Titulo, f.URL), modelo)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE fontes SET tarefa_destino = ?, pedido_destino = ? WHERE id = ?`,
+		tarefaID, strings.TrimSpace(pedido), f.ID); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	a.fila.acordar()
+	return nil
+}
+
 // ---------- handlers ----------
 
 // handleEntradaDestino põe a sugestão de trilhas na fila (pedido opcional), para os fragmentos
@@ -455,28 +488,10 @@ func (a *app) handleEntradaDestino(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	modelo := a.modeloPara(ctx, tipoDestino)
-	tx, err := a.db.BeginTx(ctx, nil)
-	if err != nil {
+	if err := a.pedirDestinos(ctx, f, corpo.Pedido); err != nil {
 		a.responderErro(w, err)
 		return
 	}
-	defer tx.Rollback()
-	tarefaID, err := a.fila.enfileirar(ctx, tx, tipoDestino, 0, "Destino: "+primeiraLinha(f.Titulo, f.URL), modelo)
-	if err != nil {
-		a.responderErro(w, err)
-		return
-	}
-	if _, err := tx.ExecContext(ctx, `UPDATE fontes SET tarefa_destino = ?, pedido_destino = ? WHERE id = ?`,
-		tarefaID, strings.TrimSpace(corpo.Pedido), id); err != nil {
-		a.responderErro(w, err)
-		return
-	}
-	if err := tx.Commit(); err != nil {
-		a.responderErro(w, err)
-		return
-	}
-	a.fila.acordar()
 	f, _ = a.entradaCompleta(ctx, id)
 	responderJSON(w, http.StatusAccepted, f)
 }

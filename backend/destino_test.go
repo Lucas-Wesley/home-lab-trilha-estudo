@@ -380,3 +380,60 @@ func TestLimparEncaixeYoutube(t *testing.T) {
 		t.Fatalf("três encaixes e um novo fora: %v", tirados)
 	}
 }
+
+// T46: o modo automático (a extensão do Chrome) divide e sugere as trilhas sem clique; o Lucas
+// confirma depois, e as trilhas marcadas ficam com os fragmentos.
+func TestModoAutomatico(t *testing.T) {
+	f := &iaFalsa{}
+	iaDaEntrada(f, destinoJSON, "{}")
+	c := clienteFragmentos(t, f)
+	trilhaComEtapa(c) // trilha 1 "Rede"
+	c.ok("POST", "/api/trilhas", map[string]any{"titulo": "Conhecimento de base"}, nil)
+
+	var fontes []fonte
+	c.chamar("POST", "/api/entrada", map[string]any{"url": "https://www.youtube.com/watch?v=AAAAAAAAAAA", "automatico": true}, &fontes)
+	if len(fontes) != 1 || !fontes[0].Fragmentar {
+		t.Fatalf("a fonte devia sair marcada para o automático: %+v", fontes)
+	}
+	c.a.esvaziarEntrada(context.Background())
+	c.a.fila.esvaziar(context.Background())
+	c.a.fila.esvaziar(context.Background())
+
+	var f2 fonte
+	c.ok("GET", fmt.Sprintf("/api/entrada/%d", fontes[0].ID), nil, &f2)
+	if f2.Estado != "fragmentada" || len(f2.Fragmentos) != 3 || f2.Fragmentos[0].Estado != "sugerido" {
+		t.Fatalf("devia estar fragmentada, com os sugeridos: %+v", f2)
+	}
+	if len(f2.Fragmentos[0].Destinos) != 1 || f2.Fragmentos[0].Destinos[0].TrilhaID != 1 {
+		t.Fatalf("a trilha sugerida devia vir marcada no sugerido: %+v", f2.Fragmentos[0].Destinos)
+	}
+	var lista []fonte
+	c.ok("GET", "/api/entrada", nil, &lista)
+	if len(lista) != 1 || !strings.Contains(lista[0].ResumoFragmentos, "→ Conhecimento de base, Rede") {
+		t.Fatalf("a lista devia dizer as trilhas: %+v", lista)
+	}
+	c.ok("POST", fmt.Sprintf("/api/entrada/%d/confirmar", fontes[0].ID), nil, nil)
+	c.ok("GET", fmt.Sprintf("/api/entrada/%d", fontes[0].ID), nil, &f2)
+	if f2.Fragmentos[0].Estado != "confirmado" || len(f2.Fragmentos[0].Destinos) != 1 {
+		t.Fatalf("confirmar devia manter as trilhas: %+v", f2.Fragmentos[0])
+	}
+}
+
+// T46: vídeo mais longo que o limite fica pronto, com uma nota, sem gastar a IA.
+func TestModoAutomaticoVideoLongo(t *testing.T) {
+	antes := limiteAutomatico
+	limiteAutomatico = 30 // o vídeo falso tem 60 s
+	t.Cleanup(func() { limiteAutomatico = antes })
+	f := &iaFalsa{}
+	iaDaEntrada(f, destinoJSON, "{}")
+	c := clienteFragmentos(t, f)
+	var fontes []fonte
+	c.chamar("POST", "/api/entrada", map[string]any{"url": "https://www.youtube.com/watch?v=AAAAAAAAAAA", "automatico": true}, &fontes)
+	c.a.esvaziarEntrada(context.Background())
+	c.a.fila.esvaziar(context.Background())
+	var f2 fonte
+	c.ok("GET", fmt.Sprintf("/api/entrada/%d", fontes[0].ID), nil, &f2)
+	if f2.Estado != "pronta" || !strings.Contains(f2.Notas, "não dividi sozinho") || len(f.pedidos) != 0 {
+		t.Fatalf("o longo devia ficar pronto, com a nota e sem IA: %+v (%d pedidos)", f2, len(f.pedidos))
+	}
+}

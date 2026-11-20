@@ -183,6 +183,9 @@ func (a *app) lerProximaFonte(ctx context.Context) bool {
 			a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'erro', erro = ? WHERE id = ?`, err.Error(), f.ID)
 		} else {
 			a.db.ExecContext(ctx, `UPDATE fontes SET estado = 'pronta', erro = '' WHERE id = ?`, f.ID)
+			if f.Fragmentar {
+				a.dividirSozinho(ctx, f.ID)
+			}
 		}
 	}
 	// A pausa entre vídeos (o YouTube bloqueia quem pede muito seguido); zero nos testes.
@@ -191,6 +194,26 @@ func (a *app) lerProximaFonte(ctx context.Context) bool {
 	case <-time.After(a.pausaEntrada):
 	}
 	return true
+}
+
+// limiteAutomatico: vídeo mais longo que isso não é dividido sozinho (T46). A divisão lê a
+// transcrição inteira; um curso de 13 h são uns 200 mil tokens, e aí o Lucas decide.
+var limiteAutomatico = 3 * 60 * 60 // var: os testes baixam
+
+// dividirSozinho: o modo automático depois da legenda — divide, ou deixa uma nota se é longo.
+func (a *app) dividirSozinho(ctx context.Context, id int64) {
+	f, err := a.fontePorID(ctx, id)
+	if err != nil {
+		return
+	}
+	if f.Duracao > limiteAutomatico {
+		nota := fmt.Sprintf("Vídeo de %s: não dividi sozinho porque a IA leria a transcrição inteira de uma vez. Divida quando quiser (dá para pedir só uma parte).", tempoDos(f.Duracao))
+		a.db.ExecContext(ctx, `UPDATE fontes SET notas = ? WHERE id = ?`, nota, id)
+		return
+	}
+	if err := a.pedirFragmentar(ctx, id, f.Titulo, ""); err != nil {
+		log.Printf("entrada: fonte %d, fragmentar: %v", id, err)
+	}
 }
 
 // esvaziarEntrada lê tudo o que está na fila, um por vez (os testes usam no lugar do laço).
@@ -204,6 +227,8 @@ func (a *app) esvaziarEntrada(ctx context.Context) {
 func (a *app) handleEntradaPost(w http.ResponseWriter, r *http.Request) {
 	var corpo struct {
 		URL string `json:"url"`
+		// T46: dividir em fragmentos e sugerir as trilhas sozinho quando a legenda chegar.
+		Automatico bool `json:"automatico"`
 	}
 	if err := lerCorpo(r, &corpo); err != nil {
 		a.responderErro(w, err)
@@ -234,6 +259,13 @@ func (a *app) handleEntradaPost(w http.ResponseWriter, r *http.Request) {
 			a.responderErro(w, err)
 		}
 		return
+	}
+	if corpo.Automatico {
+		for i := range fontes {
+			if _, err := a.db.ExecContext(r.Context(), `UPDATE fontes SET fragmentar = 1 WHERE id = ? AND estado = 'na_fila'`, fontes[i].ID); err == nil {
+				fontes[i].Fragmentar = true
+			}
+		}
 	}
 	a.acordarEntrada()
 	responderJSON(w, http.StatusAccepted, fontes)
@@ -310,7 +342,27 @@ func (a *app) resumosDaEntrada(ctx context.Context) (map[int64]string, error) {
 		}
 		resumos[fonteID] = strings.Join(partes, " · ")
 	}
-	return resumos, nil
+	// T46: as trilhas marcadas (pela IA ou pelo Lucas) e ainda não enviadas: "→ AWS, Redes".
+	trows, err := a.db.QueryContext(ctx, `SELECT DISTINCT f.fonte_id, t.titulo FROM fragmento_destinos d
+		JOIN fragmentos f ON f.id = d.fragmento_id JOIN trilhas t ON t.id = d.trilha_id
+		WHERE d.proposta_id IS NULL AND f.estado IN ('sugerido', 'confirmado') ORDER BY f.fonte_id, t.titulo`)
+	if err != nil {
+		return nil, err
+	}
+	defer trows.Close()
+	sugeridas := map[int64][]string{}
+	for trows.Next() {
+		var fonteID int64
+		var titulo string
+		if err := trows.Scan(&fonteID, &titulo); err != nil {
+			return nil, err
+		}
+		sugeridas[fonteID] = append(sugeridas[fonteID], titulo)
+	}
+	for fonteID, nomes := range sugeridas {
+		resumos[fonteID] += " · → " + strings.Join(nomes, ", ")
+	}
+	return resumos, trows.Err()
 }
 
 // entradaCompleta é a fonte da página: transcrição, fragmentos e a tarefa que a fragmentou (T37).

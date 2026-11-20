@@ -60,7 +60,8 @@ async function mandar() {
   mandando.value = true
   erro.value = ''
   try {
-    await api('/api/entrada', { metodo: 'POST', corpo: { url } })
+    // T46: divide e sugere as trilhas sozinho (vídeo de até 3 h).
+    await api('/api/entrada', { metodo: 'POST', corpo: { url, automatico: true } })
     campo.value = ''
     await buscar()
   } catch (e) {
@@ -158,7 +159,8 @@ onBeforeUnmount(() => {
 
     <p class="explicacao">
       Vídeos e playlists do YouTube que ainda não viraram fragmentos de uma trilha. Só a legenda
-      (ou o Whisper, quando não tem) é lida, sem baixar o vídeo.
+      (ou o Whisper, quando não tem) é lida, sem baixar o vídeo. Depois a IA divide por assunto e
+      sugere as trilhas sozinha; você confirma e manda. Vídeo de mais de 3 h espera você pedir.
     </p>
     <p v-if="avisoCompartilhar" class="aviso neutro">{{ avisoCompartilhar }}</p>
 

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -342,7 +343,16 @@ func (a *app) fragmentar(ctx context.Context, t *tarefa) error {
 	if _, err := tx.ExecContext(ctx, `UPDATE fontes SET estado = 'fragmentada', erro = '', notas = ? WHERE id = ?`, nota, f.ID); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	// Modo automático (T46): dividiu, já pede as trilhas (Haiku, só os resumos dos fragmentos).
+	if f.Fragmentar {
+		if err := a.pedirDestinos(ctx, f, ""); err != nil {
+			log.Printf("entrada: fonte %d, destino automático: %v", f.ID, err)
+		}
+	}
+	return nil
 }
 
 // renumerarFragmentos põe a ordem de volta por início (os confirmados mantêm o lugar no vídeo).
