@@ -20,6 +20,8 @@
   --link: #7cb7f2;
   --foco: #7cb7f2;
   --pontos: #262625;
+  /* Capas das trilhas (T47): a cor vem do assunto (matiz); aqui, o quanto clara é cada parte. */
+  --capa-fundo: 32% 21%; --capa-tinta: 50% 72%; /* saturação luz */
 
   --azul-fundo: #0c2440;     --azul: #86bdf7;
   --verde-fundo: #10281a;    --verde: #7fd49a;
@@ -66,6 +68,7 @@
     --link: #1f63c4;
     --foco: #1f63c4;
     --pontos: #e6e5e0;
+    --capa-fundo: 48% 89%; --capa-tinta: 45% 34%;
     --azul-fundo: #e3eefc;     --azul: #1d58ad;
     --verde-fundo: #e3f4e8;    --verde: #1d7a3e;
     --vermelho-fundo: #fbe7e3; --vermelho: #b3361f;
@@ -89,6 +92,7 @@
   --link: #1f63c4;
   --foco: #1f63c4;
   --pontos: #e6e5e0;
+  --capa-fundo: 48% 89%; --capa-tinta: 45% 34%;
   --azul-fundo: #e3eefc;     --azul: #1d58ad;
   --verde-fundo: #e3f4e8;    --verde: #1d7a3e;
   --vermelho-fundo: #fbe7e3; --vermelho: #b3361f;

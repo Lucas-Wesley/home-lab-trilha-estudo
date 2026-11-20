@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import Capa from '../Capa.vue'
 import Pagina from '../Pagina.vue'
 import { api } from '../api.js'
 import { link } from '../rotas.js'
@@ -28,6 +29,9 @@ const paraHoje = computed(() => {
   return { etapas: itens.length, minutos: itens.reduce((s, i) => s + i.minutos, 0) }
 })
 const atrasadas = computed(() => (dados.value?.trilhas || []).reduce((s, th) => s + th.atrasadas.length, 0))
+// T47: só as trilhas com estudo (ou atraso) hoje ganham o bloco inteiro; as outras viram capas.
+const comAgenda = computed(() => (dados.value?.trilhas || []).filter((th) => th.hoje.length || th.atrasadas.length))
+const semHoje = computed(() => (dados.value?.trilhas || []).filter((th) => !th.hoje.length && !th.atrasadas.length))
 const paraHojePorTrilha = (th) => th.hoje.filter((i) => !feito(i)).reduce((s, i) => s + i.minutos, 0)
 
 async function recalcular(th) {
@@ -91,8 +95,9 @@ async function recalcular(th) {
     </section>
 
     <template v-if="dados && dados.trilhas.length">
-      <section v-for="th in dados.trilhas" :key="th.id" class="trilha-hoje">
-        <div class="linha entre">
+      <section v-for="th in comAgenda" :key="th.id" class="trilha-hoje">
+        <div class="cabeca-trilha">
+          <Capa :titulo="th.titulo" pequena />
           <h2><a :href="link('trilhas', th.id)">{{ th.titulo }}</a></h2>
           <span class="fraco">{{ percentual(th.progresso) }}% · previsão {{ dataCurta(th.previsao) }}</span>
         </div>
@@ -123,7 +128,6 @@ async function recalcular(th) {
             </a>
           </div>
         </template>
-        <p v-else-if="!th.atrasadas.length" class="suave bloco">Hoje não é dia de estudo nesta trilha.</p>
 
         <div v-if="th.proximo" class="bloco">
           <p class="rotulo-secao">Próximo dia de estudo · {{ dataCurta(th.proximo.data) }}</p>
@@ -135,6 +139,20 @@ async function recalcular(th) {
           </ul>
           <p class="pequeno">Quer adiantar? Pode abrir a etapa e estudar agora.</p>
         </div>
+      </section>
+
+      <section v-if="semHoje.length" class="sem-hoje">
+        <h2 class="rotulo-secao">{{ comAgenda.length ? 'Sem estudo hoje' : 'Hoje é dia livre' }}</h2>
+        <ul class="capas">
+          <li v-for="th in semHoje" :key="th.id">
+            <a class="cartao-capa" :href="link('trilhas', th.id)">
+              <Capa :titulo="th.titulo" />
+              <strong>{{ th.titulo }}</strong>
+              <span class="pequeno">{{ th.proximo ? `próximo: ${dataCurta(th.proximo.data)}` : 'sem próximo dia' }} · {{ percentual(th.progresso) }}%</span>
+              <span class="progresso"><span :style="{ width: percentual(th.progresso) + '%' }" /></span>
+            </a>
+          </li>
+        </ul>
       </section>
     </template>
 
@@ -151,7 +169,16 @@ async function recalcular(th) {
 <style scoped>
 .trilha-hoje { margin-top: var(--e6); padding-bottom: var(--e6); border-bottom: 1px solid var(--borda); }
 .trilha-hoje:last-child { border-bottom: 0; padding-bottom: 0; }
-.trilha-hoje h2 { margin-bottom: 0; }
+.trilha-hoje h2 { flex: 1; min-width: 0; margin-bottom: 0; }
+.cabeca-trilha { display: flex; align-items: center; gap: var(--e3); flex-wrap: wrap; }
+.sem-hoje { margin-top: var(--e6); }
+.capas { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--e4); margin: var(--e3) 0 0; padding: 0; list-style: none; }
+.cartao-capa { display: grid; gap: 5px; color: var(--texto); text-decoration: none; }
+.cartao-capa strong { font-size: 14px; font-weight: 600; line-height: 1.35; }
+.cartao-capa:hover strong { color: var(--link); }
+.cartao-capa .capa { margin-bottom: 3px; }
+.cartao-capa .progresso { display: block; height: 3px; }
+@media (max-width: 599px) { .capas { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--e3); } }
 .trilha-hoje h2 a { color: inherit; text-decoration: none; }
 .trilha-hoje h2 a:hover { text-decoration: underline; }
 .trilha-hoje .progresso { margin: var(--e3) 0 var(--e4); }

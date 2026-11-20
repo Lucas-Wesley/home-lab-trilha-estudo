@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import Capa from '../Capa.vue'
 import Icone from '../Icone.vue'
 import NavTrilhas from '../NavTrilhas.vue'
 import Pagina from '../Pagina.vue'
@@ -54,31 +55,24 @@ function trocarFiltro() {
 
     <p v-if="erro" class="aviso">{{ erro }}</p>
     <template v-else-if="trilhas && trilhas.length">
-      <table class="tabela">
-        <thead>
-          <tr><th>Trilha</th><th>Situação</th><th class="direita">Progresso</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="t in visiveis" :key="t.id">
-            <td>
-              <a class="titulo" :href="link('trilhas', t.id)">{{ t.titulo }}</a>
-              <div class="descricao">{{ t.objetivo || t.descricao }}</div>
-            </td>
-            <td>
-              <div class="etiquetas">
-                <span class="etiqueta" :class="ESTADOS[t.estado]?.cor">{{ ESTADOS[t.estado]?.nome }}</span>
-                <span class="etiqueta">{{ PROFUNDIDADES[t.profundidade] }}</span>
-              </div>
-            </td>
-            <td class="direita">
-              <div class="fraco">{{ t.progresso.concluidas + t.progresso.puladas }}/{{ t.progresso.total }} etapas</div>
-              <div class="fraco">{{ duracao(t.progresso.minutos_total) }}</div>
-              <div class="progresso mini"><span :style="{ width: percentual(t.progresso) + '%' }" /></div>
-            </td>
-          </tr>
-          <tr v-if="!visiveis.length"><td colspan="3" class="fraco">Nenhuma trilha com esse filtro.</td></tr>
-        </tbody>
-      </table>
+      <!-- T47: um cartão por trilha, com a capa; o objetivo fica no título do cartão (passar o mouse). -->
+      <ul class="cartoes-trilha">
+        <li v-for="t in visiveis" :key="t.id">
+          <a class="cartao-trilha" :href="link('trilhas', t.id)" :title="t.objetivo || t.descricao">
+            <div class="capa-caixa">
+              <Capa :titulo="t.titulo" />
+              <span v-if="t.estado !== 'ativa'" class="etiqueta estado" :class="ESTADOS[t.estado]?.cor">{{ ESTADOS[t.estado]?.nome }}</span>
+            </div>
+            <strong class="titulo">{{ t.titulo }}</strong>
+            <span class="meta">
+              {{ t.progresso.concluidas + t.progresso.puladas }}/{{ t.progresso.total }} etapas · {{ duracao(t.progresso.minutos_total) }}
+              · {{ PROFUNDIDADES[t.profundidade] }}
+            </span>
+            <span class="progresso"><span :style="{ width: percentual(t.progresso) + '%' }" /></span>
+          </a>
+        </li>
+      </ul>
+      <p v-if="!visiveis.length" class="fraco">Nenhuma trilha com esse filtro.</p>
     </template>
     <div v-else-if="trilhas" class="palco fundo-pontos">
       <div class="painel pilha">
@@ -91,10 +85,27 @@ function trocarFiltro() {
 </template>
 
 <style scoped>
-a.titulo { text-decoration: none; }
-a.titulo:hover { text-decoration: underline; }
-.direita { text-align: right; white-space: nowrap; }
-.mini { width: 96px; margin: var(--e2) 0 0 auto; }
+.cartoes-trilha {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--e5) var(--e4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cartao-trilha { display: grid; gap: 6px; color: var(--texto); text-decoration: none; }
+.capa-caixa { position: relative; margin-bottom: 4px; transition: transform 140ms ease; }
+.cartao-trilha:hover .capa-caixa { transform: translateY(-2px); }
+.cartao-trilha:hover .titulo { color: var(--link); }
+.estado { position: absolute; top: 8px; right: 8px; }
+.titulo { font-size: 15px; font-weight: 600; line-height: 1.35; }
+.meta { font-size: 12.5px; color: var(--texto-suave); }
+.progresso { display: block; height: 4px; margin-top: 2px; }
+@media (max-width: 599px) {
+  .cartoes-trilha { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--e4) var(--e3); }
+  .titulo { font-size: 14px; }
+  .meta { font-size: 12px; }
+}
 .palco { margin-top: var(--e5); }
 .centro { margin: 0; }
 </style>
