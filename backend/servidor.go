@@ -140,6 +140,8 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/arquivos/baixar", a.handleBaixarArquivos)
 	mux.HandleFunc("POST /api/arquivos/apagar-pasta", a.handleApagarPastaArquivos)
 	mux.HandleFunc("DELETE /api/arquivos/videos/{id}", a.handleApagarVideoArquivos)
+	mux.HandleFunc("GET /api/arquivos/aula", a.handleAulaArquivos)
+	mux.HandleFunc("POST /api/arquivos/aula/baixar", a.handleBaixarAulaArquivos)
 	mux.HandleFunc("GET /api/entrada", a.handleEntradaListar)
 	mux.HandleFunc("GET /api/entrada/{id}", a.handleEntradaFonte)
 	mux.HandleFunc("POST /api/entrada/{id}/tentar", a.handleEntradaTentar)

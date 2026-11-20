@@ -4,7 +4,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icone from './Icone.vue'
 import { api } from './api.js'
-import { linkNoStreaming, marcaDeTempo, momentosDasNotas, segundosParaTempo } from './videoaula.js'
+import { ehAulaDoTelegram, linkNoStreaming, marcaDeTempo, momentosDasNotas, segundosParaTempo, tempoEstimado } from './videoaula.js'
+import { tamanho } from './pastas.js'
 
 const props = defineProps({
   videos: { type: Array, required: true },
@@ -22,6 +23,45 @@ const velocidade = ref(lerLocal('videoaula:velocidade', 1))
 
 const atual = computed(() => props.videos[parte.value])
 const momentos = computed(() => momentosDasNotas(notas.value))
+
+// ---------- aulas do Telegram (T42) ----------
+// infos[i]: onde a parte i está — baixada (com a url do vídeo), na_fila, no_telegram, carregando
+// ou erro. Um material streaming comum já nasce "baixada" (a referência é a própria url).
+const infos = ref(props.videos.map((m) => ({ estado: ehAulaDoTelegram(m.referencia) ? 'carregando' : 'baixada', url: m.referencia })))
+const infoDoAtual = computed(() => infos.value[parte.value] || { estado: 'carregando' })
+const srcAtual = computed(() => infoDoAtual.value.url || atual.value?.referencia)
+const faltando = computed(() => infos.value.filter((i) => i.estado === 'no_telegram').length)
+
+let parou = false
+async function resolver(i) {
+  if (parou) return
+  const m = props.videos[i]
+  if (!ehAulaDoTelegram(m.referencia)) return // já nasceu "baixada"
+  try {
+    const a = await api(`/api/arquivos/aula?ref=${encodeURIComponent(m.referencia)}`)
+    if (parou) return
+    infos.value[i] = { ...a }
+    if (a.estado === 'na_fila') setTimeout(() => infos.value[i]?.estado === 'na_fila' && resolver(i), 5000)
+  } catch (e) {
+    if (!parou) infos.value[i] = { estado: 'erro', mensagem: e.message || 'Não deu para perguntar ao Streaming.' }
+  }
+}
+onMounted(() => props.videos.forEach((_, i) => infos.value[i].estado === 'carregando' && resolver(i)))
+
+async function baixar(i) {
+  const m = props.videos[i]
+  infos.value[i] = { ...infos.value[i], baixando: true }
+  try {
+    await api('/api/arquivos/aula/baixar', { metodo: 'POST', corpo: { ref: m.referencia } })
+    infos.value[i] = { estado: 'na_fila' }
+    setTimeout(() => infos.value[i]?.estado === 'na_fila' && resolver(i), 5000)
+  } catch (e) {
+    infos.value[i] = { estado: 'erro', mensagem: e.message || 'O pedido de download falhou.' }
+  }
+}
+function baixarTodas() {
+  props.videos.forEach((_, i) => infos.value[i]?.estado === 'no_telegram' && baixar(i))
+}
 
 function lerLocal(chave, padrao) {
   try {
@@ -123,10 +163,12 @@ async function salvar() {
   }
 }
 onBeforeUnmount(() => {
+  parou = true
   if (relogio) salvar()
 })
 
 function marcar() {
+  if (infoDoAtual.value.estado !== 'baixada') return
   const t = video.value?.currentTime || 0
   const marca = marcaDeTempo(t, parte.value + 1, props.videos.length) + ' '
   const el = area.value
@@ -159,9 +201,10 @@ function teclas(ev) {
     </div>
     <div class="moldura">
       <video
-        :key="atual.referencia"
+        v-if="infoDoAtual.estado === 'baixada'"
+        :key="srcAtual"
         ref="video"
-        :src="atual.referencia"
+        :src="srcAtual"
         controls
         preload="metadata"
         playsinline
@@ -170,14 +213,38 @@ function teclas(ev) {
         @pause="aoAndar"
         @error="aoErro"
       />
+      <div v-else class="espera">
+        <template v-if="infoDoAtual.estado === 'carregando'">
+          <p class="suave">Perguntando ao Streaming…</p>
+        </template>
+        <template v-else-if="infoDoAtual.estado === 'no_telegram'">
+          <p class="titulo-espera">Esta aula ainda não está no servidor</p>
+          <p class="suave">
+            {{ tamanho(infoDoAtual.tamanho) }}<template v-if="infoDoAtual.duracao"> · {{ segundosParaTempo(infoDoAtual.duracao) }}</template> · {{ tempoEstimado(infoDoAtual.tamanho) }} para baixar
+          </p>
+          <div class="linha centro">
+            <button class="botao" :disabled="infoDoAtual.baixando" @click="baixar(parte)">{{ infoDoAtual.baixando ? 'Pedindo…' : 'Baixar esta aula' }}</button>
+            <button v-if="faltando > 1" class="botao discreto" @click="baixarTodas">Baixar as {{ faltando }} partes</button>
+          </div>
+        </template>
+        <template v-else-if="infoDoAtual.estado === 'na_fila'">
+          <p class="titulo-espera">Baixando…</p>
+          <p class="suave">A aula está no Telegram: já pedi ao Streaming. O vídeo aparece aqui quando terminar.</p>
+        </template>
+        <template v-else>
+          <p class="titulo-espera">Não deu para perguntar ao Streaming</p>
+          <p class="suave">{{ infoDoAtual.mensagem }}</p>
+          <button class="botao" @click="resolver(parte)">Tentar de novo</button>
+        </template>
+      </div>
     </div>
     <div class="linha barra">
       <span class="titulo-video">{{ atual.titulo }}</span>
       <span class="espaco" />
-      <div class="linha velocidades" role="group" aria-label="Velocidade">
+      <div v-if="infoDoAtual.estado === 'baixada'" class="linha velocidades" role="group" aria-label="Velocidade">
         <button v-for="v in VELOCIDADES" :key="v" class="botao discreto vel" :class="{ ativa: v === velocidade }" @click="mudarVelocidade(v)">{{ v }}×</button>
       </div>
-      <a class="botao discreto" :href="linkNoStreaming(atual.referencia)" target="_blank" rel="noopener noreferrer" title="Abrir no Streaming (tela cheia, TV, projetor)">
+      <a v-if="infoDoAtual.estado === 'baixada'" class="botao discreto" :href="linkNoStreaming(srcAtual)" target="_blank" rel="noopener noreferrer" title="Abrir no Streaming (tela cheia, TV, projetor)">
         <Icone nome="video" :tamanho="16" /> Streaming
       </a>
     </div>
@@ -222,6 +289,9 @@ function teclas(ev) {
 .aba.ativa { background: var(--ativo); color: var(--texto); }
 .moldura { background: var(--video); border-radius: var(--raio); overflow: hidden; border: 1px solid var(--borda); }
 .moldura video { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--video); }
+.espera { aspect-ratio: 16 / 9; display: grid; place-content: center; justify-items: center; gap: var(--e2); padding: var(--e4); text-align: center; }
+.titulo-espera { margin: 0; font-weight: 600; }
+.centro { justify-content: center; flex-wrap: wrap; }
 .barra { margin-top: var(--e2); }
 .titulo-video { font-size: 14px; color: var(--texto-suave); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 200px; }
 .espaco { flex: 0 0 0; }

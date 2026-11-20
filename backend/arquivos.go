@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -87,4 +89,184 @@ func (a *app) handleApagarVideoArquivos(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ---------- fase 8 (T42): uma aula do Telegram pela referência estável ----------
+
+// meusVideosStreaming: só os campos do /api/meus-videos do Streaming que a Trilha usa.
+type meusVideosStreaming struct {
+	Videos []struct {
+		ID      int64 `json:"id"`
+		Tamanho int64 `json:"tamanho"`
+		Duracao int   `json:"duracao"`
+	} `json:"videos"`
+	Salvos []struct {
+		Tudo   bool   `json:"tudo"`
+		Link   string `json:"link"`
+		Pasta  string `json:"pasta"`
+		Titulo string `json:"titulo"`
+		Videos []struct {
+			Mensagem int    `json:"mensagem"`
+			Nome     string `json:"nome"`
+			Tamanho  int64  `json:"tamanho"`
+			Duracao  int    `json:"duracao"`
+			Video    int64  `json:"video"` // id do baixado; 0 = só no Telegram
+		} `json:"videos"`
+	} `json:"salvos"`
+	Pedidos []struct {
+		Tudo      bool   `json:"tudo"`
+		Link      string `json:"link"`
+		Estado    string `json:"estado"`
+		Mensagens []int  `json:"mensagens"`
+	} `json:"pedidos"`
+}
+
+type aulaSalva struct {
+	grupo    string // a pasta raiz do grupo (para onde o download vai)
+	indiceS  int
+	indiceV  int
+	achou    bool
+	mensagem int
+	link     string
+}
+
+// acharAulaSalva: a mensagem <msg> do grupo <link> no catálogo dos salvos do Streaming.
+func (d *meusVideosStreaming) acharAulaSalva(link string, msg int) aulaSalva {
+	for i := range d.Salvos {
+		s := &d.Salvos[i]
+		if !s.Tudo || s.Link != link {
+			continue
+		}
+		for j, v := range s.Videos {
+			if v.Mensagem == msg {
+				grupo := s.Pasta
+				if grupo == "" {
+					grupo = s.Titulo
+				}
+				return aulaSalva{grupo: grupo, indiceS: i, indiceV: j, achou: true, mensagem: msg, link: link}
+			}
+		}
+	}
+	return aulaSalva{}
+}
+
+func (d *meusVideosStreaming) aulaDaSalva(a aulaSalva) *struct {
+	Mensagem int    `json:"mensagem"`
+	Nome     string `json:"nome"`
+	Tamanho  int64  `json:"tamanho"`
+	Duracao  int    `json:"duracao"`
+	Video    int64  `json:"video"`
+} {
+	return &d.Salvos[a.indiceS].Videos[a.indiceV]
+}
+
+// referenciaTelegram: "telegram:<link do grupo>#<mensagem>" → as duas partes (a referência não
+// muda quando a aula é baixada, apagada ou baixada de novo — o id no Streaming muda; a mensagem não).
+func referenciaTelegram(ref string) (link string, msg int, err error) {
+	resto, ok := strings.CutPrefix(strings.TrimSpace(ref), "telegram:")
+	if !ok {
+		return "", 0, errors.New("a referência precisa começar com telegram:")
+	}
+	i := strings.LastIndex(resto, "#")
+	if i < 0 {
+		return "", 0, errors.New(`a referência do telegram precisa de "#<mensagem>"`)
+	}
+	msg, err = strconv.Atoi(resto[i+1:])
+	if err != nil || msg <= 0 || !strings.HasPrefix(resto[:i], "https://t.me/") {
+		return "", 0, fmt.Errorf("referência do telegram inválida: %q", ref)
+	}
+	return resto[:i], msg, nil
+}
+
+// handleAulaArquivos: GET /api/arquivos/aula?ref=telegram:<link>#<msg> diz o estado da aula:
+// baixada (com a url do vídeo), na_fila ou no_telegram. A etapa pergunta antes de tocar.
+func (a *app) handleAulaArquivos(w http.ResponseWriter, r *http.Request) {
+	link, msg, err := referenciaTelegram(r.URL.Query().Get("ref"))
+	if err != nil {
+		a.responderErro(w, erroDeEntrada{err})
+		return
+	}
+	dados, st, err := a.meusVideos(r.Context())
+	if err != nil {
+		erroJSON(w, statusOu(st, http.StatusBadGateway), err.Error())
+		return
+	}
+	achada := dados.acharAulaSalva(link, msg)
+	if !achada.achou {
+		erroJSON(w, http.StatusNotFound, "aula não encontrada no Streaming")
+		return
+	}
+	v := dados.aulaDaSalva(achada)
+	saida := map[string]any{"nome": v.Nome, "tamanho": v.Tamanho, "duracao": v.Duracao}
+	if v.Video != 0 {
+		saida["estado"] = "baixada"
+		saida["video"] = v.Video
+		saida["url"] = fmt.Sprintf("%s/api/video/proprio/%d.mp4", a.integra.streamingLink, v.Video)
+	} else {
+		naFila := false
+		for _, p := range dados.Pedidos {
+			if !p.Tudo || p.Link != link || (p.Estado != "na fila" && p.Estado != "baixando") {
+				continue
+			}
+			if len(p.Mensagens) == 0 || contemInt(p.Mensagens, msg) {
+				naFila = true
+			}
+		}
+		if naFila {
+			saida["estado"] = "na_fila"
+		} else {
+			saida["estado"] = "no_telegram"
+		}
+	}
+	responderJSON(w, http.StatusOK, saida)
+}
+
+// handleBaixarAulaArquivos: {"ref":"telegram:…"} baixa só aquela aula (o "Baixar esta aula" da
+// etapa — D9: só por clique).
+func (a *app) handleBaixarAulaArquivos(w http.ResponseWriter, r *http.Request) {
+	var corpo struct {
+		Ref string `json:"ref"`
+	}
+	if err := lerCorpo(r, &corpo); err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	link, msg, err := referenciaTelegram(corpo.Ref)
+	if err != nil {
+		a.responderErro(w, erroDeEntrada{err})
+		return
+	}
+	dados, st, err := a.meusVideos(r.Context())
+	if err != nil {
+		erroJSON(w, statusOu(st, http.StatusBadGateway), err.Error())
+		return
+	}
+	achada := dados.acharAulaSalva(link, msg)
+	if !achada.achou {
+		erroJSON(w, http.StatusNotFound, "aula não encontrada no Streaming")
+		return
+	}
+	pedido := map[string]any{"link": link, "tudo": true, "pasta": achada.grupo, "mensagens": []int{msg}}
+	saida := map[string]any{}
+	st, err = chamarApp(r.Context(), a.integra.streaming, "Streaming", http.MethodPost, "/api/meus-videos/telegram", pedido, &saida)
+	if err != nil {
+		erroJSON(w, statusOu(st, http.StatusBadGateway), err.Error())
+		return
+	}
+	responderJSON(w, http.StatusOK, saida)
+}
+
+func (a *app) meusVideos(ctx context.Context) (*meusVideosStreaming, int, error) {
+	dados := &meusVideosStreaming{}
+	st, err := chamarApp(ctx, a.integra.streaming, "Streaming", http.MethodGet, "/api/meus-videos", nil, dados)
+	return dados, st, err
+}
+
+func contemInt(lista []int, v int) bool {
+	for _, x := range lista {
+		if x == v {
+			return true
+		}
+	}
+	return false
 }

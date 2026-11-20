@@ -7,6 +7,7 @@ import { api } from '../api.js'
 import { linkPasta } from '../rotas.js'
 import { acharPasta, aulasPedidas, montarArvore, oQueFalta, tamanho } from '../pastas.js'
 import { segundosParaTempo } from '../videoaula.js'
+import { MODOS, modoRecomendado, pacoteDoCurso, resumoDoPacote } from '../cursoParaTrilha.js'
 
 // Meus arquivos (T41): os cursos do Telegram que estão no Streaming, em curso › módulo › aula
 // (a árvore é a do Streaming, S55 de lá — pastas.js copiado). A Trilha só chama a API dele:
@@ -127,6 +128,46 @@ async function apagarAula(a) {
 // Assistir: o player é do Streaming — abre lá, numa aba nova.
 const linkAssistir = (a) => `${dados.value?.link_streaming || ''}/#/assistir/proprio:${a.video.id}`
 
+// ---------- fase 8 (T42): criar a trilha igual ao curso ----------
+const criandoTrilha = ref(false)
+const tituloTrilha = ref('')
+const modoTrilha = ref('por_pasta')
+const mandandoTrilha = ref(false)
+const erroTrilha = ref('')
+const recomendado = ref('por_pasta')
+const resumoDosModos = computed(() =>
+  pastaAtual.value
+    ? Object.fromEntries(
+        Object.keys(MODOS).map((m) => [m, resumoDoPacote(pacoteDoCurso(pastaAtual.value, m, tituloTrilha.value))]),
+      )
+    : {},
+)
+
+function abrirCriarTrilha() {
+  tituloTrilha.value = pastaAtual.value.nome
+  recomendado.value = modoRecomendado(pastaAtual.value)
+  modoTrilha.value = recomendado.value
+  erroTrilha.value = ''
+  criandoTrilha.value = true
+}
+
+// A trilha nasce pela mesma importação de sempre — sem IA, sem lição e sem baixar nada: cada aula
+// entra como material streaming "telegram:<link>#<mensagem>" e só baixa por clique na etapa.
+async function criarTrilha() {
+  mandandoTrilha.value = true
+  erroTrilha.value = ''
+  try {
+    const pacote = pacoteDoCurso(pastaAtual.value, modoTrilha.value, tituloTrilha.value, dados.value?.link_streaming || '')
+    const r = await api('/api/importar', { metodo: 'POST', corpo: pacote })
+    criandoTrilha.value = false
+    location.hash = `#/trilhas/${r.trilha_id}`
+  } catch (e) {
+    erroTrilha.value = e.message
+  } finally {
+    mandandoTrilha.value = false
+  }
+}
+
 const irParaPasta = (caminho) => {
   location.hash = linkPasta(caminho)
 }
@@ -169,6 +210,8 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
 
       <p v-if="erro" class="aviso">{{ erro }}</p>
       <p v-else-if="aviso" class="aviso neutro">{{ aviso }}</p>
+      <!-- S57 do Streaming: o disco dos vídeos não pôde ser lido; a lista vem do banco mesmo assim. -->
+      <p v-if="dados?.aviso" class="aviso">{{ dados.aviso }}</p>
       <p v-if="dados && !telegramInstalado" class="aviso">O tdl não está instalado no Streaming: dá para ver as aulas, mas não baixar.</p>
       <p v-if="dados && !dados.videos?.length && !dados.salvos?.length" class="fraco">
         Nenhum curso ainda. Os grupos de aulas salvos no Streaming aparecem aqui.
@@ -205,8 +248,10 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
             <p class="pequeno meta">
               {{ resumoDaPasta(pastaAtual) }}<template v-if="naFilaAqui > 0"> · {{ naFilaAqui }} na fila</template>
             </p>
-            <!-- T41: o lugar das ações das próximas fases (Criar trilha igual, Encaixar, Processar). -->
-            <div class="acoes-curso" />
+            <!-- T42: criar a trilha igual ao curso (Encaixar e Processar entram nas próximas fases). -->
+            <div class="acoes-curso">
+              <button v-if="pastaAtual.total" class="botao" @click="abrirCriarTrilha">Criar trilha igual a este curso</button>
+            </div>
             <div v-if="aulasQueFaltam || pastaAtual.baixadas" class="linha">
               <button v-if="aulasQueFaltam" class="botao primario" :disabled="baixandoAulas || !telegramInstalado || naoCabe" @click="baixarAulas(faltaAqui)">
                 {{
@@ -264,6 +309,45 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
           <p v-if="!pastaAtual.pastas.length && !pastaAtual.aulas.length" class="fraco">Nenhuma aula nesta pasta.</p>
         </template>
       </template>
+
+      <!-- Criar a trilha igual ao curso: título, um dos dois modos e a contagem na hora. -->
+      <div v-if="criandoTrilha" class="dialogo-fundo" @click.self="criandoTrilha = false">
+        <form class="painel pilha" role="dialog" aria-label="Criar trilha igual a este curso" @submit.prevent="criarTrilha">
+          <h3>Criar trilha igual a este curso</h3>
+          <p class="pequeno">
+            A trilha fica com a cara do curso: cada aula do Telegram vira material da etapa e só
+            baixa quando você pedir na hora de assistir. Sem lição escrita e sem IA.
+          </p>
+          <div>
+            <label class="rotulo" for="t-titulo">Título da trilha</label>
+            <input id="t-titulo" v-model="tituloTrilha" class="campo" type="text" required />
+          </div>
+          <div class="modos">
+            <button
+              v-for="(nome, modo) in MODOS"
+              :key="modo"
+              type="button"
+              class="modo"
+              :class="{ ativa: modoTrilha === modo }"
+              :aria-pressed="modoTrilha === modo"
+              @click="modoTrilha = modo"
+            >
+              <span class="nome-modo">
+                {{ nome }}
+                <span v-if="modo === recomendado" class="etiqueta">recomendado</span>
+              </span>
+              <span class="meta">{{ resumoDosModos[modo]?.texto }}</span>
+            </button>
+          </div>
+          <p v-if="erroTrilha" class="aviso">{{ erroTrilha }}</p>
+          <div class="linha">
+            <button class="botao primario" type="submit" :disabled="mandandoTrilha || !tituloTrilha.trim()">
+              {{ mandandoTrilha ? 'Criando…' : 'Criar a trilha' }}
+            </button>
+            <button class="botao discreto" type="button" @click="criandoTrilha = false">Cancelar</button>
+          </div>
+        </form>
+      </div>
     </div>
   </Pagina>
 </template>
@@ -362,4 +446,23 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
 .icone-aula.vazia { color: var(--texto-fraco); }
 .aula.falta .nome { color: var(--texto-suave); }
 .meta { color: var(--texto-suave); font-size: 0.8rem; }
+
+.modos {
+  display: grid;
+  gap: var(--e1);
+}
+.modo {
+  display: grid;
+  gap: 4px;
+  padding: var(--e2) var(--e3);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-p);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.modo.ativa { border-color: var(--marca); background: var(--superficie); }
+.nome-modo { display: flex; align-items: center; gap: var(--e2); font-weight: 550; }
 </style>

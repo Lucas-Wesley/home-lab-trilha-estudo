@@ -26,9 +26,10 @@ func streamingDeCursos(t *testing.T, pedidos *[]pedidoStreaming) *httptest.Serve
 			w.Write([]byte(`{"livre":5000000000,"telegram":{"instalado":true},
 				"videos":[{"id":7,"pasta":"Grupo/Curso A/Módulo 1","nome":"Aula 1","tamanho":100,"duracao":60}],
 				"salvos":[{"tudo":true,"link":"https://t.me/c/1","pasta":"Grupo",
-					"videos":[{"mensagem":2,"nome":"Aula 1","caminho":["Curso A","Módulo 1"],"tamanho":100,"ja":true,"video":7},
-						{"mensagem":3,"nome":"Aula 2","caminho":["Curso A","Módulo 1"],"tamanho":200}]}],
-				"pedidos":[]}`))
+					"videos":[{"mensagem":2,"nome":"Aula 1","caminho":["Curso A","Módulo 1"],"tamanho":100,"duracao":60,"ja":true,"video":7},
+						{"mensagem":3,"nome":"Aula 2","caminho":["Curso A","Módulo 1"],"tamanho":200,"duracao":120},
+						{"mensagem":4,"nome":"Aula 3","caminho":["Curso B"],"tamanho":300,"duracao":180}]}],
+				"pedidos":[{"id":5,"tudo":true,"link":"https://t.me/c/1","pasta":"Grupo","estado":"baixando","mensagens":[3]}]}`))
 		case r.Method == "POST" && r.URL.Path == "/api/meus-videos/telegram":
 			var c map[string]any
 			json.NewDecoder(r.Body).Decode(&c)
@@ -114,6 +115,98 @@ func TestArquivosRepasses(t *testing.T) {
 	}
 	if pedidos[len(pedidos)-1].metodo != "DELETE /api/meus-videos/7" {
 		t.Fatalf("o vídeo foi para: %s", pedidos[len(pedidos)-1].metodo)
+	}
+}
+
+// Fase 8 (T42): a aula do Telegram pela referência estável "telegram:<link>#<msg>".
+func TestAulaArquivos(t *testing.T) {
+	c := novoCliente(t)
+	pedidos := []pedidoStreaming{}
+	c.a.integra.streaming = streamingDeCursos(t, &pedidos).URL
+	c.a.integra.streamingLink = "https://streaming.internal"
+
+	estado := func(ref string) (map[string]any, int) {
+		var saida map[string]any
+		s := c.chamar("GET", "/api/arquivos/aula?ref="+ref, nil, &saida)
+		return saida, s
+	}
+
+	// Baixada: vem com o id e a url do vídeo no Streaming.
+	saida, s := estado("telegram:https://t.me/c/1%232")
+	if s != 200 || saida["estado"] != "baixada" || saida["video"] != 7.0 ||
+		saida["url"] != "https://streaming.internal/api/video/proprio/7.mp4" {
+		t.Fatalf("baixada: %d %v", s, saida)
+	}
+	// Na fila: há um pedido baixando com a mensagem.
+	saida, s = estado("telegram:https://t.me/c/1%233")
+	if s != 200 || saida["estado"] != "na_fila" {
+		t.Fatalf("na fila: %d %v", s, saida)
+	}
+	// Só no Telegram: sem vídeo e sem pedido, com nome/tamanho/duração.
+	saida, s = estado("telegram:https://t.me/c/1%234")
+	if s != 200 || saida["estado"] != "no_telegram" || saida["nome"] != "Aula 3" || saida["tamanho"] != 300.0 {
+		t.Fatalf("no telegram: %d %v", s, saida)
+	}
+	// Não está em nenhum salvo: 404.
+	if _, s = estado("telegram:https://t.me/c/1%2399"); s != 404 {
+		t.Fatalf("não achada: %d", s)
+	}
+	// Referência malformada: 400.
+	if _, s = estado("telegram:sem-mensagem"); s != 400 {
+		t.Fatalf("ref inválida: %d", s)
+	}
+
+	// Baixar uma aula: repassa só a mensagem dela, com a pasta do grupo.
+	var saida2 map[string]any
+	c.ok("POST", "/api/arquivos/aula/baixar", map[string]any{"ref": "telegram:https://t.me/c/1#4"}, &saida2)
+	u := pedidos[len(pedidos)-1]
+	if u.metodo != "POST /api/meus-videos/telegram" || u.corpo["tudo"] != true ||
+		u.corpo["pasta"] != "Grupo" || len(u.corpo["mensagens"].([]any)) != 1 || u.corpo["mensagens"].([]any)[0] != 4.0 {
+		t.Fatalf("o Streaming recebeu: %v %+v", u.metodo, u.corpo)
+	}
+	if s := c.chamar("POST", "/api/arquivos/aula/baixar", map[string]any{"ref": "telegram:https://t.me/c/1#99"}, nil); s != 404 {
+		t.Fatalf("baixar não achada: %d", s)
+	}
+}
+
+// Fase 8 (T42): o pacote que a tela monta (cursoParaTrilha.js) importa como trilha ativa, com os
+// materiais streaming apontando para a mensagem do Telegram.
+func TestImportarTrilhaDoCurso(t *testing.T) {
+	c := novoCliente(t)
+	var res resultadoImportacao
+	c.ok("POST", "/api/importar", map[string]any{
+		"trilha": map[string]any{
+			"titulo": "Curso X", "objetivo": "Assistir às aulas de Curso X",
+			"descricao": "Curso do Telegram Grupo, pasta Curso X.", "estado": "ativa",
+			"modulos": []map[string]any{{
+				"titulo": "Curso X",
+				"etapas": []map[string]any{
+					{"chave": "modulo-1", "titulo": "Módulo 1", "objetivo": "Assistir às aulas de Módulo 1",
+						"tipo": "normal", "minutos": 3,
+						"materiais": []map[string]any{
+							{"tipo": "streaming", "papel": "principal", "titulo": "Aula 1", "referencia": "telegram:https://t.me/c/1#1"},
+							{"tipo": "streaming", "papel": "principal", "titulo": "Aula 2", "referencia": "telegram:https://t.me/c/1#2"},
+						}},
+					{"chave": "modulo-2", "titulo": "Módulo 2", "objetivo": "Assistir às aulas de Módulo 2",
+						"tipo": "normal", "minutos": 3,
+						"materiais": []map[string]any{
+							{"tipo": "streaming", "papel": "principal", "titulo": "Aula 3", "referencia": "telegram:https://t.me/c/1#3"},
+						}},
+				},
+			}},
+		},
+	}, &res)
+	if res.Etapas != 2 {
+		t.Fatalf("importação: %+v", res)
+	}
+	var tr trilha
+	c.ok("GET", "/api/trilhas/1", nil, &tr)
+	if tr.Estado != "ativa" {
+		t.Fatalf("estado da trilha: %q", tr.Estado)
+	}
+	ms := tr.Modulos[0].Etapas[0].Materiais
+	if len(ms) != 2 || ms[0].Referencia != "telegram:https://t.me/c/1#1" || ms[0].Tipo != "streaming" || ms[0].Papel != "principal" {
+		t.Fatalf("materiais: %+v", ms)
 	}
 }
 

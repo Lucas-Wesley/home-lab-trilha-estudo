@@ -11,6 +11,18 @@ export function linkNoStreaming(referencia) {
   return m ? `${m[1]}/#/assistir/${m[2]}:${m[3]}` : referencia || ''
 }
 
+// ehAulaDoTelegram: referencia "telegram:<link do grupo>#<mensagem>" (T42) — a aula do curso do
+// Telegram; estável quando baixada, apagada ou baixada de novo (o id no Streaming muda; a
+// mensagem, não).
+export const ehAulaDoTelegram = (ref) => /^telegram:https:\/\/t\.me\/.+#\d+$/.test(ref || '')
+
+// tempoEstimado: quanto o download da aula leva, a ~4 MB/s (o ritmo medido do Telegram no
+// Streaming, S56 de lá) — "~1 min", "~7 min".
+export function tempoEstimado(bytes) {
+  const min = Math.max(1, Math.ceil((bytes || 0) / (4 * 1024 * 1024) / 60))
+  return `~${min} min`
+}
+
 // segundosParaTempo: 75 → "01:15"; 3725 → "1:02:05".
 export function segundosParaTempo(s) {
   s = Math.max(0, Math.floor(s || 0))

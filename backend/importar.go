@@ -120,14 +120,20 @@ func (a *app) importar(ctx context.Context, p pacote) (resultadoImportacao, erro
 	var id int64
 	var estado string
 	err = tx.QueryRowContext(ctx, `SELECT id, estado FROM trilhas WHERE slug = ?`, t.Slug).Scan(&id, &estado)
+	// O estado pedido no pacote vale na criação ("ativa" na trilha montada de um curso, T42); o
+	// resto (e na substituição) começa ou continua como rascunho.
+	estadoNovo := t.Estado
+	if !contem(estadosTrilha, estadoNovo) || estadoNovo == "concluida" {
+		estadoNovo = "rascunho"
+	}
 	statusAnterior := map[string][3]string{}
 	licoesAntigas := []string{}
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		r, err := tx.ExecContext(ctx, `INSERT INTO trilhas (slug, titulo, objetivo, descricao, recorte, instrucoes,
 			nivel_partida, nivel_alvo, profundidade, estado, criado_em, atualizado_em)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?)`,
-			t.Slug, t.Titulo, t.Objetivo, t.Descricao, t.Recorte, t.Instrucoes, t.NivelPartida, t.NivelAlvo, t.Profundidade, agora, agora)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			t.Slug, t.Titulo, t.Objetivo, t.Descricao, t.Recorte, t.Instrucoes, t.NivelPartida, t.NivelAlvo, t.Profundidade, estadoNovo, agora, agora)
 		if err != nil {
 			return res, err
 		}

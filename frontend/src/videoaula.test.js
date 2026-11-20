@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { linkNoStreaming, marcaDeTempo, momentosDasNotas, segundosParaTempo, tempoParaSegundos, videosDaEtapa } from './videoaula.js'
+import { ehAulaDoTelegram, linkNoStreaming, marcaDeTempo, momentosDasNotas, segundosParaTempo, tempoEstimado, tempoParaSegundos, videosDaEtapa } from './videoaula.js'
 
 describe('videoaula', () => {
   it('pega só os vídeos principais', () => {
@@ -20,6 +20,19 @@ describe('videoaula', () => {
     expect(tempoParaSegundos('01:15')).toBe(75)
     expect(tempoParaSegundos('1:02:05')).toBe(3725)
     expect(tempoParaSegundos('abc')).toBe(null)
+  })
+  it('reconhece a aula do Telegram', () => {
+    expect(ehAulaDoTelegram('telegram:https://t.me/c/1#42')).toBe(true)
+    expect(ehAulaDoTelegram('telegram:https://t.me/grupo#7')).toBe(true)
+    expect(ehAulaDoTelegram('https://s/api/video/proprio/3.mp4')).toBe(false)
+    expect(ehAulaDoTelegram('telegram:https://exemplo.org/x#1')).toBe(false)
+    expect(ehAulaDoTelegram('telegram:sem-mensagem')).toBe(false)
+    expect(ehAulaDoTelegram('')).toBe(false)
+  })
+  it('estima o tempo do download a 4 MB/s', () => {
+    expect(tempoEstimado(230 * 1024 * 1024)).toBe('~1 min')
+    expect(tempoEstimado(0)).toBe('~1 min')
+    expect(tempoEstimado(2 * 1024 * 1024 * 1024)).toBe('~9 min')
   })
   it('acha os momentos marcados nas notas', () => {
     expect(marcaDeTempo(75, 1, 1)).toBe('[01:15]')

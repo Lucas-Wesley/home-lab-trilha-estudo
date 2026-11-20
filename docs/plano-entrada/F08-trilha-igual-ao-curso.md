@@ -92,3 +92,46 @@ Commit: `Entrada (T42): criar trilha igual a um curso do Telegram (uma etapa por
 ## Dúvidas
 
 ## Feito
+
+- **Referência estável** (8.1): material `streaming` `principal` com `referencia =
+  "telegram:<link do grupo>#<mensagem>"` — o id do vídeo baixado muda a cada baixar/apagar; a
+  mensagem não. `referenciaTelegram` valida (`https://t.me/` + `#<n>`; o resto → 400).
+- **Servidor** (`backend/arquivos.go`): `GET /api/arquivos/aula?ref=` lê o `/api/meus-videos` do
+  Streaming e devolve `baixada` (com `video` e `url` = `STREAMING_LINK/api/video/proprio/<id>.mp4`),
+  `na_fila` (há pedido `na fila`/`baixando` com a mensagem ou o grupo todo) ou `no_telegram`,
+  sempre com `nome`, `tamanho`, `duracao`; mensagem que não está em nenhum salvo → 404 "aula não
+  encontrada no Streaming"; Streaming fora → 502. `POST /api/arquivos/aula/baixar` `{ref}` vira o
+  pedido `tudo` de lá com **só aquela mensagem** e a pasta do grupo.
+- **Videoaula.vue**: material `telegram:` → pergunta o estado por parte (`infos[]`).
+  `baixada` → toca pela `url` (mesmo player, notas, velocidades e link do Streaming de sempre — a
+  chave do localStorage continua sendo a `referencia`, estável entre baixar/apagar/baixar de novo).
+  `no_telegram` → cartão "Esta aula ainda não está no servidor · <tamanho> · <duração> · ~N min
+  para baixar" + "Baixar esta aula" e, com mais de uma parte faltando, "Baixar as N partes".
+  `na_fila` → "Baixando…" e sonda a cada 5 s até virar vídeo. `erro` → mensagem + "Tentar de
+  novo". `ehAulaDoTelegram` e `tempoEstimado` (~4 MB/s, "~1 min") em `videoaula.js`.
+- **Criar a trilha** (8.2): "Criar trilha igual a este curso" no topo da pasta abre o diálogo
+  (`.dialogo-fundo`) com o título (o da pasta), os dois modos com a contagem na hora
+  ("N módulos · M etapas · H h/min") e a etiqueta "recomendado" (`modoRecomendado`: média < 15 min
+  → por pasta). `pacoteDoCurso(pasta, modo, titulo, linkStreaming)` puro em
+  `cursoParaTrilha.js`: por aula → cada pasta com aulas é módulo (título = caminho com " › ") e
+  cada aula uma etapa de 1 material; por pasta → cada pasta com aulas é uma etapa de partes em
+  ordem e a mãe dela é o módulo (filha direta → a própria escolhida; aulas soltas → módulo da
+  escolhida). Etapas com chave única (slug do caminho + nome, sufixo -2…), objetivo "Assistir à
+  aula: X"/"Assistir às aulas de Y", `minutos` = soma arredondada para cima, `tipo = "normal"`,
+  sem requisitos, sem lição; aula só no disco (sem `link`) → `referencia` direto para o vídeo.
+  Trilha `estado = "ativa"`, descrição com grupo e pasta. `importar.go`: o `estado` do pacote
+  passa a valer só na **criação** (`concluida` ou inválido → `rascunho`; a substituição segue como
+  antes). Ao criar, abre `#/trilhas/<id>`.
+- **Progresso** (8.3): a `Videoaula` não marca nada sozinha hoje — a conclusão continua do Lucas
+  ("Concluir"), como já era com as aulas baixadas; ficou igual.
+- **S57**: o `aviso` do `/api/meus-videos` (disco ilegível, lista do banco) aparece no topo da aba
+  Meus arquivos como aviso de erro, sem esconder a árvore.
+- **Testes**: Go — `TestAulaArquivos` (baixada com url, na fila, no Telegram, 404, ref inválida,
+  baixar repassa a mensagem certa) e `TestImportarTrilhaDoCurso` (pacote `telegram:` → trilha
+  `ativa` com os materiais). JS — `cursoParaTrilha.test.js` (árvore inventada nos dois modos:
+  módulos, etapas, partes, minutos, chaves únicas, referências e recomendação) +
+  `videoaula.test.js` (`ehAulaDoTelegram`, `tempoEstimado`).
+- **Visto em 360 px** (Streaming falso): aviso do disco no topo + árvore, diálogo com contagens e
+  recomendado, trilha criada ativa e aberta, etapa com parte baixada (vídeo + link do Streaming) e
+  parte no Telegram → "Baixar esta aula" → "Baixando…" → vídeo com o id novo. Sem rolagem
+  horizontal.

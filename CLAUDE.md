@@ -119,7 +119,7 @@ proposta `roteiro` (chave `@roteiro` ou `@roteiro:<etapa>`); `GET .../roteiro?et
 `roteiro.md` e `encaixe.md`. Telas: `RevisarRoteiro.vue`, `MudancaRoteiro.vue`; as páginas da
 trilha e da etapa usam `AbasPagina.vue`.
 
-## Entrada (T35–T41)
+## Entrada (T35–T42)
 `backend/entrada.go` e `backend/youtube.go` (código copiado do Acervo, sem chamá-lo):
 `POST /api/entrada` com um link de vídeo do YouTube cria a **fonte** (tabela `fontes`); com uma
 playlist, uma por vídeo (`--flat-playlist`). Uma fila própria do yt-dlp — separada da do Claude,
@@ -193,7 +193,24 @@ o dono do Telegram: a Trilha só repassa a API (`GET /api/arquivos` devolve o `/
 faltam; `POST /api/arquivos/apagar-pasta` e `DELETE /api/arquivos/videos/{id}` repassam). Variáveis
 novas: `STREAMING_URL` (rede interna; vazio = aba avisa "não configurado") e `STREAMING_LINK` (o
 "Assistir" abre `…/#/assistir/proprio:<id>` lá). Enquanto houver pedido na fila/baixando a tela
-atualiza a cada 5 s. Mudar `GET /api/meus-videos` no Streaming é mudar a Trilha também.
+atualiza a cada 5 s. Mudar `GET /api/meus-videos` no Streaming é mudar a Trilha também; o `aviso`
+que ele manda quando o disco não pôde ser lido (S57 de lá) aparece no topo da aba como erro.
+
+**Trilha igual ao curso** (`frontend/src/cursoParaTrilha.js`, T42): "Criar trilha igual a este
+curso" na pasta de Meus arquivos abre um diálogo com o título (o da pasta) e dois modos com a
+contagem na hora — "uma etapa por aula" (aula = etapa; pasta com aulas = módulo) ou "uma etapa por
+pasta" (pasta com aulas = etapa de partes; a pasta mãe = módulo), com a recomendação pela média das
+aulas (< 15 min → por pasta). `pacoteDoCurso` é puro e o pacote entra pelo `POST /api/importar` —
+o `estado` do pacote passou a valer na criação (nasce `ativa`). Sem IA, sem lição e sem baixar
+nada: cada aula vira material `streaming` `principal` com a referência estável
+`telegram:<link do grupo>#<mensagem>` (o id do vídeo muda a cada baixar/apagar; a mensagem não).
+Na etapa, a `Videoaula.vue` pergunta `GET /api/arquivos/aula?ref=` e o servidor diz `baixada` (com
+a `url` `…/api/video/proprio/<id>.mp4`), `na_fila` ou `no_telegram`; a faltante mostra
+"Esta aula ainda não está no servidor" + tamanho e `tempoEstimado` (~4 MB/s) com
+"Baixar esta aula" ("Baixar as N partes" quando falta mais de uma) →
+`POST /api/arquivos/aula/baixar` baixa só aquela mensagem; `na_fila` mostra "Baixando…" e sonda a
+cada 5 s até o vídeo aparecer. `ehAulaDoTelegram` e `tempoEstimado` ficam em
+`frontend/src/videoaula.js`.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,
