@@ -1,11 +1,12 @@
 <script setup>
-import { inject, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '../api.js'
 import { linkDoYouTube } from '../entrada.js'
 import Icone from '../Icone.vue'
 import Pagina from '../Pagina.vue'
 import { link } from '../rotas.js'
 import { ESTADOS_FONTE } from '../rotulos.js'
+import { idDoVideo } from '../trechoYoutube.js'
 import { segundosParaTempo } from '../videoaula.js'
 
 // Aviso do compartilhar do celular (/compartilhar): o App manda o link e deixa o recado aqui.
@@ -70,11 +71,60 @@ async function apagar(f) {
   await buscar()
 }
 
-const capa = (f) => `https://i.ytimg.com/vi/${f.video_id}/mqdefault.jpg`
+// A fonte vinda do Acervo tem video_id = id da Referência — a miniatura sai do link do vídeo.
+const capa = (f) => `https://i.ytimg.com/vi/${idDoVideo(f.url) || f.video_id}/mqdefault.jpg`
 const duracao = (f) => (f.duracao ? segundosParaTempo(f.duracao) : '')
 const estado = (f) => ESTADOS_FONTE[f.estado] || { nome: f.estado, cor: '' }
 
-onMounted(buscar)
+// Trazer do Acervo (T40): as Referências de vídeo de lá entram com a transcrição, sem baixar.
+const ligados = ref({})
+const acervoAberto = ref(false)
+const referencias = ref(null)
+const buscaAcervo = ref('')
+const trazendo = ref('')
+const erroAcervo = ref('')
+
+async function abrirAcervo() {
+  acervoAberto.value = !acervoAberto.value
+  if (acervoAberto.value && referencias.value === null) {
+    try {
+      referencias.value = (await api('/api/acervo/referencias')).filter((r) => r.tipo === 'video')
+    } catch (e) {
+      erroAcervo.value = e.message
+      referencias.value = []
+    }
+  }
+}
+const referenciasFiltradas = computed(() => {
+  const b = buscaAcervo.value.trim().toLowerCase()
+  return (referencias.value || []).filter((r) => !b || r.titulo.toLowerCase().includes(b))
+})
+// Já está na Entrada? A fonte do Acervo tem video_id = id da Referência; a do YouTube, o id do vídeo.
+function naEntrada(r) {
+  const vid = idDoVideo(r.url)
+  return fontes.value.some((f) => f.video_id === r.id || (vid && f.video_id === vid))
+}
+async function trazer(r) {
+  trazendo.value = r.id
+  erroAcervo.value = ''
+  try {
+    const f = await api('/api/entrada/acervo', { metodo: 'POST', corpo: { referencia: r.id } })
+    location.hash = link('entrada', String(f.id))
+  } catch (e) {
+    erroAcervo.value = e.message
+  } finally {
+    trazendo.value = ''
+  }
+}
+
+onMounted(async () => {
+  buscar()
+  try {
+    ligados.value = await api('/api/integracoes')
+  } catch {
+    // Sem a lista de integrações, o botão do Acervo só não aparece.
+  }
+})
 onBeforeUnmount(() => {
   if (timer) clearInterval(timer)
   avisoCompartilhar.value = ''
@@ -102,6 +152,26 @@ onBeforeUnmount(() => {
       </div>
       <p class="ajuda">Só a legenda (ou o Whisper, quando não tem) é lida — nada de baixar o vídeo.</p>
     </form>
+
+    <div v-if="ligados.acervo" class="trazer-acervo">
+      <button class="botao discreto" type="button" @click="abrirAcervo">
+        <Icone nome="livro" :tamanho="15" /> Trazer do Acervo
+      </button>
+      <template v-if="acervoAberto">
+        <input v-model="buscaAcervo" class="campo" placeholder="Buscar vídeo no Acervo…" aria-label="Buscar vídeo no Acervo" />
+        <p v-if="erroAcervo" class="aviso">{{ erroAcervo }}</p>
+        <p v-if="referencias === null" class="fraco">Lendo o Acervo…</p>
+        <p v-else-if="!referenciasFiltradas.length" class="fraco">Nenhum vídeo{{ buscaAcervo ? ' com esse nome' : '' }} no Acervo.</p>
+        <ul v-else class="lista-acervo">
+          <li v-for="r in referenciasFiltradas" :key="r.id">
+            <button class="item" type="button" :disabled="!!trazendo" @click="trazer(r)">
+              <span v-if="naEntrada(r)" class="etiqueta">na Entrada</span>
+              {{ trazendo === r.id ? 'Trazendo… ' : '' }}{{ r.titulo }}
+            </button>
+          </li>
+        </ul>
+      </template>
+    </div>
 
     <p v-if="erro" class="aviso">{{ erro }}</p>
 
@@ -137,6 +207,35 @@ onBeforeUnmount(() => {
 .entrada-form .campo {
   flex: 1;
   min-width: 0;
+}
+.trazer-acervo {
+  display: grid;
+  gap: var(--e3);
+  justify-items: start;
+}
+.trazer-acervo .campo {
+  width: 100%;
+}
+.lista-acervo {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  max-height: 300px;
+  overflow-y: auto;
+  width: 100%;
+}
+.item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--e2) var(--e3);
+  border-radius: var(--raio-p);
+  font-size: 14px;
+}
+.item:hover {
+  background: var(--ativo);
 }
 .fonte {
   display: grid;

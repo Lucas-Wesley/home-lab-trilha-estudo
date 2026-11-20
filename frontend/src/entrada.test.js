@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { linhasDaTranscricao, linkCompartilhado, linkDoYouTube, linkNoMinuto } from './entrada.js'
+import { diasSemDestino, linhasDaTranscricao, linkCompartilhado, linkDoYouTube, linkNoMinuto } from './entrada.js'
 import { tempoParaSegundos } from './videoaula.js'
 
 describe('linkDoYouTube', () => {
@@ -63,5 +63,15 @@ describe('tempoParaSegundos', () => {
   it('converte mm:ss e h:mm:ss', () => {
     expect(tempoParaSegundos('1:02:05')).toBe(3725)
     expect(tempoParaSegundos('00:30')).toBe(30)
+  })
+})
+
+describe('diasSemDestino', () => {
+  const dia = 86400000
+  it('conta os dias que faltam para o fragmento sem destino sumir', () => {
+    const agora = Date.parse('2026-11-20T12:00:00Z')
+    expect(diasSemDestino('2026-11-20T12:00:00Z', agora)).toBe(30) // marcado agora
+    expect(diasSemDestino('2026-11-02T12:00:00Z', agora)).toBe(12) // há 18 dias
+    expect(diasSemDestino('2026-10-21T12:00:00Z', agora)).toBe(0) // já passou
   })
 })

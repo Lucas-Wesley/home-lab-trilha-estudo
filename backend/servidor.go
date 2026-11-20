@@ -134,6 +134,7 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/trilhas/{id}/criacao/gerar", a.handleGerarPasso)
 	// Entrada (T35): vídeos do YouTube viram fontes para depois virar fragmentos.
 	mux.HandleFunc("POST /api/entrada", a.handleEntradaPost)
+	mux.HandleFunc("POST /api/entrada/acervo", a.handleEntradaAcervo)
 	mux.HandleFunc("GET /api/entrada", a.handleEntradaListar)
 	mux.HandleFunc("GET /api/entrada/{id}", a.handleEntradaFonte)
 	mux.HandleFunc("POST /api/entrada/{id}/tentar", a.handleEntradaTentar)

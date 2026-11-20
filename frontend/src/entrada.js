@@ -33,3 +33,10 @@ export function linhasDaTranscricao(texto) {
       return { marca: '', segundos: null, texto: linha }
     })
 }
+
+// O fragmento "sem destino" some 30 dias depois da marca (D6) — quantos dias ainda faltam.
+export const DIAS_SEM_DESTINO = 30
+export function diasSemDestino(em, agora = Date.now()) {
+  const faltam = new Date(em).getTime() + DIAS_SEM_DESTINO * 86400000 - agora
+  return Math.max(0, Math.ceil(faltam / 86400000))
+}

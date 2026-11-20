@@ -72,3 +72,29 @@ Commit: `Entrada (T40): fragmento sem destino some em 30 dias; trazer vídeos do
 ## Dúvidas
 
 ## Feito
+
+- **`backend/limpeza.go`**: `diasSemDestino = 30`; `apagarSemDestino(agora)` apaga os fragmentos
+  `estado = 'sem_destino'` com `sem_destino_em` mais antigo que o prazo (função recebe o relógio
+  para o teste não esperar); `limparSemDestino(ctx)` é a goroutine — roda na partida e a cada 6 h
+  num `time.Ticker`, e sai quando o contexto cancela. Mandar a um destino já limpava
+  `sem_destino_em` (fase 4), então enviado nunca morre; fonte sem fragmentos continua. Em
+  `Fonte.vue` a etiqueta mostra "sem destino · some em N dias" (`diasSemDestino` de `entrada.js`,
+  arredonda para cima).
+- **`backend/acervo.go`**: `POST /api/entrada/acervo` `{"referencia":"<id>"}` lê a Referência por
+  `GET /api/referencias/{id}` e cria a fonte `tipo = "acervo"` já `pronta` — só `tipo = "video"`
+  com URL de YouTube e `textos.cru` não vazio (o resto → 400); `video_id` = id da Referência (a
+  deduplicação por `tipo`+`video_id` é de graça), `url` normalizada `watch?v=<id do vídeo>`,
+  título/canal/duração (`segundosDoTempo`, cobre `mm:ss` e `h:mm:ss`) e o cru em
+  `entrada/<id>/transcricao.md`. Sem yt-dlp, sem fila, sem IA. Repetir a Referência devolve a
+  mesma fonte; `fontePorURL` devolve a `youtube` existente quando o vídeo já entrou direto.
+- **Tela**: "Trazer do Acervo" discreto na lista da Entrada (some sem `ligados.acervo`); painel
+  com as Referências `tipo === "video"` de `GET /api/acervo/referencias`, busca por título,
+  etiqueta "na Entrada" nas já trazidas e clique que importa e abre a fonte. Miniatura e links no
+  minuto saem do id do vídeo na url (`idDoVideo`), não do `video_id` (que é o id da Referência).
+- `material.go`: `handleReferenciasAcervo` repassa `video_id`/`canal`/`duracao` para a tela
+  marcar "na Entrada" pelo vídeo.
+- Testes: limpeza aos 31/29 dias e enviado intocado; importar com Acervo falso (`httptest`) —
+  pronta com transcrição no disco, não-vídeo → 400, Referência repetida → mesma fonte, mesma url
+  `youtube` → a existente; `"46:58"` → 2818 e `"1:02:03"` → 3723; `diasSemDestino` em
+  `entrada.test.js`. `go vet` + `go test` ok; `npm test` 45 ok; `npm run build` ok; a 360 px sem
+  rolagem horizontal.

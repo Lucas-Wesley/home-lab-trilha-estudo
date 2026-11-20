@@ -94,12 +94,15 @@ type temaAcervo struct {
 }
 
 type referenciaAcervo struct {
-	ID     string            `json:"id"`
-	Titulo string            `json:"titulo"`
-	Tipo   string            `json:"tipo"`
-	Estado string            `json:"estado"`
-	URL    string            `json:"url"`
-	Textos map[string]string `json:"textos,omitempty"`
+	ID      string            `json:"id"`
+	Titulo  string            `json:"titulo"`
+	Tipo    string            `json:"tipo"`
+	Estado  string            `json:"estado"`
+	URL     string            `json:"url"`
+	VideoID string            `json:"video_id"` // do vídeo do YouTube, quando a Referência é `video`
+	Canal   string            `json:"canal"`
+	Duracao string            `json:"duracao"` // "46:58" ou "1:02:03" (o formato do Acervo)
+	Textos  map[string]string `json:"textos,omitempty"`
 }
 
 // ---------- telas: o que dá para escolher ----------

@@ -119,7 +119,7 @@ proposta `roteiro` (chave `@roteiro` ou `@roteiro:<etapa>`); `GET .../roteiro?et
 `roteiro.md` e `encaixe.md`. Telas: `RevisarRoteiro.vue`, `MudancaRoteiro.vue`; as páginas da
 trilha e da etapa usam `AbasPagina.vue`.
 
-## Entrada (T35, T36, T37, T38, T39)
+## Entrada (T35–T40)
 `backend/entrada.go` e `backend/youtube.go` (código copiado do Acervo, sem chamá-lo):
 `POST /api/entrada` com um link de vídeo do YouTube cria a **fonte** (tabela `fontes`); com uma
 playlist, uma por vídeo (`--flat-playlist`). Uma fila própria do yt-dlp — separada da do Claude,
@@ -171,6 +171,19 @@ sempre. O `GET /api/etapas/{id}` devolve `trechos_vistos` para o ✓ das partes.
 (erros 101/150) ou sem internet: cartão com miniatura e "Marquei como visto". As notas são as da
 Videoaula (`anotacoes`, "Marcar o minuto" com o tempo do player). Na estrutura, etapa com trecho
 e sem minutos mostra ícone de vídeo + duração do trecho.
+
+**"Sem destino" e Trazer do Acervo** (`backend/limpeza.go`, `backend/acervo.go`, T40): fragmento
+`sem_destino` morre sozinho em **30 dias** — `apagarSemDestino(agora)` (testável, recebe o relógio)
+apaga quem passou do prazo e a goroutine `limparSemDestino` roda na partida e a cada 6 h num
+`time.Ticker` que para com o contexto do `main`; dar destino limpa `sem_destino_em`, então o
+enviado nunca morre, e a fonte sem fragmentos fica (a tela avisa "sem destino · some em N dias").
+`POST /api/entrada/acervo` `{"referencia":"<id>"}` traz um vídeo do **Acervo** já transcrito: lê
+`GET /api/referencias/{id}`, só aceita `tipo = "video"` com URL de YouTube e `textos.cru` (o resto
+→ 400), grava o cru em `entrada/<id>/transcricao.md` e a fonte nasce `tipo = "acervo"` **pronta** —
+sem yt-dlp e sem IA; o `video_id` é o id da Referência (o id do vídeo sai da URL normalizada na
+tela). Repetir a Referência devolve a mesma fonte; se o vídeo já entrou pelo YouTube, devolve a
+fonte `youtube` existente. Na lista, "Trazer do Acervo" abre o painel com os vídeos de lá, busca
+por título e "na Entrada" nas já trazidas (some sem `ligados.acervo`).
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

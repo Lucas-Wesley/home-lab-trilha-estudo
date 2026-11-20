@@ -81,6 +81,7 @@ func main() {
 	}
 	go a.fila.rodar(ctx)
 	go a.rodarEntrada(ctx)
+	go a.limparSemDestino(ctx)
 
 	srv := &http.Server{
 		Addr:              addr,

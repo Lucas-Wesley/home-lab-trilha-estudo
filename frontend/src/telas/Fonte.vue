@@ -1,11 +1,12 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '../api.js'
-import { linhasDaTranscricao, linkNoMinuto } from '../entrada.js'
+import { diasSemDestino, linhasDaTranscricao, linkNoMinuto } from '../entrada.js'
 import Icone from '../Icone.vue'
 import Pagina from '../Pagina.vue'
 import { link } from '../rotas.js'
 import { ESTADOS_ENCAIXE, ESTADOS_FONTE, TIPOS_FRAGMENTO } from '../rotulos.js'
+import { idDoVideo } from '../trechoYoutube.js'
 import { segundosParaTempo } from '../videoaula.js'
 
 const props = defineProps({ fonteId: { type: Number, required: true } })
@@ -14,6 +15,9 @@ const fonte = ref(null)
 const erro = ref('')
 const tentando = ref(false)
 let timer = null
+
+// A fonte do Acervo tem video_id = id da Referência — o id do vídeo do YouTube sai do link.
+const videoId = computed(() => (fonte.value ? idDoVideo(fonte.value.url) || fonte.value.video_id : ''))
 
 // T37: a divisão em fragmentos.
 const pedido = ref('')
@@ -251,7 +255,7 @@ onBeforeUnmount(() => {
         <h2>Capítulos</h2>
         <ul class="capitulos">
           <li v-for="c in fonte.capitulos" :key="c.inicio">
-            <a :href="linkNoMinuto(fonte.video_id, c.inicio)" target="_blank" rel="noopener noreferrer">{{
+            <a :href="linkNoMinuto(videoId, c.inicio)" target="_blank" rel="noopener noreferrer">{{
               segundosParaTempo(c.inicio)
             }}</a>
             {{ c.titulo }}
@@ -265,7 +269,7 @@ onBeforeUnmount(() => {
           <a
             v-if="b.marca"
             class="marca"
-            :href="linkNoMinuto(fonte.video_id, b.segundos)"
+            :href="linkNoMinuto(videoId, b.segundos)"
             target="_blank"
             rel="noopener noreferrer"
             >[{{ b.marca }}]</a
@@ -301,7 +305,7 @@ onBeforeUnmount(() => {
         <div v-for="fr in visiveis" :key="fr.id" class="cartao fragmento" :class="{ descartado: fr.estado === 'descartado' }">
           <template v-if="editando !== fr.id">
             <p class="fragmento-topo pequeno">
-              <a :href="linkNoMinuto(fonte.video_id, fr.inicio)" target="_blank" rel="noopener noreferrer"
+              <a :href="linkNoMinuto(videoId, fr.inicio)" target="_blank" rel="noopener noreferrer"
                 >{{ segundosParaTempo(fr.inicio) }}–{{ segundosParaTempo(fr.fim) }}</a
               >
               · {{ segundosParaTempo(fr.fim - fr.inicio) }}
@@ -356,7 +360,7 @@ onBeforeUnmount(() => {
               <button class="botao discreto mini" :disabled="ocupado" @click="trilhaNova(fr)">Trilha nova</button>
               <button v-if="fr.estado !== 'sem_destino'" class="botao discreto mini" :disabled="ocupado" @click="semDestino(fr)">Sem destino</button>
               <template v-else>
-                <span class="etiqueta">sem destino</span>
+                <span class="etiqueta">sem destino · some em {{ diasSemDestino(fr.sem_destino_em) }} dias</span>
                 <button class="botao discreto mini" :disabled="ocupado" @click="voltarDestino(fr)">desfazer</button>
               </template>
               <p v-if="fr.sugestao?.motivo_nenhuma" class="pequeno fraco destino-nota">A IA não viu destino: {{ fr.sugestao.motivo_nenhuma }}</p>
