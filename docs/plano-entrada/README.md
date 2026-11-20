@@ -94,7 +94,7 @@ gasta crédito duas vezes. O Lucas quer:
 | 7 | [F07-meus-arquivos.md](F07-meus-arquivos.md) | **Meus arquivos**: a árvore dos cursos do Streaming, baixar e lixeira | não | ✅ no ar |
 | 8 | [F08-trilha-igual-ao-curso.md](F08-trilha-igual-ao-curso.md) | Criar uma trilha igual a um curso; a aula baixa na etapa, por clique | não | ✅ no ar |
 | 9 | [F09-encaixar-cursos-pelos-titulos.md](F09-encaixar-cursos-pelos-titulos.md) | Encaixar cursos numa trilha pelos títulos; juntar cursos | sim | ✅ no ar |
-| 10 | [F10-processar-aula.md](F10-processar-aula.md) | Processar aulas do Telegram: transcrever e fragmentar como o YouTube | sim | ✅ no ar (falta o teste real com o SSD de volta) |
+| 10 | [F10-processar-aula.md](F10-processar-aula.md) | Processar aulas do Telegram: transcrever e fragmentar como o YouTube | sim | ✅ no ar; testado em produção em 20/11 (aula real transcrita pelo Whisper do Mac) |
 
 Fora deste plano (ficam com o Claude): os roteiros das trilhas novas (DDD, Conhecimento de base,
 Algoritmos e Estruturas de Dados, Linux, Golang, AWS para engenharia de software, System Design) e o
