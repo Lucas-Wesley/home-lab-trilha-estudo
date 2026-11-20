@@ -89,7 +89,7 @@ gasta crédito duas vezes. O Lucas quer:
 | 2 | [F02-tela-entrada.md](F02-tela-entrada.md) | Tela **Entrada**: colar link, compartilhar do celular, lista e página da fonte | não | ✅ no ar (f9477be) |
 | 3 | [F03-fragmentar.md](F03-fragmentar.md) | A IA divide a fonte em **fragmentos**; o Lucas ajusta e confirma | sim | ✅ no ar |
 | 4 | [F04-destino-e-encaixe.md](F04-destino-e-encaixe.md) | A IA sugere as trilhas de cada fragmento; o encaixe por trilha | sim | ✅ no ar |
-| 5 | [F05-trecho-do-youtube-na-etapa.md](F05-trecho-do-youtube-na-etapa.md) | O trecho do YouTube toca na etapa, com aviso do fim e progresso | não | |
+| 5 | [F05-trecho-do-youtube-na-etapa.md](F05-trecho-do-youtube-na-etapa.md) | O trecho do YouTube toca na etapa, com aviso do fim e progresso | não | ✅ no ar |
 | 6 | [F06-sem-destino-e-acervo.md](F06-sem-destino-e-acervo.md) | "Sem destino" some em 30 dias; trazer do Acervo (os vídeos do Akita) | não | |
 | 7 | [F07-meus-arquivos.md](F07-meus-arquivos.md) | **Meus arquivos**: a árvore dos cursos do Streaming, baixar e lixeira | não | |
 | 8 | [F08-trilha-igual-ao-curso.md](F08-trilha-igual-ao-curso.md) | Criar uma trilha igual a um curso; a aula baixa na etapa, por clique | não | |
