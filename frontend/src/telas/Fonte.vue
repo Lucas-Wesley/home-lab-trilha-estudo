@@ -232,17 +232,17 @@ onBeforeUnmount(() => {
     <p v-if="!fonte && !erro" class="fraco">Carregando…</p>
 
     <template v-if="fonte">
-      <header class="cabecalho">
+      <header class="topo-pagina topo-fonte">
         <div>
           <h1>{{ fonte.titulo || 'Lendo o vídeo…' }}</h1>
-          <p class="pequeno">
+          <p class="pequeno contexto">
             <template v-if="fonte.canal">{{ fonte.canal }} · </template>
             <template v-if="fonte.duracao">{{ segundosParaTempo(fonte.duracao) }} · </template>
             <a v-if="fonte.tipo !== 'telegram'" :href="fonte.url" target="_blank" rel="noopener noreferrer">Abrir no YouTube</a>
             <span v-else class="fraco">aula do Telegram</span>
           </p>
         </div>
-        <span class="etiqueta" :class="estado.cor">{{ estado.nome }}</span>
+        <div class="acoes"><span class="etiqueta" :class="estado.cor">{{ estado.nome }}</span></div>
       </header>
 
       <template v-if="fonte.estado === 'erro'">
@@ -434,6 +434,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.topo-fonte { margin-bottom: 0; }
+.topo-fonte h1 { flex: 1 1 auto; overflow-wrap: anywhere; }
+.contexto { margin: var(--e1) 0 0; }
 .capitulos {
   list-style: none;
   margin: var(--e3) 0 0;

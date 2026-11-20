@@ -139,8 +139,8 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
 
     <!-- Geral -->
     <section v-if="pagina === 'geral' && ajustes">
-      <h1>Geral</h1>
-      <p class="lead">Como a IA trabalha em todas as trilhas.</p>
+      <div class="topo-pagina"><h1>Geral</h1></div>
+      <p class="explicacao">Como a IA trabalha em todas as trilhas.</p>
       <form class="pilha formulario secao-curta" @submit.prevent="salvarAjustes">
         <div>
           <label class="rotulo" for="a-instr">Instruções globais</label>
@@ -161,8 +161,8 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
 
     <!-- Modelos -->
     <section v-else-if="pagina === 'modelos' && ajustes">
-      <h1>Modelos</h1>
-      <p class="lead">Qual modelo do Claude faz cada tipo de tarefa. O recomendado está marcado; mude para testar.</p>
+      <div class="topo-pagina"><h1>Modelos</h1></div>
+      <p class="explicacao">Qual modelo do Claude faz cada tipo de tarefa. O recomendado está marcado; mude para testar.</p>
       <form class="pilha formulario secao-curta" @submit.prevent="salvarAjustes">
         <div v-for="m in MODELOS" :key="m.campo">
           <label class="rotulo" :for="m.campo">{{ m.nome }} <span class="fraco">(recomendado: {{ NOMES_MODELO[m.recomendado] }})</span></label>
@@ -182,8 +182,8 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
 
     <!-- Regras -->
     <section v-else-if="pagina === 'regras'">
-      <h1>Regras da IA</h1>
-      <p class="lead">O que a IA segue em cada tipo de tarefa. Editar aqui vale na próxima chamada, sem deploy; a original fica guardada.</p>
+      <div class="topo-pagina"><h1>Regras da IA</h1></div>
+      <p class="explicacao">O que a IA segue em cada tipo de tarefa. Editar aqui vale na próxima chamada, sem deploy; a original fica guardada.</p>
       <table class="tabela secao-curta">
         <tbody>
           <tr v-for="r in regras" :key="r.arquivo">
@@ -211,8 +211,8 @@ const quando = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-d
 
     <!-- Fila -->
     <section v-else-if="pagina === 'fila'">
-      <h1>Fila</h1>
-      <p class="lead">Uma tarefa por vez. As mais recentes primeiro, com o modelo de cada uma.</p>
+      <div class="topo-pagina"><h1>Fila</h1></div>
+      <p class="explicacao">Uma tarefa por vez. As mais recentes primeiro, com o modelo de cada uma.</p>
       <table v-if="tarefas.length" class="tabela secao-curta">
         <tbody>
           <tr v-for="t in tarefas" :key="t.id">

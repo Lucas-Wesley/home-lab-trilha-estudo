@@ -9,6 +9,7 @@ import { acharPasta, aulasPedidas, montarArvore, oQueFalta, tamanho } from '../p
 import { segundosParaTempo } from '../videoaula.js'
 import { MODOS, modoRecomendado, pacoteDoCurso, resumoDoPacote } from '../cursoParaTrilha.js'
 import { aulasDaPasta, referenciaDaAula, referenciaDoCurso, selecaoCursos as marcadas, tituloDoCurso } from '../cursos.js'
+import { encaixesDaPasta, trilhasDaPasta, usosPorAula } from '../usos.js'
 
 // Meus arquivos (T41): os cursos do Telegram que estão no Streaming, em curso › módulo › aula
 // (a árvore é a do Streaming, S55 de lá — pastas.js copiado). A Trilha só chama a API dele:
@@ -92,6 +93,23 @@ async function buscarEntrada() {
   } catch { /* sem a lista, as aulas mostram "Processar" — o POST deduplica */ }
 }
 const fonteDaAula = (a) => fontesDaEntrada.value[referenciaDaAula(a)]
+
+// Onde as aulas já estão: "na trilha X" na aula e na pasta, e os encaixes esperando aprovação.
+const usos = ref({ aulas: [], encaixes: [] })
+async function buscarUsos() {
+  try {
+    usos.value = await api('/api/arquivos/usos')
+  } catch { /* sem os usos, a tela só não mostra onde cada aula está */ }
+}
+const mapaDeUsos = computed(() => usosPorAula(usos.value))
+const usosDaAula = (a) => {
+  const vistas = new Set()
+  return (mapaDeUsos.value.get(referenciaDaAula(a)) || []).filter((u) => !vistas.has(u.trilha_id) && vistas.add(u.trilha_id))
+}
+const trilhasDe = (p) => trilhasDaPasta(p, mapaDeUsos.value)
+const encaixesDe = (p) => encaixesDaPasta(p, usos.value.encaixes)
+const linkTrilha = (id) => link('trilhas', String(id))
+const pctBaixado = (p) => (p.total ? Math.round((p.baixadas / p.total) * 100) : 0)
 
 const dialogoProcessar = ref(null) // {aulas, titulo}
 const fragmentarDepois = ref(true)
@@ -217,10 +235,6 @@ async function criarTrilha() {
   }
 }
 
-const irParaPasta = (caminho) => {
-  location.hash = linkPasta(caminho)
-}
-
 // ---------- fase 9 (T43): encaixar os cursos marcados pelos títulos das aulas ----------
 // Cada pasta ganha uma caixa de marcar; uma ou mais marcadas mostram as duas ações:
 // encaixar numa trilha existente ou criar a trilha vazia e encaixar nela — mesmo encaixe.
@@ -242,12 +256,17 @@ const pastasMarcadas = computed(() => {
   anda(arvore.value)
   return lista
 })
-const materialDoCurso = computed(() => {
-  if (!pastasMarcadas.value.length) return null
-  const referencia = referenciaDoCurso(pastasMarcadas.value)
+const materialDe = (pastas) => {
+  if (!pastas.length) return null
+  const referencia = referenciaDoCurso(pastas)
   if (!referencia) return null
-  return { tipo: 'curso', titulo: tituloDoCurso(pastasMarcadas.value), referencia }
-})
+  return { tipo: 'curso', titulo: tituloDoCurso(pastas), referencia }
+}
+const materialDoCurso = computed(() => materialDe(pastasMarcadas.value))
+// As pastas do encaixe que está sendo pedido: as marcadas, ou só a pasta aberta ("Encaixar esta
+// pasta numa trilha", sem precisar marcar).
+const pastasDoEncaixe = ref([])
+const limparMarcadas = () => { marcadas.value = new Set() }
 
 // "Encaixar numa trilha": seletor de trilha + pedido opcional.
 const encaixando = ref(false)
@@ -263,7 +282,8 @@ const pedidoCursoNovo = ref('')
 // Aviso depois de pedir: "Encaixe pedido na trilha X" com link para a aba Encaixar.
 const avisoEncaixe = ref(null) // {id, titulo}
 
-async function abrirEncaixar() {
+async function abrirEncaixar(pastas = pastasMarcadas.value) {
+  pastasDoEncaixe.value = pastas
   erroEncaixe.value = ''
   pedidoCurso.value = ''
   try {
@@ -277,14 +297,15 @@ async function abrirEncaixar() {
 
 // O material "curso" vai pelo encaixe de sempre — a IA lê só os títulos das aulas.
 async function pedirEncaixe(trilhaId, trilhaTitulo, pedido) {
-  const material = materialDoCurso.value
+  const material = materialDe(pastasDoEncaixe.value)
   if (!material) {
     erroEncaixe.value = 'Uma das pastas marcadas não é de um grupo do Telegram.'
     return false
   }
   await api(`/api/trilhas/${trilhaId}/encaixar`, { metodo: 'POST', corpo: { material, pedido } })
   avisoEncaixe.value = { id: trilhaId, titulo: trilhaTitulo }
-  marcadas.value = new Set()
+  if (pastasDoEncaixe.value === pastasMarcadas.value) marcadas.value = new Set()
+  await buscarUsos()
   return true
 }
 
@@ -316,8 +337,9 @@ async function criarTrilhaDosCursos() {
   }
 }
 
-function abrirCriarDosCursos() {
-  tituloTrilhaCursos.value = tituloDoCurso(pastasMarcadas.value)
+function abrirCriarDosCursos(pastas = pastasMarcadas.value) {
+  pastasDoEncaixe.value = pastas
+  tituloTrilhaCursos.value = tituloDoCurso(pastas)
   pedidoCursoNovo.value = ''
   erroEncaixe.value = ''
   criandoDosCursos.value = true
@@ -340,389 +362,477 @@ onMounted(async () => {
     /* se /api/integracoes falhar, tenta mesmo assim: o erro de /api/arquivos explica */
   }
   await carregar()
-  await buscarEntrada()
+  await Promise.all([buscarEntrada(), buscarUsos()])
 })
 onBeforeUnmount(() => clearInterval(relogioDaFila))
 </script>
 
 <template>
   <Pagina>
-    <div class="pilha">
-      <AbasPagina :abas="ABAS" model-value="arquivos" rotulo="Partes da Entrada" @update:model-value="mudarAba" />
-
-      <header class="cabecalho">
-        <div>
-          <h1>Meus arquivos</h1>
-          <p class="pequeno">
-            Os cursos do Telegram que estão no Streaming, em curso › módulo › aula.
-            <template v-if="dados && livre"> {{ tamanho(livre) }} livres no servidor.</template>
-          </p>
+    <template #topo>
+      <div class="topo-pagina">
+        <h1>Entrada</h1>
+        <div class="acoes">
+          <span v-if="dados && livre" class="pequeno fraco">{{ tamanho(livre) }} livres no servidor</span>
         </div>
-      </header>
+      </div>
+      <AbasPagina class="abas-entrada" :abas="ABAS" model-value="arquivos" rotulo="Partes da Entrada" @update:model-value="mudarAba" />
+    </template>
 
-      <p v-if="erro" class="aviso">{{ erro }}</p>
-      <p v-else-if="aviso" class="aviso neutro">{{ aviso }}</p>
-      <!-- S57 do Streaming: o disco dos vídeos não pôde ser lido; a lista vem do banco mesmo assim. -->
-      <p v-if="dados?.aviso" class="aviso">{{ dados.aviso }}</p>
-      <p v-if="dados && !telegramInstalado" class="aviso">O tdl não está instalado no Streaming: dá para ver as aulas, mas não baixar.</p>
-      <p v-if="dados && !dados.videos?.length && !dados.salvos?.length" class="fraco">
+    <p v-if="erro" class="aviso">{{ erro }}</p>
+    <p v-else-if="aviso" class="aviso neutro">{{ aviso }}</p>
+    <!-- S57 do Streaming: o disco dos vídeos não pôde ser lido; a lista vem do banco mesmo assim. -->
+    <p v-if="dados?.aviso" class="aviso">{{ dados.aviso }}</p>
+    <p v-if="dados && !telegramInstalado" class="aviso">O tdl não está instalado no Streaming: dá para ver as aulas, mas não baixar.</p>
+    <p v-if="avisoEncaixe" class="aviso neutro">
+      Encaixe pedido na trilha
+      <a :href="`${linkTrilha(avisoEncaixe.id)}#encaixar`">{{ avisoEncaixe.titulo }}</a>:
+      a proposta aparece na aba Encaixar material de lá, para você aprovar.
+    </p>
+
+    <!-- Raiz: um cartão por curso, lado a lado. -->
+    <template v-if="!pasta">
+      <p class="explicacao">
+        Os cursos do Telegram que estão no Streaming, em curso › módulo › aula. Abra um curso para
+        baixar, criar uma trilha igual a ele ou encaixar as aulas numa trilha; marque vários para
+        juntá-los num encaixe só.
+      </p>
+      <p v-if="dados && !arvore.pastas.length" class="fraco">
         Nenhum curso ainda. Os grupos de aulas salvos no Streaming aparecem aqui.
       </p>
-
-      <!-- T43: com pastas marcadas, encaixar numa trilha ou criar a trilha dos cursos. -->
-      <div v-if="pastasMarcadas.length" class="acoes-cursos">
-        <span class="pequeno meta">{{ pastasMarcadas.length }} {{ pastasMarcadas.length === 1 ? 'curso marcado' : 'cursos marcados' }}</span>
-        <button class="botao primario" :disabled="!materialDoCurso" @click="abrirEncaixar">Encaixar numa trilha</button>
-        <button class="botao" :disabled="!materialDoCurso" @click="abrirCriarDosCursos">Criar trilha a partir destes cursos</button>
-      </div>
-      <p v-if="pastasMarcadas.length && !materialDoCurso" class="aviso">
-        Uma das pastas marcadas não é de um grupo do Telegram — só cursos do Telegram entram num encaixe.
-      </p>
-      <p v-if="avisoEncaixe" class="aviso neutro">
-        Encaixe pedido na trilha
-        <a class="link" :href="`${link('trilhas', String(avisoEncaixe.id))}#encaixar`">{{ avisoEncaixe.titulo }}</a>
-        — a proposta aparece na aba Encaixar material.
-      </p>
-
-      <!-- Raiz: um cartão por grupo/curso. -->
-      <ul v-if="!pasta && arvore.pastas.length" class="lista-arvore">
-        <li v-for="g in arvore.pastas" :key="g.nome" class="linha-pasta">
-          <input
-            type="checkbox"
-            class="marca"
-            :checked="marcadas.has(chavePasta(g))"
-            :aria-label="`Marcar ${g.nome}`"
-            @change="alternarMarcada(g)"
-          />
-          <button class="item" type="button" @click="irParaPasta(g.caminho.join('/'))">
-            <Icone nome="pasta" :tamanho="17" />
-            <span class="sobre">
-              <span class="nome">{{ g.nome }}</span>
-              <span class="meta">{{ resumoDaPasta(g) }}</span>
-            </span>
-            <Icone nome="seta-direita" :tamanho="15" class="seta" />
-          </button>
+      <ul class="cursos">
+        <li v-for="g in arvore.pastas" :key="g.nome" class="cartao curso" :class="{ marcada: marcadas.has(chavePasta(g)) }">
+          <div class="curso-topo">
+            <input type="checkbox" class="marca" :checked="marcadas.has(chavePasta(g))" :aria-label="`Marcar ${g.nome}`" @change="alternarMarcada(g)" />
+            <a class="curso-nome" :href="linkPasta(g.caminho.join('/'))">{{ g.nome }}</a>
+          </div>
+          <p class="pequeno fraco">{{ resumoDaPasta(g) }}</p>
+          <div class="progresso" :title="`${pctBaixado(g)}% baixado`"><span :style="{ width: pctBaixado(g) + '%' }" /></div>
+          <div v-if="trilhasDe(g).length || encaixesDe(g).length" class="usos">
+            <a v-for="t in trilhasDe(g).slice(0, 3)" :key="t.trilha_id" class="etiqueta verde" :href="linkTrilha(t.trilha_id)">
+              <Icone nome="trilhas" :tamanho="12" /> {{ t.inteira ? `virou a trilha ${t.trilha}` : `${t.aulas} em ${t.trilha}` }}
+            </a>
+            <a v-for="e in encaixesDe(g)" :key="'e' + e.trilha_id" class="etiqueta ambar" :href="`${linkTrilha(e.trilha_id)}#encaixar`">
+              encaixe esperando em {{ e.trilha }}
+            </a>
+          </div>
         </li>
       </ul>
+    </template>
 
-      <!-- Numa pasta: caminho clicável, resumo e as ações. -->
-      <template v-if="pasta">
-        <nav class="caminho" aria-label="Onde estou">
-          <button class="crumb" type="button" @click="irParaPasta('')"><Icone nome="voltar" :tamanho="14" /> Arquivos</button>
-          <template v-for="(c, i) in caminhoAtual.slice(0, -1)" :key="c.caminho">
-            <span class="sep" aria-hidden="true">›</span>
-            <button class="crumb" type="button" :title="c.nome" @click="irParaPasta(c.caminho)">{{ c.nome }}</button>
-          </template>
-        </nav>
+    <!-- Numa pasta: a lista ao centro e, ao lado, o resumo, onde as aulas já estão e as ações. -->
+    <template v-else>
+      <nav class="caminho" aria-label="Onde estou">
+        <a class="crumb" :href="linkPasta('')"><Icone nome="voltar" :tamanho="14" /> Meus arquivos</a>
+        <template v-for="c in caminhoAtual.slice(0, -1)" :key="c.caminho">
+          <span class="sep" aria-hidden="true">›</span>
+          <a class="crumb" :title="c.nome" :href="linkPasta(c.caminho)">{{ c.nome }}</a>
+        </template>
+      </nav>
 
-        <p v-if="dados && !pastaAtual" class="fraco">Esta pasta não existe mais.</p>
-        <template v-else-if="pastaAtual">
-          <div class="cabeca-pasta">
-            <h2>{{ pastaAtual.nome }}</h2>
-            <p class="pequeno meta">
-              {{ resumoDaPasta(pastaAtual) }}<template v-if="naFilaAqui > 0"> · {{ naFilaAqui }} na fila</template>
-            </p>
-            <!-- T42: criar a trilha igual ao curso · T44: processar aulas na Entrada. -->
-            <div class="acoes-curso">
-              <button v-if="pastaAtual.total" class="botao" @click="abrirCriarTrilha">Criar trilha igual a este curso</button>
-              <button
-                v-if="aulasDaPasta(pastaAtual).some(referenciaDaAula)"
-                class="botao"
-                @click="abrirProcessarPasta(pastaAtual)"
-              >
-                Processar na Entrada
-              </button>
-            </div>
-            <div v-if="aulasQueFaltam || pastaAtual.baixadas" class="linha">
-              <button v-if="aulasQueFaltam" class="botao primario" :disabled="baixandoAulas || !telegramInstalado || naoCabe" @click="baixarAulas(faltaAqui)">
-                {{
-                  baixandoAulas
-                    ? 'Mandando…'
-                    : `Baixar ${aulasQueFaltam === pastaAtual.total ? 'tudo' : 'o que falta'} (${quantasAulas(aulasQueFaltam)} · ${tamanho(pesoDaFalta)})`
-                }}
-              </button>
-              <button v-if="pastaAtual.baixadas" class="botao perigo" @click="apagarPasta(pastaAtual)">
-                <Icone nome="lixeira" :tamanho="14" /> Apagar as baixadas
-              </button>
-            </div>
-            <p v-if="naoCabe && aulasQueFaltam" class="aviso">
-              Não cabe: faltam {{ tamanho(pesoDaFalta) }} e há {{ tamanho(livre) }} livres no servidor. Apague algo antes.
-            </p>
+      <p v-if="dados && !pastaAtual" class="fraco">Esta pasta não existe mais.</p>
+      <template v-else-if="pastaAtual">
+        <h2 class="nome-pasta">{{ pastaAtual.nome }}</h2>
+        <div class="pilha-quadros">
+
+        <div v-if="pastaAtual.pastas.length" class="quadro">
+          <div class="quadro-topo">
+            <h3 class="rotulo-secao">Pastas · {{ pastaAtual.pastas.length }}</h3>
+            <span class="pequeno fraco">marque para encaixar várias juntas</span>
           </div>
-
-          <ul v-if="pastaAtual.pastas.length" class="lista-arvore">
-            <li v-for="g in pastaAtual.pastas" :key="g.nome" class="linha-pasta">
-              <input
-                type="checkbox"
-                class="marca"
-                :checked="marcadas.has(chavePasta(g))"
-                :aria-label="`Marcar ${g.nome}`"
-                @change="alternarMarcada(g)"
-              />
-              <button class="item" type="button" @click="irParaPasta(g.caminho.join('/'))">
-                <Icone nome="pasta" :tamanho="17" />
+          <ul class="lista linhas">
+            <li v-for="g in pastaAtual.pastas" :key="g.nome" class="linha-item" :class="{ marcada: marcadas.has(chavePasta(g)) }">
+              <input type="checkbox" class="marca" :checked="marcadas.has(chavePasta(g))" :aria-label="`Marcar ${g.nome}`" @change="alternarMarcada(g)" />
+              <a class="item-principal" :href="linkPasta(g.caminho.join('/'))">
+                <Icone nome="pasta" :tamanho="16" class="icone-item" />
                 <span class="sobre">
                   <span class="nome">{{ g.nome }}</span>
                   <span class="meta">{{ resumoDaPasta(g) }}</span>
                 </span>
-                <Icone nome="seta-direita" :tamanho="15" class="seta" />
-              </button>
-            </li>
-          </ul>
-
-          <ul v-if="pastaAtual.aulas.length" class="lista-arvore aulas">
-            <li v-for="a in pastaAtual.aulas" :key="a.chave" class="aula" :class="{ falta: !a.video }">
-              <template v-if="a.video">
-                <span class="icone-aula"><Icone nome="video" :tamanho="16" /></span>
-                <span class="sobre">
-                  <span class="nome">{{ a.nome }}</span>
-                  <span class="meta">{{ [segundosParaTempo(a.duracao), tamanho(a.video.tamanho)].filter(Boolean).join(' · ') }}</span>
-                </span>
-                <a v-if="fonteDaAula(a)" class="link mini" :href="link('entrada', String(fonteDaAula(a).id))">na Entrada</a>
-                <button v-else-if="referenciaDaAula(a)" class="botao discreto mini" @click="abrirProcessarAula(a)">Processar</button>
-                <a class="botao discreto mini" :href="linkAssistir(a)" target="_blank" rel="noopener">Assistir</a>
-                <button class="botao discreto mini perigo" aria-label="Apagar do servidor" @click="apagarAula(a)">
-                  <Icone nome="lixeira" :tamanho="14" />
-                </button>
-              </template>
-              <template v-else>
-                <span class="icone-aula vazia"><Icone nome="video" :tamanho="16" /></span>
-                <span class="sobre">
-                  <span class="nome">{{ a.nome }}</span>
-                  <span class="meta">{{ [segundosParaTempo(a.duracao), tamanho(a.tamanho), 'no Telegram'].filter(Boolean).join(' · ') }}</span>
-                </span>
-                <a v-if="fonteDaAula(a)" class="link mini" :href="link('entrada', String(fonteDaAula(a).id))">na Entrada</a>
-                <button v-else-if="referenciaDaAula(a)" class="botao discreto mini" @click="abrirProcessarAula(a)">Processar</button>
-                <span v-if="estaPedida(a)" class="etiqueta">na fila</span>
-                <button v-else class="botao mini" :disabled="baixandoAulas || !telegramInstalado" @click="baixarAula(a)">Baixar</button>
-              </template>
-            </li>
-          </ul>
-          <p v-if="!pastaAtual.pastas.length && !pastaAtual.aulas.length" class="fraco">Nenhuma aula nesta pasta.</p>
-        </template>
-      </template>
-
-      <!-- Criar a trilha igual ao curso: título, um dos dois modos e a contagem na hora. -->
-      <div v-if="criandoTrilha" class="dialogo-fundo" @click.self="criandoTrilha = false">
-        <form class="painel pilha" role="dialog" aria-label="Criar trilha igual a este curso" @submit.prevent="criarTrilha">
-          <h3>Criar trilha igual a este curso</h3>
-          <p class="pequeno">
-            A trilha fica com a cara do curso: cada aula do Telegram vira material da etapa e só
-            baixa quando você pedir na hora de assistir. Sem lição escrita e sem IA.
-          </p>
-          <div>
-            <label class="rotulo" for="t-titulo">Título da trilha</label>
-            <input id="t-titulo" v-model="tituloTrilha" class="campo" type="text" required />
-          </div>
-          <div class="modos">
-            <button
-              v-for="(nome, modo) in MODOS"
-              :key="modo"
-              type="button"
-              class="modo"
-              :class="{ ativa: modoTrilha === modo }"
-              :aria-pressed="modoTrilha === modo"
-              @click="modoTrilha = modo"
-            >
-              <span class="nome-modo">
-                {{ nome }}
-                <span v-if="modo === recomendado" class="etiqueta">recomendado</span>
+              </a>
+              <span class="usos">
+                <a v-for="t in trilhasDe(g).slice(0, 2)" :key="t.trilha_id" class="etiqueta verde" :href="linkTrilha(t.trilha_id)" :title="`${t.aulas} aulas na trilha ${t.trilha}`">
+                  {{ t.inteira ? t.trilha : `${t.aulas} em ${t.trilha}` }}
+                </a>
+                <a v-for="e in encaixesDe(g)" :key="'e' + e.trilha_id" class="etiqueta ambar" :href="`${linkTrilha(e.trilha_id)}#encaixar`">esperando · {{ e.trilha }}</a>
               </span>
-              <span class="meta">{{ resumoDosModos[modo]?.texto }}</span>
-            </button>
+              <Icone nome="seta-direita" :tamanho="15" class="seta" />
+            </li>
+          </ul>
+        </div>
+
+        <div v-if="pastaAtual.aulas.length" class="quadro">
+          <div class="quadro-topo">
+            <h3 class="rotulo-secao">Aulas · {{ pastaAtual.aulas.length }}</h3>
           </div>
-          <p v-if="erroTrilha" class="aviso">{{ erroTrilha }}</p>
-          <div class="linha">
-            <button class="botao primario" type="submit" :disabled="mandandoTrilha || !tituloTrilha.trim()">
-              {{ mandandoTrilha ? 'Criando…' : 'Criar a trilha' }}
-            </button>
-            <button class="botao discreto" type="button" @click="criandoTrilha = false">Cancelar</button>
-          </div>
-        </form>
+          <ul class="lista linhas">
+            <li v-for="a in pastaAtual.aulas" :key="a.chave" class="linha-item aula" :class="{ falta: !a.video }">
+              <span class="icone-aula" :class="{ vazia: !a.video }"><Icone nome="video" :tamanho="15" /></span>
+              <span class="sobre">
+                <span class="nome">{{ a.nome }}</span>
+                <span class="meta">
+                  {{ [segundosParaTempo(a.duracao), tamanho(a.video ? a.video.tamanho : a.tamanho), a.video ? '' : 'no Telegram'].filter(Boolean).join(' · ') }}
+                </span>
+              </span>
+              <span class="usos">
+                <a v-for="u in usosDaAula(a)" :key="u.trilha_id" class="etiqueta verde" :href="link('trilhas', u.trilha_id, 'etapas', u.etapa_id)" :title="`Etapa ${u.etapa}`">
+                  {{ u.trilha }}
+                </a>
+                <a v-if="fonteDaAula(a)" class="etiqueta azul" :href="link('entrada', String(fonteDaAula(a).id))">na Entrada</a>
+                <span v-if="!a.video && estaPedida(a)" class="etiqueta">na fila</span>
+              </span>
+              <span class="acoes-aula">
+                <button v-if="!fonteDaAula(a) && referenciaDaAula(a)" class="botao discreto" title="Transcrever no Whisper e dividir por assunto" @click="abrirProcessarAula(a)">Processar</button>
+                <template v-if="a.video">
+                  <a class="botao discreto" :href="linkAssistir(a)" target="_blank" rel="noopener">Assistir</a>
+                  <button class="botao discreto icone perigo" aria-label="Apagar do servidor" title="Apagar do servidor" @click="apagarAula(a)">
+                    <Icone nome="lixeira" :tamanho="14" />
+                  </button>
+                </template>
+                <button v-else-if="!estaPedida(a)" class="botao" :disabled="baixandoAulas || !telegramInstalado" @click="baixarAula(a)">Baixar</button>
+              </span>
+            </li>
+          </ul>
+        </div>
+        <p v-if="!pastaAtual.pastas.length && !pastaAtual.aulas.length" class="fraco">Nenhuma aula nesta pasta.</p>
+        </div>
+      </template>
+    </template>
+
+    <template v-if="pasta && pastaAtual" #lateral>
+      <div class="quadro">
+        <div class="quadro-topo"><h2 class="rotulo-secao">Esta pasta</h2></div>
+        <div class="numeros">
+          <div><span class="valor">{{ pastaAtual.total }}</span><span class="pequeno fraco">aulas</span></div>
+          <div><span class="valor">{{ pastaAtual.baixadas }}</span><span class="pequeno fraco">baixadas</span></div>
+          <div><span class="valor">{{ tamanho(pastaAtual.tamanho) || '0' }}</span><span class="pequeno fraco">no servidor</span></div>
+        </div>
+        <div class="progresso"><span :style="{ width: pctBaixado(pastaAtual) + '%' }" /></div>
+        <p class="pequeno fraco">
+          <template v-if="pastaAtual.falta">Faltam {{ tamanho(pastaAtual.falta) }} no Telegram.</template>
+          <template v-else>Tudo baixado.</template>
+          <template v-if="naFilaAqui > 0"> {{ naFilaAqui }} na fila.</template>
+        </p>
       </div>
 
-      <!-- T43: encaixar os cursos marcados numa trilha existente. -->
-      <div v-if="encaixando" class="dialogo-fundo" @click.self="encaixando = false">
-        <form class="painel pilha" role="dialog" aria-label="Encaixar cursos numa trilha" @submit.prevent="encaixarCursos">
-          <h3>Encaixar numa trilha</h3>
-          <p class="pequeno">
-            A IA lê só os títulos das aulas ({{ tituloDoCurso(pastasMarcadas) }}) e diz em que
-            etapas elas entram e o que falta. Nada é baixado.
-          </p>
-          <div>
-            <label class="rotulo" for="e-trilha">Trilha</label>
-            <select id="e-trilha" v-model="trilhaEscolhida" class="campo" required>
-              <option value="" disabled>Escolher…</option>
-              <option v-for="t in trilhas" :key="t.id" :value="String(t.id)">{{ t.titulo }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="rotulo" for="e-pedido">Pedido para a IA <span class="fraco">(opcional)</span></label>
-            <textarea id="e-pedido" v-model="pedidoCurso" class="campo" rows="2" placeholder="Ex.: priorize as aulas de DDD tático; a parte de eventos já está coberta." />
-          </div>
-          <p v-if="erroEncaixe" class="aviso">{{ erroEncaixe }}</p>
-          <div class="linha">
-            <button class="botao primario" type="submit" :disabled="mandandoEncaixe || !trilhaEscolhida">
-              {{ mandandoEncaixe ? 'Pedindo…' : 'Pedir o encaixe' }}
-            </button>
-            <button class="botao discreto" type="button" @click="encaixando = false">Cancelar</button>
-          </div>
-        </form>
+      <div class="quadro">
+        <div class="quadro-topo"><h2 class="rotulo-secao">Nas trilhas</h2></div>
+        <ul v-if="trilhasDe(pastaAtual).length || encaixesDe(pastaAtual).length" class="lista linhas compacta">
+          <li v-for="t in trilhasDe(pastaAtual)" :key="t.trilha_id" class="linha-uso">
+            <a :href="linkTrilha(t.trilha_id)">{{ t.trilha }}</a>
+            <span class="pequeno fraco">{{ t.inteira ? 'a pasta inteira' : `${t.aulas} de ${aulasDaPasta(pastaAtual).length} aulas` }}</span>
+          </li>
+          <li v-for="e in encaixesDe(pastaAtual)" :key="'e' + e.trilha_id" class="linha-uso">
+            <a :href="`${linkTrilha(e.trilha_id)}#encaixar`">{{ e.trilha }}</a>
+            <span class="etiqueta ambar">encaixe esperando aprovação</span>
+          </li>
+        </ul>
+        <p v-else class="pequeno fraco">Nenhuma aula desta pasta está numa trilha ainda.</p>
       </div>
 
-      <!-- T43: criar a trilha vazia com o nome escolhido e encaixar os cursos nela. -->
-      <div v-if="criandoDosCursos" class="dialogo-fundo" @click.self="criandoDosCursos = false">
-        <form class="painel pilha" role="dialog" aria-label="Criar trilha a partir destes cursos" @submit.prevent="criarTrilhaDosCursos">
-          <h3>Criar trilha a partir destes cursos</h3>
-          <p class="pequeno">
-            A trilha nasce vazia e a IA monta os módulos e as etapas pelos títulos das aulas
-            ({{ tituloDoCurso(pastasMarcadas) }}). Nada é baixado.
-          </p>
-          <div>
-            <label class="rotulo" for="c-titulo">Nome da trilha</label>
-            <input id="c-titulo" v-model="tituloTrilhaCursos" class="campo" type="text" required />
-          </div>
-          <div>
-            <label class="rotulo" for="c-pedido">Pedido para a IA <span class="fraco">(opcional)</span></label>
-            <textarea id="c-pedido" v-model="pedidoCursoNovo" class="campo" rows="2" />
-          </div>
-          <p v-if="erroEncaixe" class="aviso">{{ erroEncaixe }}</p>
-          <div class="linha">
-            <button class="botao primario" type="submit" :disabled="mandandoEncaixe || !tituloTrilhaCursos.trim()">
-              {{ mandandoEncaixe ? 'Criando…' : 'Criar e encaixar' }}
-            </button>
-            <button class="botao discreto" type="button" @click="criandoDosCursos = false">Cancelar</button>
-          </div>
-        </form>
+      <div class="quadro acoes-pasta">
+        <div class="quadro-topo"><h2 class="rotulo-secao">O que fazer com ela</h2></div>
+        <button v-if="pastaAtual.total" class="botao largo" @click="abrirCriarTrilha">
+          <Icone nome="trilhas" :tamanho="15" /> Criar trilha igual a este curso
+        </button>
+        <button class="botao largo" :disabled="!materialDe([pastaAtual])" @click="abrirEncaixar([pastaAtual])">
+          <Icone nome="mais" :tamanho="15" /> Encaixar numa trilha
+        </button>
+        <button v-if="aulasDaPasta(pastaAtual).some(referenciaDaAula)" class="botao largo" @click="abrirProcessarPasta(pastaAtual)">
+          <Icone nome="entrada" :tamanho="15" /> Processar na Entrada
+        </button>
+        <p class="pequeno fraco ajuda-acoes">
+          <strong>Criar igual</strong>: a trilha copia a estrutura do curso, sem IA.
+          <strong>Encaixar</strong>: a IA lê só os títulos e põe as aulas nas etapas (ou cria etapas novas).
+          <strong>Processar</strong>: transcreve as aulas no Whisper e divide por assunto, como um vídeo do YouTube.
+        </p>
+        <div v-if="aulasQueFaltam || pastaAtual.baixadas" class="separador" />
+        <button v-if="aulasQueFaltam" class="botao largo" :disabled="baixandoAulas || !telegramInstalado || naoCabe" @click="baixarAulas(faltaAqui)">
+          {{ baixandoAulas ? 'Mandando…' : `Baixar ${aulasQueFaltam === pastaAtual.total ? 'tudo' : 'o que falta'} (${quantasAulas(aulasQueFaltam)} · ${tamanho(pesoDaFalta)})` }}
+        </button>
+        <p v-if="naoCabe && aulasQueFaltam" class="aviso">
+          Não cabe: faltam {{ tamanho(pesoDaFalta) }} e há {{ tamanho(livre) }} livres no servidor. Apague algo antes.
+        </p>
+        <button v-if="pastaAtual.baixadas" class="botao largo perigo" @click="apagarPasta(pastaAtual)">
+          <Icone nome="lixeira" :tamanho="14" /> Apagar as baixadas
+        </button>
       </div>
-
-      <!-- T44: processar aulas na Entrada — a Trilha baixa o que precisar e transcreve no Whisper. -->
-      <div v-if="dialogoProcessar" class="dialogo-fundo" @click.self="dialogoProcessar = null">
-        <form class="painel pilha" role="dialog" aria-label="Processar aulas na Entrada" @submit.prevent="processar">
-          <h3>Processar na Entrada</h3>
-          <p class="pequeno">
-            {{ dialogoProcessar.aulas.length === 1 ? '1 aula' : `${dialogoProcessar.aulas.length} aulas` }}
-            <template v-if="tempoDeAudio"> · ~{{ segundosParaTempo(tempoDeAudio) }} de áudio</template>
-            — {{ dialogoProcessar.titulo }}. Cada uma vira uma fonte da Entrada: a Trilha pede o
-            download ao Streaming se a aula ainda não estiver no servidor e transcreve o áudio no
-            Whisper, sem gastar a IA.
-          </p>
-          <label class="linha marca-linha">
-            <input v-model="fragmentarDepois" type="checkbox" class="marca" />
-            Dividir em fragmentos quando terminar
-          </label>
-          <p v-if="erroProcessar" class="aviso">{{ erroProcessar }}</p>
-          <div class="linha">
-            <button class="botao primario" type="submit" :disabled="mandandoProcessar || !dialogoProcessar.aulas.length">
-              {{ mandandoProcessar ? 'Mandando…' : 'Processar' }}
-            </button>
-            <button class="botao discreto" type="button" @click="dialogoProcessar = null">Cancelar</button>
-          </div>
-        </form>
-      </div>
-    </div>
+    </template>
   </Pagina>
+
+  <div v-if="pastasMarcadas.length" class="espaco-barra" aria-hidden="true" />
+  <!-- Pastas marcadas: a barra fica presa no pé, perto de onde se marca, em qualquer pasta. -->
+  <div v-if="pastasMarcadas.length" class="barra-selecao" role="region" aria-label="Pastas marcadas">
+    <div class="selecao-texto">
+      <strong>{{ pastasMarcadas.length }} {{ pastasMarcadas.length === 1 ? 'pasta marcada' : 'pastas marcadas' }}</strong>
+      <span class="pequeno fraco nomes-marcados">{{ tituloDoCurso(pastasMarcadas) }}</span>
+      <span v-if="!materialDoCurso" class="pequeno aviso-texto">uma delas não é de um grupo do Telegram</span>
+    </div>
+    <div class="selecao-acoes">
+      <button class="botao primario" :disabled="!materialDoCurso" @click="abrirEncaixar()">Encaixar numa trilha</button>
+      <button class="botao" :disabled="!materialDoCurso" @click="abrirCriarDosCursos()">Criar trilha com elas</button>
+      <button class="botao discreto icone fechar-selecao" aria-label="Desmarcar todas" title="Desmarcar todas" @click="limparMarcadas"><Icone nome="fechar" :tamanho="15" /></button>
+    </div>
+  </div>
+
+  <!-- Criar a trilha igual ao curso: título, um dos dois modos e a contagem na hora. -->
+  <div v-if="criandoTrilha" class="dialogo-fundo" @click.self="criandoTrilha = false">
+    <form class="painel pilha" role="dialog" aria-label="Criar trilha igual a este curso" @submit.prevent="criarTrilha">
+      <h3>Criar trilha igual a este curso</h3>
+      <p class="pequeno">
+        A trilha fica com a cara do curso: cada aula do Telegram vira material da etapa e só
+        baixa quando você pedir na hora de assistir. Sem lição escrita e sem IA.
+      </p>
+      <div>
+        <label class="rotulo" for="t-titulo">Título da trilha</label>
+        <input id="t-titulo" v-model="tituloTrilha" class="campo" type="text" required />
+      </div>
+      <div class="modos">
+        <button
+          v-for="(nome, modo) in MODOS"
+          :key="modo"
+          type="button"
+          class="modo"
+          :class="{ ativa: modoTrilha === modo }"
+          :aria-pressed="modoTrilha === modo"
+          @click="modoTrilha = modo"
+        >
+          <span class="nome-modo">
+            {{ nome }}
+            <span v-if="modo === recomendado" class="etiqueta">recomendado</span>
+          </span>
+          <span class="meta">{{ resumoDosModos[modo]?.texto }}</span>
+        </button>
+      </div>
+      <p v-if="erroTrilha" class="aviso">{{ erroTrilha }}</p>
+      <div class="linha">
+        <button class="botao primario" type="submit" :disabled="mandandoTrilha || !tituloTrilha.trim()">
+          {{ mandandoTrilha ? 'Criando…' : 'Criar a trilha' }}
+        </button>
+        <button class="botao discreto" type="button" @click="criandoTrilha = false">Cancelar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- T43: encaixar os cursos marcados numa trilha existente. -->
+  <div v-if="encaixando" class="dialogo-fundo" @click.self="encaixando = false">
+    <form class="painel pilha" role="dialog" aria-label="Encaixar cursos numa trilha" @submit.prevent="encaixarCursos">
+      <h3>Encaixar numa trilha</h3>
+      <p class="pequeno">
+        A IA lê só os títulos das aulas ({{ tituloDoCurso(pastasDoEncaixe) }}) e diz em que
+        etapas elas entram e o que falta. Nada é baixado.
+      </p>
+      <div>
+        <label class="rotulo" for="e-trilha">Trilha</label>
+        <select id="e-trilha" v-model="trilhaEscolhida" class="campo" required>
+          <option value="" disabled>Escolher…</option>
+          <option v-for="t in trilhas" :key="t.id" :value="String(t.id)">{{ t.titulo }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="rotulo" for="e-pedido">Pedido para a IA <span class="fraco">(opcional)</span></label>
+        <textarea id="e-pedido" v-model="pedidoCurso" class="campo" rows="2" placeholder="Ex.: priorize as aulas de DDD tático; a parte de eventos já está coberta." />
+      </div>
+      <p v-if="erroEncaixe" class="aviso">{{ erroEncaixe }}</p>
+      <div class="linha">
+        <button class="botao primario" type="submit" :disabled="mandandoEncaixe || !trilhaEscolhida">
+          {{ mandandoEncaixe ? 'Pedindo…' : 'Pedir o encaixe' }}
+        </button>
+        <button class="botao discreto" type="button" @click="encaixando = false">Cancelar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- T43: criar a trilha vazia com o nome escolhido e encaixar os cursos nela. -->
+  <div v-if="criandoDosCursos" class="dialogo-fundo" @click.self="criandoDosCursos = false">
+    <form class="painel pilha" role="dialog" aria-label="Criar trilha a partir destes cursos" @submit.prevent="criarTrilhaDosCursos">
+      <h3>Criar trilha a partir destes cursos</h3>
+      <p class="pequeno">
+        A trilha nasce vazia e a IA monta os módulos e as etapas pelos títulos das aulas
+        ({{ tituloDoCurso(pastasDoEncaixe) }}). Nada é baixado.
+      </p>
+      <div>
+        <label class="rotulo" for="c-titulo">Nome da trilha</label>
+        <input id="c-titulo" v-model="tituloTrilhaCursos" class="campo" type="text" required />
+      </div>
+      <div>
+        <label class="rotulo" for="c-pedido">Pedido para a IA <span class="fraco">(opcional)</span></label>
+        <textarea id="c-pedido" v-model="pedidoCursoNovo" class="campo" rows="2" />
+      </div>
+      <p v-if="erroEncaixe" class="aviso">{{ erroEncaixe }}</p>
+      <div class="linha">
+        <button class="botao primario" type="submit" :disabled="mandandoEncaixe || !tituloTrilhaCursos.trim()">
+          {{ mandandoEncaixe ? 'Criando…' : 'Criar e encaixar' }}
+        </button>
+        <button class="botao discreto" type="button" @click="criandoDosCursos = false">Cancelar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- T44: processar aulas na Entrada — a Trilha baixa o que precisar e transcreve no Whisper. -->
+  <div v-if="dialogoProcessar" class="dialogo-fundo" @click.self="dialogoProcessar = null">
+    <form class="painel pilha" role="dialog" aria-label="Processar aulas na Entrada" @submit.prevent="processar">
+      <h3>Processar na Entrada</h3>
+      <p class="pequeno">
+        {{ dialogoProcessar.aulas.length === 1 ? '1 aula' : `${dialogoProcessar.aulas.length} aulas` }}
+        <template v-if="tempoDeAudio"> · ~{{ segundosParaTempo(tempoDeAudio) }} de áudio</template>
+        — {{ dialogoProcessar.titulo }}. Cada uma vira uma fonte da Entrada: a Trilha pede o
+        download ao Streaming se a aula ainda não estiver no servidor e transcreve o áudio no
+        Whisper, sem gastar a IA.
+      </p>
+      <label class="linha marca-linha">
+        <input v-model="fragmentarDepois" type="checkbox" class="marca" />
+        Dividir em fragmentos quando terminar
+      </label>
+      <p v-if="erroProcessar" class="aviso">{{ erroProcessar }}</p>
+      <div class="linha">
+        <button class="botao primario" type="submit" :disabled="mandandoProcessar || !dialogoProcessar.aulas.length">
+          {{ mandandoProcessar ? 'Mandando…' : 'Processar' }}
+        </button>
+        <button class="botao discreto" type="button" @click="dialogoProcessar = null">Cancelar</button>
+      </div>
+    </form>
+  </div>
 </template>
 
 <style scoped>
-.lista-arvore {
+.abas-entrada { margin-bottom: var(--e5); }
+
+/* ---------- raiz: cartões de curso lado a lado ---------- */
+.cursos {
   display: grid;
-  gap: 2px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--e3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.item {
-  display: flex;
-  align-items: center;
-  gap: var(--e2);
-  width: 100%;
-  padding: var(--e2) var(--e1);
-  border: 0;
-  border-radius: var(--raio-p);
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+.curso { display: grid; gap: var(--e2); align-content: start; }
+.curso.marcada, .linha-item.marcada { border-color: var(--borda-forte); background: var(--superficie); }
+.curso-topo { display: flex; align-items: flex-start; gap: var(--e2); }
+.curso-nome {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--texto);
+  text-decoration: none;
+  overflow-wrap: anywhere;
 }
-.item:hover { background: var(--superficie-2); }
-.item:hover .nome { color: var(--marca); }
-.sobre {
-  display: grid;
-  flex: 1;
-  gap: 2px;
-  min-width: 0;
-}
-.nome { overflow-wrap: anywhere; }
-.item .nome { font-weight: 550; }
-.seta { flex-shrink: 0; color: var(--texto-fraco); }
+.curso-nome:hover { color: var(--link); }
+.curso .pequeno { margin: 0; }
 
-.caminho {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 8px;
-}
+.usos { display: flex; flex-wrap: wrap; gap: var(--e1); }
+.usos .etiqueta { gap: 4px; text-decoration: none; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- numa pasta ---------- */
+.caminho { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--e2); margin-bottom: var(--e2); }
 .crumb {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   max-width: 100%;
-  padding: 6px 0;
-  border: 0;
-  background: none;
+  font-size: 13px;
   color: var(--texto-suave);
-  font: inherit;
-  font-size: 0.9rem;
-  cursor: pointer;
+  text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.crumb:hover { color: var(--marca); }
+.crumb:hover { color: var(--texto); }
 .sep { color: var(--texto-fraco); }
+.nome-pasta { margin: 0 0 var(--e4); overflow-wrap: anywhere; }
+.pilha-quadros { display: grid; gap: var(--e4); }
 
-.cabeca-pasta {
-  display: grid;
-  gap: 6px;
-}
-.cabeca-pasta h2 {
-  margin: 0;
-  font-size: 1.15rem;
-  overflow-wrap: anywhere;
-}
-.acoes-curso {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--e1);
-}
-
-.aula {
+.linhas { margin: 0; padding: 0; list-style: none; }
+.linha-item {
   display: flex;
   align-items: center;
-  gap: var(--e2);
-  padding: var(--e2) var(--e1);
+  gap: var(--e3);
+  min-height: 44px;
+  padding: var(--e2) var(--e2);
+  border-bottom: 1px solid var(--borda);
   border-radius: var(--raio-p);
 }
+.linha-item:last-child { border-bottom: 0; }
+.linha-item:hover { background: var(--superficie); }
+.item-principal {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--e3);
+  min-width: 0;
+  color: var(--texto);
+  text-decoration: none;
+}
+.item-principal:hover .nome { color: var(--link); }
+.icone-item { flex: none; color: var(--texto-fraco); }
+.sobre { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.nome { font-size: 14px; font-weight: 550; overflow-wrap: anywhere; }
+.meta { font-size: 12.5px; color: var(--texto-suave); }
+.linha-item > .usos { flex: 0 1 auto; justify-content: flex-end; max-width: 45%; }
+.seta { flex: none; color: var(--texto-fraco); }
+
 .icone-aula {
   display: grid;
-  flex-shrink: 0;
+  flex: none;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--raio-p);
-  background: var(--superficie);
-  color: var(--marca);
+  background: var(--superficie-2);
+  color: var(--texto);
 }
-.icone-aula.vazia { color: var(--texto-fraco); }
+.icone-aula.vazia { background: none; border: 1px dashed var(--borda-forte); color: var(--texto-fraco); }
 .aula.falta .nome { color: var(--texto-suave); }
-.meta { color: var(--texto-suave); font-size: 0.8rem; }
+.acoes-aula { display: flex; flex: none; align-items: center; gap: 2px; }
 
-.modos {
-  display: grid;
-  gap: var(--e1);
+/* ---------- lateral ---------- */
+.numeros { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--e2); margin-bottom: var(--e3); }
+.numeros > div { display: grid; gap: 2px; }
+.numeros .valor { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.quadro > .progresso { margin-bottom: var(--e2); }
+.quadro > .pequeno { margin: 0; }
+.compacta .linha-uso { display: grid; gap: 2px; padding: var(--e2) 0; border-bottom: 1px solid var(--borda); }
+.compacta .linha-uso:last-child { border-bottom: 0; }
+.linha-uso a { font-weight: 550; color: var(--texto); text-decoration: none; }
+.linha-uso a:hover { color: var(--link); }
+.acoes-pasta { display: grid; gap: var(--e2); }
+.acoes-pasta .quadro-topo { margin-bottom: var(--e1); }
+.acoes-pasta .botao { justify-content: flex-start; }
+.ajuda-acoes { margin: var(--e1) 0 0; line-height: 1.5; }
+.ajuda-acoes strong { color: var(--texto-suave); font-weight: 600; }
+.separador { height: 1px; margin: var(--e2) 0; background: var(--borda); }
+
+/* ---------- caixas de marcar e a barra das marcadas ---------- */
+.marca { flex: none; width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--texto); cursor: pointer; }
+.barra-selecao {
+  position: fixed;
+  left: calc(var(--nav) + var(--e5));
+  right: var(--e5);
+  bottom: var(--e4);
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e2) var(--e4);
+  max-width: var(--pagina);
+  margin: 0 auto;
+  padding: var(--e3) var(--e4);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+  background: var(--superficie);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.28);
 }
+.selecao-texto { display: grid; gap: 2px; min-width: 0; }
+.nomes-marcados { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aviso-texto { color: var(--vermelho); }
+.selecao-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e2); }
+
+/* Espaço no pé para a barra não cobrir a última linha. */
+.espaco-barra { height: 96px; }
+
+.modos { display: grid; gap: var(--e1); }
 .modo {
   display: grid;
   gap: 4px;
@@ -735,32 +845,16 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
   text-align: left;
   cursor: pointer;
 }
-.modo.ativa { border-color: var(--marca); background: var(--superficie); }
+.modo.ativa { border-color: var(--borda-forte); background: var(--superficie-2); }
 .nome-modo { display: flex; align-items: center; gap: var(--e2); font-weight: 550; }
+.marca-linha { display: flex; align-items: center; gap: var(--e2); font-size: 13px; }
 
-.linha-pasta {
-  display: flex;
-  align-items: center;
+@media (max-width: 899px) {
+  .barra-selecao { left: var(--e3); right: var(--e3); bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .selecao-texto { padding-right: 36px; }
+  .fechar-selecao { position: absolute; top: var(--e2); right: var(--e2); }
+  .linha-item { flex-wrap: wrap; }
+  .linha-item > .usos { max-width: none; order: 5; flex-basis: 100%; justify-content: flex-start; padding-left: 40px; }
+  .aula .acoes-aula { order: 4; }
 }
-.marca-linha {
-  display: flex;
-  align-items: center;
-  gap: var(--e2);
-  font-size: var(--fonte-pequena);
-}
-.marca {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  margin-left: var(--e1);
-  accent-color: var(--marca);
-}
-.acoes-cursos {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--e2);
-}
-.acoes-cursos .pequeno { flex-basis: 100%; }
-.link { color: var(--marca); }
 </style>

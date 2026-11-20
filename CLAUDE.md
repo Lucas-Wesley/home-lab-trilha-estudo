@@ -195,6 +195,8 @@ novas: `STREAMING_URL` (rede interna; vazio = aba avisa "não configurado") e `S
 "Assistir" abre `…/#/assistir/proprio:<id>` lá). Enquanto houver pedido na fila/baixando a tela
 atualiza a cada 5 s. Mudar `GET /api/meus-videos` no Streaming é mudar a Trilha também; o `aviso`
 que ele manda quando o disco não pôde ser lido (S57 de lá) aparece no topo da aba como erro.
+`GET /api/arquivos/usos` (`usos.go`, T45) diz onde cada aula já está (materiais `telegram:` com trilha
+e etapa, e encaixes de curso pendentes); `usos.js` monta as etiquetas da aula e da pasta.
 
 **Trilha igual ao curso** (`frontend/src/cursoParaTrilha.js`, T42): "Criar trilha igual a este
 curso" na pasta de Meus arquivos abre um diálogo com o título (o da pasta) e dois modos com a
@@ -261,6 +263,6 @@ novas na seção 6 das regras. A trilha entra no app por `POST /api/importar` (p
   proposta aceita **comentários**. Nunca aplicar mudança da IA sem aprovação.
 - Toda chamada ao Claude passa pela **fila** (uma tarefa por vez).
 - Toda cor, raio e tamanho vem de um token de `style.css`. O design system mora no Hub
-  (`hub-home-lab-web/docs/DESIGN-SYSTEM.md`): mudança de design é lá primeiro, depois copia aqui.
+  (`hub-home-lab-web/docs/DESIGN-SYSTEM.md`, quarta versão desde T45): mudança de design é lá primeiro, depois copia aqui.
 - Só teoria por enquanto; ferramentas práticas por trilha só quando o Lucas pedir (T11).
 - **Commits:** autoria do Lucas; **sem linha `Co-Authored-By`**.

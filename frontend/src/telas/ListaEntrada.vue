@@ -143,51 +143,30 @@ onBeforeUnmount(() => {
 
 <template>
   <Pagina>
-  <div class="pilha">
-    <AbasPagina :abas="abas" model-value="videos" rotulo="Partes da Entrada" @update:model-value="mudarAba" />
-    <header class="cabecalho">
-      <div>
+    <template #topo>
+      <div class="topo-pagina">
         <h1>Entrada</h1>
-        <p class="pequeno">Vídeos e playlists do YouTube que ainda não viraram fragmentos de uma trilha.</p>
+        <form class="meio entrada-form" @submit.prevent="mandar">
+          <label class="so-leitor" for="link-yt">Link do YouTube (vídeo ou playlist)</label>
+          <input id="link-yt" v-model="campo" class="campo" placeholder="Link do YouTube: vídeo ou playlist" inputmode="url" />
+          <button type="button" class="botao" @click="colar">Colar</button>
+          <button class="botao primario" :disabled="mandando">Mandar</button>
+        </form>
       </div>
-    </header>
+      <AbasPagina class="abas-entrada" :abas="abas" model-value="videos" rotulo="Partes da Entrada" @update:model-value="mudarAba" />
+    </template>
 
+    <p class="explicacao">
+      Vídeos e playlists do YouTube que ainda não viraram fragmentos de uma trilha. Só a legenda
+      (ou o Whisper, quando não tem) é lida, sem baixar o vídeo.
+    </p>
     <p v-if="avisoCompartilhar" class="aviso neutro">{{ avisoCompartilhar }}</p>
-
-    <form @submit.prevent="mandar">
-      <label class="rotulo" for="link-yt">Link do YouTube (vídeo ou playlist)</label>
-      <div class="linha entrada-form">
-        <input id="link-yt" v-model="campo" class="campo" placeholder="https://youtu.be/…" inputmode="url" />
-        <button type="button" class="botao" @click="colar">Colar</button>
-        <button class="botao primario" :disabled="mandando">Mandar</button>
-      </div>
-      <p class="ajuda">Só a legenda (ou o Whisper, quando não tem) é lida — nada de baixar o vídeo.</p>
-    </form>
-
-    <div v-if="ligados.acervo" class="trazer-acervo">
-      <button class="botao discreto" type="button" @click="abrirAcervo">
-        <Icone nome="livro" :tamanho="15" /> Trazer do Acervo
-      </button>
-      <template v-if="acervoAberto">
-        <input v-model="buscaAcervo" class="campo" placeholder="Buscar vídeo no Acervo…" aria-label="Buscar vídeo no Acervo" />
-        <p v-if="erroAcervo" class="aviso">{{ erroAcervo }}</p>
-        <p v-if="referencias === null" class="fraco">Lendo o Acervo…</p>
-        <p v-else-if="!referenciasFiltradas.length" class="fraco">Nenhum vídeo{{ buscaAcervo ? ' com esse nome' : '' }} no Acervo.</p>
-        <ul v-else class="lista-acervo">
-          <li v-for="r in referenciasFiltradas" :key="r.id">
-            <button class="item" type="button" :disabled="!!trazendo" @click="trazer(r)">
-              <span v-if="naEntrada(r)" class="etiqueta">na Entrada</span>
-              {{ trazendo === r.id ? 'Trazendo… ' : '' }}{{ r.titulo }}
-            </button>
-          </li>
-        </ul>
-      </template>
-    </div>
 
     <p v-if="erro" class="aviso">{{ erro }}</p>
 
     <p v-if="!fontes.length" class="fraco">Nenhuma fonte ainda.</p>
 
+    <div class="fontes">
     <div v-for="f in fontes" :key="f.id" class="cartao fonte">
       <a class="fonte-info" :href="link('entrada', String(f.id))">
         <div v-if="f.tipo === 'telegram'" class="capa capa-vazia"><Icone nome="telegram" :tamanho="20" /></div>
@@ -211,15 +190,43 @@ onBeforeUnmount(() => {
         <button class="botao" @click="tentar(f)">Tentar de novo</button>
       </div>
     </div>
-  </div>
+    </div>
+
+    <template v-if="ligados.acervo" #lateral>
+      <div class="quadro trazer-acervo">
+      <div class="quadro-topo"><h2 class="rotulo-secao">Do Acervo</h2></div>
+      <p class="pequeno fraco">Vídeos que já estão transcritos no Acervo entram prontos, sem ler de novo.</p>
+      <button class="botao discreto" type="button" @click="abrirAcervo">
+        <Icone nome="livro" :tamanho="15" /> Trazer do Acervo
+      </button>
+      <template v-if="acervoAberto">
+        <input v-model="buscaAcervo" class="campo" placeholder="Buscar vídeo no Acervo…" aria-label="Buscar vídeo no Acervo" />
+        <p v-if="erroAcervo" class="aviso">{{ erroAcervo }}</p>
+        <p v-if="referencias === null" class="fraco">Lendo o Acervo…</p>
+        <p v-else-if="!referenciasFiltradas.length" class="fraco">Nenhum vídeo{{ buscaAcervo ? ' com esse nome' : '' }} no Acervo.</p>
+        <ul v-else class="lista-acervo">
+          <li v-for="r in referenciasFiltradas" :key="r.id">
+            <button class="item" type="button" :disabled="!!trazendo" @click="trazer(r)">
+              <span v-if="naEntrada(r)" class="etiqueta">na Entrada</span>
+              {{ trazendo === r.id ? 'Trazendo… ' : '' }}{{ r.titulo }}
+            </button>
+          </li>
+        </ul>
+      </template>
+    </div>
+    </template>
   </Pagina>
 </template>
 
 <style scoped>
+.abas-entrada { margin-bottom: var(--e5); }
+.entrada-form { display: flex; gap: var(--e2); }
 .entrada-form .campo {
   flex: 1;
   min-width: 0;
 }
+.fontes { display: grid; gap: var(--e3); grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); align-items: start; }
+@media (max-width: 699px) { .fontes { grid-template-columns: 1fr; } }
 .trazer-acervo {
   display: grid;
   gap: var(--e3);

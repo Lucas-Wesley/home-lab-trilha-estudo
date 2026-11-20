@@ -17,6 +17,8 @@ const CAMINHOS = {
   copiar: ['M9 9h10v10H9z', 'M5 15V5h10'],
   'seta-baixo': ['m7 10 5 5 5-5'],
   'seta-direita': ['m10 7 5 5-5 5'],
+  voltar: ['M15 5l-7 7 7 7'],
+  avancar: ['M9 5l7 7-7 7'],
   mais: ['M12 5v14', 'M5 12h14'],
   ajustes: ['M4 6h9', 'M17 6h3', 'M15 4v4', 'M4 12h3', 'M11 12h9', 'M9 10v4', 'M4 18h11', 'M19 18h1', 'M17 16v4'],
   livro: ['M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z', 'M4 19a2 2 0 0 1 2-2h13'],

@@ -5,7 +5,6 @@ import DialogoMeta from '../DialogoMeta.vue'
 import DocumentosTrilha from '../DocumentosTrilha.vue'
 import EncaixarMaterial from '../EncaixarMaterial.vue'
 import FormTrilha from '../FormTrilha.vue'
-import Icone from '../Icone.vue'
 import NavTrilhas from '../NavTrilhas.vue'
 import Pagina from '../Pagina.vue'
 import RevisarRoteiro from '../RevisarRoteiro.vue'
@@ -204,25 +203,24 @@ function trocarAba(id) {
   <Pagina>
     <template #nav><NavTrilhas v-if="t" :trilha="t" /></template>
 
-    <p v-if="erro" class="aviso">{{ erro }}</p>
-    <template v-else-if="t">
-      <nav class="migalhas" aria-label="Você está em">
-        <a :href="link('trilhas')">Trilhas</a>
-        <Icone nome="seta-direita" :tamanho="14" />
-        <span>{{ t.titulo }}</span>
-      </nav>
-      <div class="cabecalho">
-        <h1>{{ t.titulo }}</h1>
-        <div class="linha">
+    <template #topo v-if="t">
+      <div class="topo-pagina">
+        <div>
+          <h1>{{ t.titulo }}</h1>
+          <p class="contexto">
+            <span class="etiqueta" :class="ESTADOS[t.estado].cor">{{ ESTADOS[t.estado].nome }}</span>
+            {{ t.modulos.length }} módulos · {{ t.progresso.total }} etapas · {{ duracao(t.progresso.minutos_total) }} · profundidade {{ PROFUNDIDADES[t.profundidade] }}
+          </p>
+        </div>
+        <div class="acoes">
           <a v-if="t.progresso.concluidas || t.progresso.em_andamento" class="botao" :href="link('trilhas', t.id, 'painel')">Painel</a>
           <button class="botao discreto" @click="abrirEdicao">Editar</button>
         </div>
       </div>
-      <p class="contexto">
-        <span class="etiqueta" :class="ESTADOS[t.estado].cor">{{ ESTADOS[t.estado].nome }}</span>
-        {{ t.modulos.length }} módulos · {{ t.progresso.total }} etapas · {{ duracao(t.progresso.minutos_total) }} · profundidade {{ PROFUNDIDADES[t.profundidade] }}
-      </p>
       <p v-if="t.objetivo" class="objetivo">{{ t.objetivo }}</p>
+    </template>
+    <p v-if="erro" class="aviso">{{ erro }}</p>
+    <template v-else-if="t">
       <p v-if="aviso" class="aviso topo">{{ aviso }}</p>
       <p v-if="passoCriacao && passoCriacao !== 'pronta'" class="aviso neutro topo">
         Esta trilha está sendo criada com a IA. <a :href="link('trilhas', t.id, 'criar')">Continuar a criação</a>
@@ -248,8 +246,11 @@ function trocarAba(id) {
 
       <!-- Meta -->
       <section v-show="aba === 'meta'" id="meta" class="secao">
-        <h3 class="subtitulo">Meta e ritmo</h3>
-        <div v-if="metaTexto" class="cartao cheio pilha">
+        <div v-if="metaTexto" class="quadro">
+          <div class="quadro-topo">
+            <h2 class="rotulo-secao">Meta e ritmo</h2>
+            <button class="link-acao" @click="dialogoMeta = true">Mudar meta</button>
+          </div>
           <div class="linha entre">
             <div>
               <strong>{{ metaTexto }}</strong>
@@ -257,20 +258,18 @@ function trocarAba(id) {
                 Desde {{ dataCurta(t.meta.inicio) }}<template v-if="previsao"> · previsão de término {{ dataCurta(previsao) }}</template>
               </div>
             </div>
-            <div class="linha">
-              <button class="botao" @click="dialogoMeta = true">Mudar meta</button>
-              <button class="botao" @click="recalcular">Recalcular</button>
-            </div>
+            <button class="botao" @click="recalcular">Recalcular</button>
           </div>
-          <p v-if="atrasadas" class="aviso neutro">{{ atrasadas }} etapa(s) passaram do dia previsto. "Recalcular" redistribui o que falta a partir de hoje.</p>
-          <div class="linha">
+          <p v-if="atrasadas" class="aviso neutro topo-aviso">{{ atrasadas }} etapa(s) passaram do dia previsto. "Recalcular" redistribui o que falta a partir de hoje.</p>
+          <div class="linha-acoes acoes-meta">
             <button v-if="t.estado === 'ativa'" class="botao discreto" @click="mudarEstado('pausada')">Pausar a trilha</button>
             <button v-else-if="t.estado === 'pausada'" class="botao discreto" @click="mudarEstado('ativa')">Retomar</button>
             <button v-if="t.estado !== 'concluida'" class="botao discreto" @click="mudarEstado('concluida')">Marcar a trilha como concluída</button>
             <button v-else class="botao discreto" @click="mudarEstado('ativa')">Reabrir</button>
           </div>
         </div>
-        <div v-else class="cartao pilha">
+        <div v-else class="quadro pilha">
+          <div class="quadro-topo"><h2 class="rotulo-secao">Meta e ritmo</h2></div>
           <p class="suave sem-margem">Sem meta ainda. Escolha os dias e o tempo (ou a data final); o app distribui as etapas e a trilha aparece em <a :href="link('hoje')">Hoje</a>.</p>
           <div><button class="botao primario" :disabled="!t.progresso.total" @click="dialogoMeta = true">Definir meta</button></div>
         </div>
@@ -283,14 +282,14 @@ function trocarAba(id) {
           <button class="botao" :class="{ primario: organizar }" @click="organizar = !organizar">{{ organizar ? 'Pronto' : 'Organizar' }}</button>
         </div>
 
-        <div v-for="(m, mi) in t.modulos" :key="m.id" class="modulo">
-          <div class="linha entre modulo-topo">
-            <h3>{{ mi + 1 }}. {{ m.titulo }}</h3>
+        <div v-for="(m, mi) in t.modulos" :key="m.id" class="quadro modulo">
+          <div class="quadro-topo">
+            <h2 class="rotulo-secao">{{ mi + 1 }} · {{ m.titulo }}</h2>
             <div v-if="organizar" class="linha">
               <button class="botao discreto icone" aria-label="Subir módulo" :disabled="mi === 0" @click="moverModulo(mi, -1)">↑</button>
               <button class="botao discreto icone" aria-label="Descer módulo" :disabled="mi === t.modulos.length - 1" @click="moverModulo(mi, 1)">↓</button>
-              <button class="botao discreto" @click="renomearModulo(m)">Renomear</button>
-              <button v-if="!m.etapas.length" class="botao discreto" @click="excluirModulo(m)">Excluir</button>
+              <button class="link-acao" @click="renomearModulo(m)">Renomear</button>
+              <button v-if="!m.etapas.length" class="link-acao" @click="excluirModulo(m)">Excluir</button>
             </div>
           </div>
           <p v-if="m.descricao" class="suave descricao-modulo">{{ m.descricao }}</p>
@@ -351,31 +350,38 @@ function trocarAba(id) {
       </section>
 
       <!-- Cronograma (na aba da meta) -->
-      <section v-show="aba === 'meta'" id="cronograma" class="secao">
-        <div class="linha entre">
-          <h3 class="subtitulo">Cronograma</h3>
-          <button v-if="cronograma.length > 7" class="botao discreto" @click="verTudo = !verTudo">{{ verTudo ? 'Só os próximos dias' : 'Ver tudo' }}</button>
+      <section v-show="aba === 'meta'" id="cronograma" class="quadro secao">
+        <div class="quadro-topo">
+          <h2 class="rotulo-secao">Cronograma</h2>
+          <button v-if="cronograma.length > 7" class="link-acao" @click="verTudo = !verTudo">{{ verTudo ? 'Só os próximos dias' : 'Ver tudo' }}</button>
         </div>
         <p v-if="!cronograma.length" class="suave">O cronograma aparece quando houver uma meta.</p>
-        <div v-for="d in diasVisiveis" :key="d.data" class="dia" :class="{ hoje: d.data === hojeIso, passado: d.data < hojeIso }">
-          <div class="dia-data">{{ d.data === hojeIso ? 'Hoje' : dataCurta(d.data) }}</div>
-          <ul>
-            <li v-for="it in d.itens" :key="it.etapa_id">
-              <a :href="link('trilhas', t.id, 'etapas', it.etapa_id)" :class="{ feita: it.status === 'concluida' || it.status === 'pulada' }">{{ it.titulo }}</a>
-              <span class="fraco"> · {{ duracao(it.minutos) }}<template v-if="it.parte"> (parte {{ it.parte }})</template></span>
-            </li>
-          </ul>
+        <div class="dias">
+          <div v-for="d in diasVisiveis" :key="d.data" class="dia" :class="{ hoje: d.data === hojeIso, passado: d.data < hojeIso }">
+            <div class="dia-data">{{ d.data === hojeIso ? 'Hoje' : dataCurta(d.data) }}</div>
+            <ul>
+              <li v-for="it in d.itens" :key="it.etapa_id">
+                <a :href="link('trilhas', t.id, 'etapas', it.etapa_id)" :class="{ feita: it.status === 'concluida' || it.status === 'pulada' }">{{ it.titulo }}</a>
+                <span class="fraco"> · {{ duracao(it.minutos) }}<template v-if="it.parte"> (parte {{ it.parte }})</template></span>
+              </li>
+            </ul>
+          </div>
         </div>
       </section>
     </template>
 
     <template #lateral>
-      <div v-if="t" class="resumo pilha">
-        <div class="linha entre"><strong>Progresso</strong><span class="fraco">{{ percentual(t.progresso) }}%</span></div>
+      <div v-if="t" class="quadro">
+        <div class="quadro-topo">
+          <h2 class="rotulo-secao">Progresso</h2>
+          <strong>{{ percentual(t.progresso) }}%</strong>
+        </div>
         <div class="progresso"><span :style="{ width: percentual(t.progresso) + '%' }" /></div>
-        <div class="suave">{{ t.progresso.concluidas }} concluídas · {{ t.progresso.puladas }} puladas · {{ t.progresso.total }} no total</div>
-        <div class="suave">Falta {{ duracao(restante) }}</div>
-        <div v-if="previsao" class="suave">Previsão: {{ dataCurta(previsao) }}</div>
+        <div class="linhas-resumo">
+          <div>{{ t.progresso.concluidas }} concluídas · {{ t.progresso.puladas }} puladas · {{ t.progresso.total }} no total</div>
+          <div>Falta {{ duracao(restante) }}</div>
+          <div v-if="previsao">Previsão: {{ dataCurta(previsao) }}</div>
+        </div>
       </div>
     </template>
   </Pagina>
@@ -409,12 +415,12 @@ function trocarAba(id) {
 .topo { margin-top: var(--e4); }
 .abas-trilha { margin-top: var(--e6); }
 .secao { margin-top: var(--e5); }
-#cronograma { margin-top: var(--e7); }
 .cabeca-aba { margin-bottom: var(--e3); gap: var(--e3); }
-.subtitulo { font-size: 16px; margin-bottom: var(--e3); }
 .entre { justify-content: space-between; }
 .fim { justify-content: flex-end; }
 .sem-margem { margin: 0; }
+.topo-aviso { margin: var(--e3) 0; }
+.acoes-meta { margin-top: var(--e3); }
 
 .ficha { display: grid; grid-template-columns: max-content 1fr; gap: var(--e2) var(--e5); margin: 0; font-size: 15px; line-height: 1.6; }
 .ficha dt { color: var(--texto-fraco); font-size: 13.5px; padding-top: 2px; }
@@ -425,9 +431,8 @@ function trocarAba(id) {
   .ficha dd { margin-bottom: var(--e2); }
 }
 
-.modulo { margin-top: var(--e5); }
-.modulo-topo h3 { font-size: 16px; }
-.descricao-modulo { margin: var(--e1) 0 0; }
+.modulo { margin-top: var(--e4); }
+.descricao-modulo { margin: 0 0 var(--e3); }
 .col-titulo { width: 60%; }
 a.titulo { text-decoration: none; }
 a.titulo:hover { text-decoration: underline; }
@@ -435,6 +440,7 @@ a.titulo:hover { text-decoration: underline; }
 .nova { margin-top: var(--e3); flex-wrap: nowrap; }
 .nova .campo { flex: 1; }
 
+.dias { border-top: 1px solid var(--borda); }
 .dia { display: grid; grid-template-columns: 120px 1fr; gap: var(--e3); padding: var(--e2) 0; border-bottom: 1px solid var(--borda); }
 .dia ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .dia a { color: var(--texto); text-decoration: none; }
@@ -444,7 +450,7 @@ a.titulo:hover { text-decoration: underline; }
 .dia.hoje .dia-data { color: var(--texto); font-weight: 600; }
 .dia.passado { opacity: 0.6; }
 
-.resumo { padding: var(--e4); margin-bottom: var(--e5); border: 1px solid var(--borda); border-radius: var(--raio); gap: var(--e2); font-size: 13.5px; }
+.linhas-resumo { margin-top: var(--e3); display: grid; gap: 2px; font-size: 13.5px; color: var(--texto-suave); }
 .painel.largo { max-width: 640px; }
 .perigo { color: var(--vermelho); }
 .trecho { display: inline-flex; align-items: center; gap: 3px; }

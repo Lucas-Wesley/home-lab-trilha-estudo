@@ -97,8 +97,12 @@ async function criarComIA() {
       <Icone nome="seta-direita" :tamanho="14" />
       <span>Nova trilha</span>
     </nav>
-    <h1>Nova trilha</h1>
-    <p class="lead">Diga o que quer aprender com as suas palavras. Tudo o que a IA propuser vai ficar aguardando a sua aprovação, e você pode comentar e pedir ajustes em qualquer ponto.</p>
+    <div class="topo-pagina">
+      <div>
+        <h1>Nova trilha</h1>
+        <p class="contexto">Diga o que quer aprender com as suas palavras. Tudo o que a IA propuser fica aguardando a sua aprovação, e você pode comentar e pedir ajustes em qualquer ponto.</p>
+      </div>
+    </div>
 
     <div class="grade entradas" role="radiogroup" aria-label="Como começar">
       <button
@@ -206,6 +210,7 @@ async function criarComIA() {
 </template>
 
 <style scoped>
+.contexto { max-width: var(--leitura); margin: var(--e2) 0 0; font-size: 14px; line-height: 1.5; color: var(--texto-fraco); }
 .entradas { margin-top: var(--e6); grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: var(--leitura); }
 .entradas .cartao { text-align: left; font: inherit; cursor: pointer; }
 .entradas .cartao:disabled { cursor: not-allowed; opacity: 0.55; }
