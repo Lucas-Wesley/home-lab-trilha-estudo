@@ -323,4 +323,14 @@ CREATE TABLE IF NOT EXISTS fragmento_destinos (
 	criado_em    TEXT NOT NULL,
 	PRIMARY KEY (fragmento_id, trilha_id)
 );
+
+-- Entrada (T39): cada intervalo principal do vídeo que o Lucas viu até o fim na etapa.
+CREATE TABLE IF NOT EXISTS trechos_vistos (
+	trilha_id   INTEGER NOT NULL REFERENCES trilhas(id) ON DELETE CASCADE,
+	etapa_chave TEXT NOT NULL,
+	referencia  TEXT NOT NULL, -- a url do vídeo
+	localizador TEXT NOT NULL, -- o intervalo
+	visto_em    TEXT NOT NULL,
+	PRIMARY KEY (trilha_id, etapa_chave, referencia, localizador)
+);
 `

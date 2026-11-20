@@ -13,7 +13,9 @@ import PropostaLicao from '../PropostaLicao.vue'
 import PropostaMaterial from '../PropostaMaterial.vue'
 import ResumoEtapa from '../ResumoEtapa.vue'
 import RevisarRoteiro from '../RevisarRoteiro.vue'
+import TrechoYouTube from '../TrechoYouTube.vue'
 import Videoaula from '../Videoaula.vue'
+import { trechos } from '../trechoYoutube.js'
 import { videosDaEtapa } from '../videoaula.js'
 import { api } from '../api.js'
 import { abreEmOutraAba, hrefMaterial } from '../material.js'
@@ -71,7 +73,7 @@ const totalNoModulo = computed(() => doModulo.value.length)
 // ---------- abas ----------
 const contagem = ref({ exercicios: 0, simulado: 0 })
 const abas = computed(() => [
-  { id: 'licao', nome: videos.value.length ? 'Texto da aula' : e.value?.tipo === 'projeto' ? 'Enunciado' : 'Lição', feito: !!e.value?.licao },
+  { id: 'licao', nome: aulaEmVideo.value ? 'Texto da aula' : e.value?.tipo === 'projeto' ? 'Enunciado' : 'Lição', feito: !!e.value?.licao },
   { id: 'resumo', nome: 'Meu resumo' },
   { id: 'exercicios', nome: 'Exercícios', conta: contagem.value.exercicios },
   { id: 'simulado', nome: 'Simulado', conta: contagem.value.simulado },
@@ -102,10 +104,13 @@ const materiaisPorPapel = computed(() => {
   return Object.entries(grupos).filter(([, lista]) => lista.length)
 })
 
-// Videoaula (T30): numa trilha de curso em vídeo, o vídeo é o principal e vem no topo.
+// Videoaula (T30) e trecho do YouTube (T39): o vídeo principal é a aula e vem no topo.
 const videos = computed(() => videosDaEtapa(e.value?.materiais))
+const trechosYt = computed(() => trechos(e.value?.materiais))
+const aulaEmVideo = computed(() => videos.value.length > 0 || trechosYt.value.length > 0)
 const player = ref(null)
-const irNoVideo = (parte, segundos) => player.value?.ir(parte, segundos)
+const playerYt = ref(null)
+const irNoVideo = (parte, segundos) => (player.value || playerYt.value)?.ir(parte, segundos)
 
 const baseDocs = computed(() => `#/trilhas/${props.trilhaId}/documentos/`)
 
@@ -242,6 +247,17 @@ async function excluir() {
         <RevisarRoteiro ref="revisar" :key="`roteiro-${e.id}`" :trilha="t" :etapa="e" @aberta="revisaoAberta = $event" @mudou="aposRevisao" />
 
         <Videoaula v-if="videos.length" ref="player" :key="`video-${e.id}`" :videos="videos" :etapa-id="e.id" class="topo" />
+        <TrechoYouTube
+          v-if="trechosYt.length"
+          ref="playerYt"
+          :key="`yt-${e.id}`"
+          :trechos="trechosYt"
+          :etapa-id="e.id"
+          :vistos="e.trechos_vistos"
+          :proxima="proxima ? link('trilhas', t.id, 'etapas', proxima.id) : ''"
+          class="topo"
+          @mudou="recarregarEtapa"
+        />
 
         <!-- Abas: cada parte da etapa no seu lugar (fica no endereço: dá para voltar direto nela). -->
         <AbasPagina ref="barraAbas" class="abas-etapa" :abas="abas" :model-value="aba" rotulo="Partes da etapa" @update:model-value="trocarAba" />
@@ -252,13 +268,14 @@ async function excluir() {
               <span class="pequeno">{{ e.licao ? `${PROFUNDIDADES[profundidade]} · cerca de ${duracao(e.minutos)}` : '' }}</span>
               <button v-if="e.licao" class="botao discreto" @click="proposta?.abrir()">Pedir mudança</button>
             </div>
-            <p v-if="!e.licao && !propostaAberta" class="suave">Esta etapa ainda não tem {{ e.tipo === 'projeto' ? 'enunciado' : 'lição' }}. A IA escreve na profundidade da etapa ({{ PROFUNDIDADES[profundidade] }}), a partir das fontes, trazendo para dentro tudo o que importa; chega como proposta, você comenta e aprova. Também dá para escrever à mão em Editar.</p>
+            <p v-if="!e.licao && !propostaAberta && trechosYt.length" class="suave">A aula desta etapa é o trecho do vídeo. Se quiser, a IA pode escrever a lição a partir da transcrição dele, como proposta. <button class="botao discreto" @click="proposta?.abrir()">Gerar lição escrita (opcional)</button></p>
+            <p v-else-if="!e.licao && !propostaAberta" class="suave">Esta etapa ainda não tem {{ e.tipo === 'projeto' ? 'enunciado' : 'lição' }}. A IA escreve na profundidade da etapa ({{ PROFUNDIDADES[profundidade] }}), a partir das fontes, trazendo para dentro tudo o que importa; chega como proposta, você comenta e aprova. Também dá para escrever à mão em Editar.</p>
             <PropostaLicao ref="proposta" :key="e.id" :etapa-id="e.id" :licao-atual="e.licao || ''" :base-docs="baseDocs" @aprovada="aoAprovar" @aberta="propostaAberta = $event" />
             <Leitor v-if="e.licao" class="licao-etapa" :texto="e.licao" :ancora="ancoraDaLicao" :base-docs="baseDocs" @titulos="titulos = $event" />
           </section>
 
           <div v-show="aba === 'resumo'">
-            <ResumoEtapa :key="`resumo-${e.id}`" :etapa-id="e.id" :tem-video="videos.length > 0" @ir="irNoVideo" />
+            <ResumoEtapa :key="`resumo-${e.id}`" :etapa-id="e.id" :tem-video="aulaEmVideo" @ir="irNoVideo" />
           </div>
 
           <EstudoEtapa

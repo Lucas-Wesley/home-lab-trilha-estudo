@@ -105,6 +105,7 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/etapas/{id}/simulado/tentativas", a.handleTentativaSimulado)
 	mux.HandleFunc("GET /api/etapas/{id}/anotacoes", a.handleAnotacoes)
 	mux.HandleFunc("PUT /api/etapas/{id}/anotacoes", a.handleSalvarAnotacoes)
+	mux.HandleFunc("POST /api/etapas/{id}/trechos/visto", a.handleTrechoVisto)
 	mux.HandleFunc("POST /api/etapas/{id}/resumo/conferir", a.handleConferirResumo)
 	mux.HandleFunc("POST /api/etapas/{id}/flashcards", a.handleEnviarFlashcards)
 	mux.HandleFunc("GET /api/flashcards/baralhos", a.handleBaralhos)

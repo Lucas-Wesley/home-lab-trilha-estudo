@@ -89,6 +89,8 @@ type etapa struct {
 	Materiais    []material `json:"materiais"`
 	TemLicao     bool       `json:"tem_licao"`
 	Licao        *string    `json:"licao,omitempty"`
+	// T39: os intervalos principais do YouTube já vistos até o fim (só no GET da etapa).
+	TrechosVistos []trechoVisto `json:"trechos_vistos,omitempty"`
 }
 
 var (
@@ -935,6 +937,9 @@ func (a *app) handleEtapa(w http.ResponseWriter, r *http.Request) {
 			e.Licao = &texto
 		}
 	}
+	if vistos, err := a.vistosDaEtapa(r.Context(), e); err == nil {
+		e.TrechosVistos = vistos
+	}
 	responderJSON(w, http.StatusOK, e)
 }
 
@@ -1029,23 +1034,8 @@ func (a *app) handleStatusEtapa(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, erroDeEntrada{fmt.Errorf("status desconhecido: %q", corpo.Status)})
 		return
 	}
-	agora := agora()
-	var iniciado, concluido string
-	switch corpo.Status {
-	case "em_andamento":
-		iniciado = agora
-	case "concluida", "pulada":
-		iniciado, concluido = agora, agora
-	}
-	res, err := a.db.ExecContext(r.Context(), `UPDATE etapas SET status = ?,
-		iniciado_em = CASE WHEN ? = '' THEN '' WHEN iniciado_em = '' THEN ? ELSE iniciado_em END,
-		concluido_em = ? WHERE id = ?`, corpo.Status, iniciado, iniciado, concluido, id)
-	if err != nil {
+	if err := a.mudarStatusEtapa(r.Context(), id, corpo.Status); err != nil {
 		a.responderErro(w, err)
-		return
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		a.responderErro(w, errNaoEncontrou)
 		return
 	}
 	a.handleEtapa(w, r)

@@ -119,7 +119,7 @@ proposta `roteiro` (chave `@roteiro` ou `@roteiro:<etapa>`); `GET .../roteiro?et
 `roteiro.md` e `encaixe.md`. Telas: `RevisarRoteiro.vue`, `MudancaRoteiro.vue`; as páginas da
 trilha e da etapa usam `AbasPagina.vue`.
 
-## Entrada (T35, T36, T37, T38)
+## Entrada (T35, T36, T37, T38, T39)
 `backend/entrada.go` e `backend/youtube.go` (código copiado do Acervo, sem chamá-lo):
 `POST /api/entrada` com um link de vídeo do YouTube cria a **fonte** (tabela `fontes`); com uma
 playlist, uma por vídeo (`--flat-playlist`). Uma fila própria do yt-dlp — separada da do Claude,
@@ -158,7 +158,19 @@ com o material **`youtube`** (`referencia` = URL, `localizador` = todos os inter
 `lerIntervalos`/`trechoDaTranscricao`) pelo `criarEncaixe` extraído do `handleEncaixar`; o pedido
 só leva os trechos escolhidos, `limparEncaixe` descarta encaixe fora dos intervalos e aprovar
 cria/atualiza etapas com um material `principal` por intervalo. Na lista da Entrada cada fonte
-resume "N fragmentos · M enviados · K sem destino". O trecho na etapa toca na fase 5.
+resume "N fragmentos · M enviados · K sem destino".
+
+**O trecho na etapa** (`backend/trechos.go`, `TrechoYouTube.vue`, T39): o material `youtube`
+`principal` é a aula — toca embutido no topo da etapa (IFrame API, `start` no início do
+intervalo), a barra cobre o trecho e, ao passar do fim − 2 s sem parar o vídeo,
+`POST /api/etapas/{id}/trechos/visto` grava o "visto" em `trechos_vistos` (intervalo exato do
+material — pedaço inventado leva 400); `{"tocou":true}` no mesmo endpoint conta o primeiro sinal
+(`disponivel` → `em_andamento`). Todos os trechos vistos **sem lição aprovada**: a etapa conclui
+sozinha pela `mudarStatusEtapa` (extraída do `handleStatusEtapa`); com lição, vale o critério de
+sempre. O `GET /api/etapas/{id}` devolve `trechos_vistos` para o ✓ das partes. Vídeo sem embed
+(erros 101/150) ou sem internet: cartão com miniatura e "Marquei como visto". As notas são as da
+Videoaula (`anotacoes`, "Marcar o minuto" com o tempo do player). Na estrutura, etapa com trecho
+e sem minutos mostra ícone de vídeo + duração do trecho.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

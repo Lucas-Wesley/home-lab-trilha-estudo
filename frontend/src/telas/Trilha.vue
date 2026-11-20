@@ -9,6 +9,7 @@ import Icone from '../Icone.vue'
 import NavTrilhas from '../NavTrilhas.vue'
 import Pagina from '../Pagina.vue'
 import RevisarRoteiro from '../RevisarRoteiro.vue'
+import { segundosDosTrechos } from '../trechoYoutube.js'
 import { api } from '../api.js'
 import { link } from '../rotas.js'
 import { BLOOM, DIAS, ESTADOS, PROFUNDIDADES, STATUS, dataCurta, duracao, percentual } from '../rotulos.js'
@@ -309,7 +310,8 @@ function trocarAba(id) {
                   </div>
                 </td>
                 <td class="direita">
-                  <div v-if="!organizar" class="fraco">{{ duracao(e.minutos) }}</div>
+                  <div v-if="!organizar && !e.minutos && segundosDosTrechos(e.materiais)" class="fraco trecho"><Icone nome="video" :tamanho="13" /> {{ duracao(Math.ceil(segundosDosTrechos(e.materiais) / 60)) }}</div>
+                  <div v-else-if="!organizar" class="fraco">{{ duracao(e.minutos) }}</div>
                   <div v-if="!organizar && e.bloom" class="fraco">{{ BLOOM[e.bloom] }}</div>
                   <div v-if="organizar" class="linha fim">
                     <button class="botao discreto icone" aria-label="Subir etapa" :disabled="mi === 0 && ei === 0" @click="moverEtapa(mi, ei, -1)">↑</button>
@@ -446,4 +448,5 @@ a.titulo:hover { text-decoration: underline; }
 .resumo { padding: var(--e4); margin-bottom: var(--e5); border: 1px solid var(--borda); border-radius: var(--raio); gap: var(--e2); font-size: 13.5px; }
 .painel.largo { max-width: 640px; }
 .perigo { color: var(--vermelho); }
+.trecho { display: inline-flex; align-items: center; gap: 3px; }
 </style>

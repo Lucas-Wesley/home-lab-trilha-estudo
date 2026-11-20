@@ -110,3 +110,61 @@ Commit: `Entrada (T39): o trecho do YouTube toca na etapa como aula, com aviso n
 ## Dúvidas
 
 ## Feito
+
+**Feito em 20/11/2026.**
+
+- Player (`frontend/src/TrechoYouTube.vue` + `trechoYoutube.js`, ambos novos): `trechos(materiais)`
+  devolve um trecho por intervalo de material `youtube` `principal` (id do vídeo por
+  `idDoVideo`, início/fim em segundos, título, `referencia` + `localizador` canônico — o
+  material não tem id próprio, a chave do "visto" é essa dupla). A IFrame API carrega uma vez, só
+  quando a etapa a usa; o player nasce com `start` = início, `rel: 0`, `modestbranding`,
+  `playsinline` (host `youtube.com` — o `youtube-nocookie.com` não atende à IFrame API, que é
+  quem dá `getCurrentTime`). Relógio de 500 ms só com o vídeo tocando: a barra cobre o trecho
+  (0 % = início, 100 % = fim) com "faltam mm:ss"; antes do início o estado é mostrado sem mexer
+  no vídeo; ao passar do fim − 2 s pela primeira vez vem o aviso "Trecho visto ✓ · Continuar
+  assistindo · Ir para a próxima etapa" **sem parar o vídeo** e o POST de visto. Com mais de um
+  trecho, "Parte N" com ✓ nos já vistos. Erro 101/150 ou API que não carrega: cartão com
+  miniatura, intervalo, "Abrir no YouTube em <início>" e "Marquei como visto". Botões "Voltar ao
+  início do trecho" e "Abrir no YouTube em <início>" (`youtu.be/<id>?t=`). As notas são as da
+  Videoaula (mesmos endpoints `anotacoes`, debounce de 900 ms, "Marcar o minuto" e Ctrl/⌘+Enter
+  com `getCurrentTime` deste player, marcas clicáveis que levam à parte e ao minuto).
+- Servidor (`backend/trechos.go`, `banco.go`, `trilhas.go`, `servidor.go`): tabela
+  `trechos_vistos` como no plano; `POST /api/etapas/{id}/trechos/visto` com
+  `{"referencia","localizador"}` exige intervalo **exato** de material `youtube` `principal`
+  (pedaço inventado, material apoio ou outro vídeo → 400) e grava o localizador canônico
+  (`escreverIntervalos`), uma vez por trecho (`INSERT OR IGNORE`); `{"tocou":true}` na mesma
+  rota é o "começou a tocar" — os dois põem `disponivel` em `em_andamento` no primeiro sinal.
+  Todos os trechos principais vistos e sem lição aprovada (`TemLicao`): a etapa conclui pela
+  **`mudarStatusEtapa`**, a função extraída do `handleStatusEtapa` (que passou a usá-la — mesmo
+  UPDATE de status/`iniciado_em`/`concluido_em`); com lição, o critério de sempre segue valendo.
+  `GET /api/etapas/{id}` devolve `trechos_vistos` para o ✓ das partes.
+- Página (`telas/Etapa.vue`, `telas/Trilha.vue`): `TrechoYouTube` no topo quando há trecho
+  principal (ao lado da `Videoaula`, sem tocar nela — testes dela intactos); a aba "Lição" fica
+  "Texto da aula" e, sem lição, avisa "A aula desta etapa é o trecho do vídeo" com "Gerar lição
+  escrita (opcional)"; o `ResumoEtapa`/`ir` das notas e da conferência falam com o player do
+  YouTube também. Na estrutura, etapa com trecho e `minutos` vazio mostra ícone de vídeo +
+  duração do trecho ("5 min") no lugar de "—".
+- Cabeçalhos (5.4): o servidor Go não manda `Content-Security-Policy` nem `Referrer-Policy` —
+  nada a ajustar aqui; o Caddy não foi tocado (outro repo).
+
+**Testes** (`backend/trecho_test.go`, `frontend/src/trechoYoutube.test.js`): JS — `watch?v=`,
+`youtu.be`, intervalo com hora, `estadoDoTrecho` antes/dentro/depois e `linkNoMinuto` (6
+testes). Go — `{"tocou":true}` põe `em_andamento` com `iniciado_em`; o primeiro "visto" grava e
+volta no GET; repetido não duplica; todos vistos sem lição → `concluida` com `concluido_em`;
+intervalo fora do material, outro vídeo e pedaço do intervalo → 400; com lição gravada, o visto
+não conclui.
+
+**Rodado e passou:** `cd backend && go vet ./... && go test ./...` (ok); `cd frontend && npm
+test` (44 ok, 6 novos) `&& npm run build` (ok). Navegador a 360 px com o binário embutido de
+verdade, trilha importada por `POST /api/importar` com o material do exemplo
+(`EOmzo5d0F9Y`, `13:33–18:25`): o iframe abriu com `start=813`, a barra andou ("faltam 04:44"),
+o `tocou` pôs a etapa `em_andamento`; adiantando a 18:17, o aviso "Trecho visto ✓ · Continuar
+assistindo" apareceu ao cruzar o fim − 2 s, o visto foi gravado (`13:33–18:25` canônico), a
+etapa virou `concluida` e o vídeo **continuou tocando**. "Abrir no YouTube em 13:33" →
+`youtu.be/EOmzo5d0F9Y?t=813`; "Marcar o minuto" escreveu `[13:33]`; a estrutura mostrou ícone +
+"5 min"; `scrollWidth = clientWidth` (sem rolagem horizontal) nas duas telas.
+
+**Ficou de fora:** o host `youtube-nocookie.com` (a IFrame API, necessária ao relógio e ao seek,
+só embute `youtube.com`); posição parada enquanto o vídeo está pausado (o relógio é só com o
+vídeo tocando, como pedido); vários trechos/partes foram testados nas funções e na API, mas só
+um trecho foi olhado no navegador.
