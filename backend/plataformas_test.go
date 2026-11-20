@@ -134,9 +134,11 @@ func TestEstimarEPedirAula(t *testing.T) {
 		t.Fatal("ficou o arquivo temporário")
 	}
 
-	// A mesma página de novo: volta a mesma aula, sem baixar outra vez.
+	// O mesmo vídeo de novo (na LINUXtips a página não muda entre as aulas; aqui, outra página e
+	// outro token na query): volta a mesma aula, sem baixar outra vez.
+	outro := strings.Replace(strings.Replace(corpo, "/aula/1", "/aula/2", 1), "playlist.m3u8", "playlist.m3u8?token=x", 1)
 	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/cursos/aulas", strings.NewReader(corpo)))
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/cursos/aulas", strings.NewReader(outro)))
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"repetida":true`) {
 		t.Fatalf("repetida %d %s", rec.Code, rec.Body)
 	}
@@ -189,8 +191,8 @@ func TestPedirAulaRecusa(t *testing.T) {
 func TestDownloadComErroVoltaPelaTentativa(t *testing.T) {
 	a, _ := appDeCursos(t)
 	t0 := agora()
-	a.db.Exec(`INSERT INTO aulas_curso (plataforma, curso, titulo, pagina, manifesto, referer, variante, duracao, criado_em, atualizado_em)
-		VALUES ('branas', 'Curso', 'Aula', 'https://app.branas.io/1', 'https://cdn/falha.m3u8', 'https://p/', 'https://cdn/falha.m3u8', 10, ?, ?)`, t0, t0)
+	a.db.Exec(`INSERT INTO aulas_plataforma (plataforma, curso, titulo, pagina, video, manifesto, referer, variante, duracao, criado_em, atualizado_em)
+		VALUES ('branas', 'Curso', 'Aula', 'https://app.branas.io/1', 'https://cdn/falha.m3u8', 'https://cdn/falha.m3u8', 'https://p/', 'https://cdn/falha.m3u8', 10, ?, ?)`, t0, t0)
 	a.baixarProxima(context.Background())
 	au, _ := a.aulaPorID(context.Background(), 1)
 	if au.Estado != "erro" || !strings.Contains(au.Erro, "erro de mentira") {
@@ -206,7 +208,7 @@ func TestDownloadComErroVoltaPelaTentativa(t *testing.T) {
 		t.Fatalf("depois de tentar %+v", au)
 	}
 	// Recuperar: a que estava baixando quando o app parou volta para a fila.
-	a.db.Exec(`UPDATE aulas_curso SET estado = 'baixando' WHERE id = 1`)
+	a.db.Exec(`UPDATE aulas_plataforma SET estado = 'baixando' WHERE id = 1`)
 	a.recuperarCursos(context.Background())
 	if au, _ = a.aulaPorID(context.Background(), 1); au.Estado != "na_fila" {
 		t.Fatalf("recuperar %+v", au)

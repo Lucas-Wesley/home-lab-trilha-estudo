@@ -59,13 +59,14 @@ type aulaCurso struct {
 }
 
 const esquemaCursos = `
-CREATE TABLE IF NOT EXISTS aulas_curso (
+CREATE TABLE IF NOT EXISTS aulas_plataforma (
 	id            INTEGER PRIMARY KEY AUTOINCREMENT,
 	plataforma    TEXT NOT NULL,
 	curso         TEXT NOT NULL,
 	modulo        TEXT NOT NULL DEFAULT '',
 	titulo        TEXT NOT NULL,
-	pagina        TEXT NOT NULL UNIQUE,  -- o endereço da aula na plataforma
+	pagina        TEXT NOT NULL,         -- o endereço da aula na plataforma (na LINUXtips é o do curso)
+	video         TEXT NOT NULL UNIQUE,  -- a chave: o HLS da variante escolhida, sem a query
 	manifesto     TEXT NOT NULL,         -- o HLS que o player pediu (mestre ou de uma variante)
 	referer       TEXT NOT NULL,         -- o que o player manda (o servidor do vídeo confere)
 	variante      TEXT NOT NULL DEFAULT '', -- o HLS da maior qualidade, escolhido na estimativa
@@ -272,6 +273,15 @@ func (a *app) estimar(ctx context.Context, manifesto, referer string) (estimativ
 	return e, nil
 }
 
+// chaveDoVideo: o mesmo vídeo pedido de novo (de outra página ou com outro token na query).
+func chaveDoVideo(variante string) string {
+	if u, err := url.Parse(variante); err == nil {
+		u.RawQuery, u.Fragment = "", ""
+		return u.String()
+	}
+	return variante
+}
+
 // ---------- o arquivo ----------
 
 var reNomeRuim = regexp.MustCompile(`[\\/:*?"<>|\x00-\x1f]+`)
@@ -329,7 +339,7 @@ func lerAula(s interface{ Scan(...any) error }) (aulaCurso, error) {
 }
 
 func (a *app) aulaPorID(ctx context.Context, id int64) (aulaCurso, error) {
-	au, err := lerAula(a.db.QueryRowContext(ctx, `SELECT `+colunasAula+` FROM aulas_curso WHERE id = ?`, id))
+	au, err := lerAula(a.db.QueryRowContext(ctx, `SELECT `+colunasAula+` FROM aulas_plataforma WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return au, errNaoEncontrou
 	}
@@ -353,7 +363,7 @@ func (a *app) acordarCursos() {
 
 // recuperarCursos: o download que estava no meio quando o app parou volta para a fila.
 func (a *app) recuperarCursos(ctx context.Context) error {
-	_, err := a.db.ExecContext(ctx, `UPDATE aulas_curso SET estado = 'na_fila', progresso = 0 WHERE estado = 'baixando'`)
+	_, err := a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET estado = 'na_fila', progresso = 0 WHERE estado = 'baixando'`)
 	return err
 }
 
@@ -374,7 +384,7 @@ func (a *app) baixarProxima(ctx context.Context) bool {
 	if ctx.Err() != nil {
 		return false
 	}
-	au, err := lerAula(a.db.QueryRowContext(ctx, `SELECT `+colunasAula+` FROM aulas_curso WHERE estado = 'na_fila' ORDER BY id LIMIT 1`))
+	au, err := lerAula(a.db.QueryRowContext(ctx, `SELECT `+colunasAula+` FROM aulas_plataforma WHERE estado = 'na_fila' ORDER BY id LIMIT 1`))
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			log.Printf("cursos: %v", err)
@@ -391,17 +401,17 @@ func (a *app) baixarProxima(ctx context.Context) bool {
 		a.download.id, a.download.cancelar = 0, nil
 		a.download.mu.Unlock()
 	}()
-	a.db.ExecContext(ctx, `UPDATE aulas_curso SET estado = 'baixando', progresso = 0, erro = '', atualizado_em = ? WHERE id = ?`, agora(), au.ID)
+	a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET estado = 'baixando', progresso = 0, erro = '', atualizado_em = ? WHERE id = ?`, agora(), au.ID)
 	tamanho, arquivo, err := a.baixarAula(cl, au)
 	if errors.Is(cl.Err(), context.Canceled) && ctx.Err() == nil {
 		return true // apagada no meio: a linha já não existe
 	}
 	if err != nil {
 		log.Printf("cursos: aula %d: %v", au.ID, err)
-		a.db.ExecContext(ctx, `UPDATE aulas_curso SET estado = 'erro', erro = ?, atualizado_em = ? WHERE id = ?`, err.Error(), agora(), au.ID)
+		a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET estado = 'erro', erro = ?, atualizado_em = ? WHERE id = ?`, err.Error(), agora(), au.ID)
 		return true
 	}
-	a.db.ExecContext(ctx, `UPDATE aulas_curso SET estado = 'pronta', progresso = 100, tamanho = ?, arquivo = ?, erro = '', atualizado_em = ? WHERE id = ?`,
+	a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET estado = 'pronta', progresso = 100, tamanho = ?, arquivo = ?, erro = '', atualizado_em = ? WHERE id = ?`,
 		tamanho, arquivo, agora(), au.ID)
 	return true
 }
@@ -423,7 +433,7 @@ func (a *app) baixarAula(ctx context.Context, au aulaCurso) (int64, string, erro
 	// Outra aula com o mesmo nome no mesmo lugar: o id desempata.
 	if _, err := os.Stat(final); err == nil {
 		var outra int64
-		if a.db.QueryRowContext(ctx, `SELECT id FROM aulas_curso WHERE arquivo = ? AND id <> ?`, rel, au.ID).Scan(&outra) == nil {
+		if a.db.QueryRowContext(ctx, `SELECT id FROM aulas_plataforma WHERE arquivo = ? AND id <> ?`, rel, au.ID).Scan(&outra) == nil {
 			rel = strings.TrimSuffix(rel, ".mp4") + fmt.Sprintf(" (%d).mp4", au.ID)
 			final = filepath.Join(a.cursosDir, rel)
 		}
@@ -458,7 +468,7 @@ func (a *app) baixarAula(ctx context.Context, au aulaCurso) (int64, string, erro
 			p = 99
 		}
 		ultimo = time.Now()
-		a.db.ExecContext(ctx, `UPDATE aulas_curso SET progresso = ? WHERE id = ?`, p, au.ID)
+		a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET progresso = ? WHERE id = ?`, p, au.ID)
 	}
 	if err := cmd.Wait(); err != nil {
 		msg := strings.TrimSpace(erros.String())
@@ -520,16 +530,16 @@ func (a *app) handleEstimarAula(w http.ResponseWriter, r *http.Request) {
 	if a.cursosDir != "" {
 		resp["livre"] = espacoLivre(a.cursosDir)
 	}
-	// A aula já pedida (pelo endereço da página) volta junto, para a extensão dizer.
+	// A aula já pedida (o mesmo vídeo) volta junto, para a extensão dizer.
 	var id int64
 	var estado string
-	if a.db.QueryRowContext(r.Context(), `SELECT id, estado FROM aulas_curso WHERE pagina = ?`, p.Pagina).Scan(&id, &estado) == nil {
+	if a.db.QueryRowContext(r.Context(), `SELECT id, estado FROM aulas_plataforma WHERE video = ?`, chaveDoVideo(e.Variante)).Scan(&id, &estado) == nil {
 		resp["aula"] = map[string]any{"id": id, "estado": estado}
 	}
 	responderJSON(w, http.StatusOK, resp)
 }
 
-// POST /api/cursos/aulas: põe a aula na fila de download (202). A mesma página de novo: a que
+// POST /api/cursos/aulas: põe a aula na fila de download (202). O mesmo vídeo de novo: a que
 // já está baixada ou na fila volta como está (200, "repetida"); a que deu erro volta para a fila.
 func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 	var p pedidoAula
@@ -551,9 +561,15 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	e, err := a.estimar(ctx, p.Manifesto, p.Referer)
+	if err != nil {
+		erroJSON(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	video := chaveDoVideo(e.Variante)
 	var id int64
 	var estado string
-	if a.db.QueryRowContext(ctx, `SELECT id, estado FROM aulas_curso WHERE pagina = ?`, p.Pagina).Scan(&id, &estado) == nil && estado != "erro" {
+	if a.db.QueryRowContext(ctx, `SELECT id, estado FROM aulas_plataforma WHERE video = ?`, video).Scan(&id, &estado) == nil && estado != "erro" {
 		au, err := a.aulaPorID(ctx, id)
 		if err != nil {
 			a.responderErro(w, err)
@@ -562,22 +578,17 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 		responderJSON(w, http.StatusOK, map[string]any{"aula": au, "repetida": true})
 		return
 	}
-	e, err := a.estimar(ctx, p.Manifesto, p.Referer)
-	if err != nil {
-		erroJSON(w, http.StatusBadGateway, err.Error())
-		return
-	}
 	t := agora()
 	if id > 0 {
-		_, err = a.db.ExecContext(ctx, `UPDATE aulas_curso SET plataforma = ?, curso = ?, modulo = ?, titulo = ?, manifesto = ?,
-			referer = ?, variante = ?, qualidade = ?, duracao = ?, estimado = ?, progresso = 0, estado = 'na_fila', erro = '',
-			atualizado_em = ? WHERE id = ?`,
-			p.Plataforma, p.Curso, p.Modulo, p.Titulo, p.Manifesto, p.Referer, e.Variante, e.Qualidade, e.Duracao, e.Tamanho, t, id)
+		_, err = a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET plataforma = ?, curso = ?, modulo = ?, titulo = ?, pagina = ?,
+			manifesto = ?, referer = ?, variante = ?, qualidade = ?, duracao = ?, estimado = ?, progresso = 0, estado = 'na_fila',
+			erro = '', atualizado_em = ? WHERE id = ?`,
+			p.Plataforma, p.Curso, p.Modulo, p.Titulo, p.Pagina, p.Manifesto, p.Referer, e.Variante, e.Qualidade, e.Duracao, e.Tamanho, t, id)
 	} else {
 		var res sql.Result
-		res, err = a.db.ExecContext(ctx, `INSERT INTO aulas_curso (plataforma, curso, modulo, titulo, pagina, manifesto, referer,
-			variante, qualidade, duracao, estimado, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			p.Plataforma, p.Curso, p.Modulo, p.Titulo, p.Pagina, p.Manifesto, p.Referer, e.Variante, e.Qualidade, e.Duracao, e.Tamanho, t, t)
+		res, err = a.db.ExecContext(ctx, `INSERT INTO aulas_plataforma (plataforma, curso, modulo, titulo, pagina, video, manifesto,
+			referer, variante, qualidade, duracao, estimado, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			p.Plataforma, p.Curso, p.Modulo, p.Titulo, p.Pagina, video, p.Manifesto, p.Referer, e.Variante, e.Qualidade, e.Duracao, e.Tamanho, t, t)
 		if err == nil {
 			id, err = res.LastInsertId()
 		}
@@ -597,7 +608,7 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/cursos/aulas: todas as aulas (a tela agrupa por plataforma › curso › módulo) e o espaço livre.
 func (a *app) handleListarAulas(w http.ResponseWriter, r *http.Request) {
-	linhas, err := a.db.QueryContext(r.Context(), `SELECT `+colunasAula+` FROM aulas_curso ORDER BY plataforma, curso, modulo, id`)
+	linhas, err := a.db.QueryContext(r.Context(), `SELECT `+colunasAula+` FROM aulas_plataforma ORDER BY plataforma, curso, modulo, id`)
 	if err != nil {
 		a.responderErro(w, err)
 		return
@@ -626,7 +637,7 @@ func (a *app) handleTentarAula(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
-	res, err := a.db.ExecContext(r.Context(), `UPDATE aulas_curso SET estado = 'na_fila', erro = '', progresso = 0, atualizado_em = ?
+	res, err := a.db.ExecContext(r.Context(), `UPDATE aulas_plataforma SET estado = 'na_fila', erro = '', progresso = 0, atualizado_em = ?
 		WHERE id = ? AND estado = 'erro'`, agora(), id)
 	if err != nil {
 		a.responderErro(w, err)
@@ -652,7 +663,7 @@ func (a *app) handleApagarAula(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
-	if _, err := a.db.ExecContext(r.Context(), `DELETE FROM aulas_curso WHERE id = ?`, id); err != nil {
+	if _, err := a.db.ExecContext(r.Context(), `DELETE FROM aulas_plataforma WHERE id = ?`, id); err != nil {
 		a.responderErro(w, err)
 		return
 	}

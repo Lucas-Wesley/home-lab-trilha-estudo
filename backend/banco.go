@@ -50,6 +50,9 @@ var migracoes = []string{
 	// T44: a fonte telegram marcada para "dividir em fragmentos quando terminar" entra na fila
 	// de fragmentar sozinha ao ficar pronta.
 	`ALTER TABLE fontes ADD COLUMN fragmentar INTEGER NOT NULL DEFAULT 0`,
+	// T50: a primeira versão da tabela (no ar por minutos, vazia) tinha a página como chave; na
+	// LINUXtips a página é a mesma para todas as aulas. A nova é aulas_plataforma.
+	`DROP TABLE IF EXISTS aulas_curso`,
 }
 
 // O esquema cresce fase a fase (DECISOES.md §9).
