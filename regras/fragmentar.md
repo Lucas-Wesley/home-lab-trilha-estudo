@@ -53,6 +53,14 @@ Devolva:
     conteúdo;
   - `fora` — assunto técnico, mas fora do tema do vídeo.
 
+## Vídeo longo, em partes
+
+Vídeo muito longo chega em partes, uma por chamada: o `pedido.md` diz "Parte N de M" e o trecho
+que `transcricao.md` cobre. Divida **só esse trecho**, com os tempos do vídeo inteiro. Se o
+pedido disser em que fragmento a parte anterior terminou e o assunto continua no começo desta,
+repita **exatamente o mesmo título** no primeiro fragmento — o app junta os dois. As regras de
+tamanho valem por parte (umas 2 h costumam dar de 8 a 20 fragmentos).
+
 ## Pedido do Lucas
 
 Se o pedido pedir algo ("ignore a parte de perguntas do chat", "separe a demonstração em dois"),

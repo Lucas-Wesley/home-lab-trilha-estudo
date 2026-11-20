@@ -266,8 +266,133 @@ func pedidoDaFragmentacao(f fonte, transcricao string, confirmados []fragmento) 
 	return map[string]string{"pedido.md": s.String(), "transcricao.md": transcricao}
 }
 
-// fragmentar é a tarefa: a IA lê a transcrição uma vez e devolve os trechos por assunto, que o
-// servidor confere e grava como sugerido.
+// ---------- transcrição longa em partes (T48) ----------
+
+// limiteParte: quantos caracteres de transcrição vão numa chamada só (~30 mil tokens, umas 2 h de
+// fala). Acima disso a divisão vai em partes do mesmo tamanho, cortadas entre blocos [mm:ss]: a IA
+// lê cada parte com atenção em vez de passar o olho em 200 mil tokens de uma vez.
+var limiteParte = 120_000 // var: os testes baixam
+
+// parteTranscricao: um pedaço da transcrição, do bloco que começa em `inicio` até `fim`
+// (o início da parte seguinte, ou a duração do vídeo na última; 0 = sem fim conhecido).
+type parteTranscricao struct {
+	Inicio, Fim int
+	Texto       string
+}
+
+// partesDaTranscricao corta a transcrição em partes de tamanho parecido, sempre no começo de um
+// bloco. O cabeçalho (antes do primeiro bloco) vai só na primeira parte. Transcrição que cabe no
+// limite volta inteira, numa parte só.
+func partesDaTranscricao(transcricao string, limite, duracao int) []parteTranscricao {
+	if len(transcricao) <= limite || limite <= 0 {
+		return []parteTranscricao{{Inicio: 0, Fim: duracao, Texto: transcricao}}
+	}
+	type bloco struct {
+		ini   int // byte onde começa
+		tempo int
+	}
+	var blocos []bloco
+	pos := 0
+	for _, linha := range strings.SplitAfter(transcricao, "\n") {
+		if m := marcaDoBloco.FindStringSubmatch(linha); m != nil {
+			if t, err := segundosDoTempo(m[1]); err == nil {
+				blocos = append(blocos, bloco{pos, t})
+			}
+		}
+		pos += len(linha)
+	}
+	if len(blocos) < 2 {
+		return []parteTranscricao{{Inicio: 0, Fim: duracao, Texto: transcricao}}
+	}
+	n := (len(transcricao) + limite - 1) / limite
+	alvo := len(transcricao) / n
+	var cortes []bloco // onde cada parte (a partir da 2ª) começa
+	for _, b := range blocos[1:] {
+		if len(cortes) == n-1 {
+			break
+		}
+		if b.ini >= (len(cortes)+1)*alvo {
+			cortes = append(cortes, b)
+		}
+	}
+	var partes []parteTranscricao
+	ini, tempo := 0, 0
+	for _, c := range cortes {
+		partes = append(partes, parteTranscricao{Inicio: tempo, Fim: c.tempo, Texto: transcricao[ini:c.ini]})
+		ini, tempo = c.ini, c.tempo
+	}
+	return append(partes, parteTranscricao{Inicio: tempo, Fim: duracao, Texto: transcricao[ini:]})
+}
+
+// juntarNaFronteira: o primeiro fragmento de uma parte com o mesmo título do último da anterior,
+// colado na fronteira, é o mesmo assunto que continuou — vira um fragmento só.
+func juntarNaFronteira(anteriores, novos []fragmento) []fragmento {
+	if len(anteriores) == 0 || len(novos) == 0 {
+		return append(anteriores, novos...)
+	}
+	ult := &anteriores[len(anteriores)-1]
+	pri := novos[0]
+	if strings.EqualFold(strings.TrimSpace(ult.Titulo), strings.TrimSpace(pri.Titulo)) && pri.Inicio-ult.Fim <= 60 {
+		ult.Fim = max(ult.Fim, pri.Fim)
+		if len(pri.Resumo) > len(ult.Resumo) {
+			ult.Resumo = pri.Resumo
+		}
+		for _, as := range pri.Assuntos {
+			if !contem(ult.Assuntos, as) && len(ult.Assuntos) < 5 {
+				ult.Assuntos = append(ult.Assuntos, as)
+			}
+		}
+		novos = novos[1:]
+	}
+	return append(anteriores, novos...)
+}
+
+// dentroDaParte prende os fragmentos de uma parte ao intervalo dela (a IA às vezes começa em 00:00).
+func dentroDaParte(p parteTranscricao, frs []fragmento) []fragmento {
+	var bons []fragmento
+	for _, fr := range frs {
+		fr.Inicio = max(fr.Inicio, p.Inicio)
+		if p.Fim > 0 {
+			fr.Fim = min(fr.Fim, p.Fim)
+		}
+		if fr.Inicio < fr.Fim {
+			bons = append(bons, fr)
+		}
+	}
+	return bons
+}
+
+// respostaFragmentos: o que a IA devolve em cada chamada.
+type respostaFragmentos struct {
+	Fragmentos []fragmentoIA `json:"fragmentos"`
+	Notas      string        `json:"notas"`
+}
+
+// fragmentarParte chama a IA para uma parte (ou para a transcrição inteira, quando é uma só).
+func (a *app) fragmentarParte(ctx context.Context, t *tarefa, f fonte, regra string, arquivos map[string]string, k int) (respostaFragmentos, error) {
+	var r respostaFragmentos
+	pasta := filepath.Join(a.ia.tarefas, strconv.FormatInt(t.ID, 10), strconv.Itoa(k))
+	if err := os.MkdirAll(pasta, 0o755); err != nil {
+		return r, err
+	}
+	defer os.RemoveAll(pasta)
+	if err := gravarNaPasta(pasta, arquivos); err != nil {
+		return r, err
+	}
+	resp, err := a.ia.chamar(ctx, pedidoClaude{
+		pasta: pasta, regra: regra, ferramentas: "Read", esquema: esquemaFragmentos, modelo: t.Modelo,
+		instrucao: "Divida o vídeo em fragmentos por assunto. Tudo está em `pedido.md` e `transcricao.md`, nesta pasta: leia os dois inteiros antes.",
+	})
+	if err != nil {
+		return r, err
+	}
+	err = dadosDaResposta(resp, &r)
+	return r, err
+}
+
+// fragmentar é a tarefa: a IA lê a transcrição e devolve os trechos por assunto, que o servidor
+// confere e grava como sugerido. Transcrição longa vai em partes (T48), uma chamada por parte, em
+// sequência; a parte que falha duas vezes fica de fora com um aviso nas notas.
 func (a *app) fragmentar(ctx context.Context, t *tarefa) error {
 	f, err := a.fonteDaTarefa(ctx, t.ID)
 	if errors.Is(err, errNaoEncontrou) {
@@ -290,37 +415,59 @@ func (a *app) fragmentar(ctx context.Context, t *tarefa) error {
 			confirmados = append(confirmados, fr)
 		}
 	}
-	pasta := filepath.Join(a.ia.tarefas, strconv.FormatInt(t.ID, 10))
-	if err := os.MkdirAll(pasta, 0o755); err != nil {
-		return err
-	}
-	defer os.RemoveAll(pasta)
-	if err := gravarNaPasta(pasta, pedidoDaFragmentacao(f, transcricao, confirmados)); err != nil {
-		return err
-	}
 	rg, err := a.ia.lerRegra("fragmentar.md")
 	if err != nil {
 		return err
 	}
-	resp, err := a.ia.chamar(ctx, pedidoClaude{
-		pasta: pasta, regra: rg.Texto, ferramentas: "Read", esquema: esquemaFragmentos, modelo: t.Modelo,
-		instrucao: "Divida o vídeo em fragmentos por assunto. Tudo está em `pedido.md` e `transcricao.md`, nesta pasta: leia os dois inteiros antes.",
-	})
-	if err != nil {
-		return err
+	defer os.RemoveAll(filepath.Join(a.ia.tarefas, strconv.FormatInt(t.ID, 10)))
+
+	partes := partesDaTranscricao(transcricao, limiteParte, f.Duracao)
+	var bons []fragmento
+	var tirados, notas, falhas []string
+	var ultimoErro error
+	for k, p := range partes {
+		arquivos := pedidoDaFragmentacao(f, p.Texto, confirmados)
+		if len(partes) > 1 {
+			a.db.ExecContext(ctx, `UPDATE fontes SET notas = ? WHERE id = ?`,
+				fmt.Sprintf("Dividindo em %d partes: parte %d (%s–%s)…", len(partes), k+1, tempoDos(p.Inicio), tempoDos(max(p.Fim, p.Inicio))), f.ID)
+			arquivos["pedido.md"] += pedidoDaParte(partes, k, bons)
+		}
+		r, err := a.fragmentarParte(ctx, t, f, rg.Texto, arquivos, k)
+		if err != nil && len(partes) > 1 && ctx.Err() == nil {
+			r, err = a.fragmentarParte(ctx, t, f, rg.Texto, arquivos, k) // uma segunda chance
+		}
+		if err != nil {
+			if len(partes) == 1 || ctx.Err() != nil {
+				return err
+			}
+			ultimoErro = err
+			falhas = append(falhas, fmt.Sprintf("%s–%s", tempoDos(p.Inicio), tempoDos(max(p.Fim, p.Inicio))))
+			log.Printf("entrada: fonte %d, parte %d de %d: %v", f.ID, k+1, len(partes), err)
+			continue
+		}
+		frs, fora := limparFragmentos(f.Duracao, r.Fragmentos)
+		tirados = append(tirados, fora...)
+		if len(partes) > 1 {
+			frs = dentroDaParte(p, frs)
+		}
+		bons = juntarNaFronteira(bons, frs)
+		if n := textoDaIA(r.Notas); n != "" {
+			notas = append(notas, n)
+		}
 	}
-	var r struct {
-		Fragmentos []fragmentoIA `json:"fragmentos"`
-		Notas      string        `json:"notas"`
-	}
-	if err := dadosDaResposta(resp, &r); err != nil {
-		return err
-	}
-	bons, tirados := limparFragmentos(f.Duracao, r.Fragmentos)
 	if len(bons) == 0 {
-		return fmt.Errorf("a IA não devolveu fragmentos válidos%s", entreParenteses(strings.TrimSpace(textoDaIA(r.Notas))))
+		if ultimoErro != nil {
+			return ultimoErro
+		}
+		return fmt.Errorf("a IA não devolveu fragmentos válidos%s", entreParenteses(strings.TrimSpace(strings.Join(notas, " "))))
 	}
-	nota := textoDaIA(r.Notas)
+	nota := strings.Join(notas, " ")
+	if len(partes) > 1 {
+		nota = strings.TrimSpace(fmt.Sprintf("Dividido em %d partes (vídeo longo). %s", len(partes), nota))
+	}
+	if len(falhas) > 0 {
+		nota += "\n\nNão consegui dividir " + strings.Join(falhas, ", ") + ": peça de novo só esse trecho no pedido."
+	}
 	if len(tirados) > 0 {
 		nota = strings.TrimSpace(nota + "\n\n(O app tirou: " + strings.Join(tirados, "; ") + ".)")
 	}
@@ -353,6 +500,24 @@ func (a *app) fragmentar(ctx context.Context, t *tarefa) error {
 		}
 	}
 	return nil
+}
+
+// pedidoDaParte: o que a IA precisa saber quando lê só uma parte do vídeo.
+func pedidoDaParte(partes []parteTranscricao, k int, anteriores []fragmento) string {
+	p := partes[k]
+	var s strings.Builder
+	fmt.Fprintf(&s, "\n## Parte %d de %d\n\n", k+1, len(partes))
+	fim := "o fim do vídeo"
+	if p.Fim > 0 {
+		fim = tempoDos(p.Fim)
+	}
+	fmt.Fprintf(&s, "O vídeo é longo e vai em partes: `transcricao.md` tem **só** de %s até %s. Divida só esse trecho, com os tempos do vídeo inteiro (como estão na transcrição). As outras partes já foram ou serão divididas em outras chamadas.\n", tempoDos(p.Inicio), fim)
+	if len(anteriores) > 0 {
+		u := anteriores[len(anteriores)-1]
+		fmt.Fprintf(&s, "\nA parte anterior terminou no fragmento **%q** (%s–%s): %s\nSe esta parte começa ainda nesse assunto, comece o primeiro fragmento em %s com **exatamente o mesmo título** (o app junta os dois).\n",
+			u.Titulo, tempoDos(u.Inicio), tempoDos(u.Fim), u.Resumo, tempoDos(p.Inicio))
+	}
+	return s.String()
 }
 
 // renumerarFragmentos põe a ordem de volta por início (os confirmados mantêm o lugar no vídeo).
@@ -432,7 +597,7 @@ func (a *app) pedirFragmentar(ctx context.Context, fonteID int64, titulo, pedido
 	if err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE fontes SET estado = 'fragmentando', erro = '', tarefa_id = ?, pedido = ? WHERE id = ?`,
+	if _, err := tx.ExecContext(ctx, `UPDATE fontes SET estado = 'fragmentando', erro = '', notas = '', tarefa_id = ?, pedido = ? WHERE id = ?`,
 		tarefaID, pedido, fonteID); err != nil {
 		return err
 	}

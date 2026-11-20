@@ -291,7 +291,9 @@ onBeforeUnmount(() => {
           {{
             fonte.tarefa?.estado === 'na_fila'
               ? 'A divisão em fragmentos está na fila.'
-              : 'A IA está dividindo a fonte em fragmentos…'
+              : fonte.notas?.startsWith('Dividindo em')
+                ? fonte.notas
+                : 'A IA está dividindo a fonte em fragmentos…'
           }}
         </p>
         <template v-else>

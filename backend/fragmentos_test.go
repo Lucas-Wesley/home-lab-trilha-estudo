@@ -334,3 +334,117 @@ func TestRegraFragmentarConhecida(t *testing.T) {
 		t.Fatalf("lerRegra: %v", err)
 	}
 }
+
+// ---------- transcrição longa em partes (T48) ----------
+
+func transcricaoDeTeste(blocos int) string {
+	var s strings.Builder
+	s.WriteString("# Vídeo\n\n- Duração: longa\n\n")
+	for i := 0; i < blocos; i++ {
+		fmt.Fprintf(&s, "[%s] %s\n\n", tempoDos(i*10), strings.Repeat("fala ", 20))
+	}
+	return s.String()
+}
+
+func TestPartesDaTranscricao(t *testing.T) {
+	tr := transcricaoDeTeste(60) // 10 min
+	if p := partesDaTranscricao(tr, len(tr), 600); len(p) != 1 || p[0].Texto != tr || p[0].Fim != 600 {
+		t.Fatalf("cabe no limite: uma parte só: %+v", p)
+	}
+	partes := partesDaTranscricao(tr, len(tr)/3+1, 600)
+	if len(partes) != 3 {
+		t.Fatalf("devia dar 3 partes: %d", len(partes))
+	}
+	var junto strings.Builder
+	for i, p := range partes {
+		junto.WriteString(p.Texto)
+		if i > 0 {
+			if !strings.HasPrefix(p.Texto, "["+tempoDos(p.Inicio)+"]") || partes[i-1].Fim != p.Inicio {
+				t.Fatalf("parte %d devia começar num bloco, colada na anterior: %+v", i, p)
+			}
+			if strings.Contains(p.Texto, "# Vídeo") {
+				t.Fatal("o cabeçalho vai só na primeira parte")
+			}
+		}
+	}
+	if junto.String() != tr {
+		t.Fatal("as partes juntas deviam dar a transcrição inteira")
+	}
+	if partes[0].Inicio != 0 || partes[2].Fim != 600 {
+		t.Fatalf("limites: %+v", partes)
+	}
+}
+
+func TestJuntarNaFronteira(t *testing.T) {
+	ant := []fragmento{{Inicio: 0, Fim: 100, Titulo: "TCP", Resumo: "curto", Assuntos: []string{"tcp"}}}
+	nov := []fragmento{{Inicio: 100, Fim: 200, Titulo: "tcp ", Resumo: "um resumo maior", Assuntos: []string{"tcp", "handshake"}}, {Inicio: 200, Fim: 300, Titulo: "UDP"}}
+	r := juntarNaFronteira(ant, nov)
+	if len(r) != 2 || r[0].Fim != 200 || r[0].Resumo != "um resumo maior" || len(r[0].Assuntos) != 2 || r[1].Titulo != "UDP" {
+		t.Fatalf("mesmo título na fronteira junta: %+v", r)
+	}
+	r = juntarNaFronteira([]fragmento{{Inicio: 0, Fim: 100, Titulo: "TCP"}}, []fragmento{{Inicio: 300, Fim: 400, Titulo: "TCP"}})
+	if len(r) != 2 {
+		t.Fatalf("longe da fronteira não junta: %+v", r)
+	}
+}
+
+func TestFragmentarEmPartes(t *testing.T) {
+	antes := limiteParte
+	defer func() { limiteParte = antes }()
+	f := &iaFalsa{}
+	// Cada parte devolve um fragmento que começa em 00:00 (o app prende ao intervalo dela); a 2ª
+	// continua o assunto da 1ª com o mesmo título.
+	f.resposta = func(n int, arq map[string]string) (string, error) {
+		titulo := map[int]string{1: "Começo", 2: "Começo", 3: "Fim"}[n]
+		return fmt.Sprintf(`{"fragmentos":[{"inicio":"00:00","fim":"00:59","titulo":%q,"resumo":"r","assuntos":["x"],"tipo":"conteudo"}],"notas":""}`, titulo), nil
+	}
+	c := clienteFragmentos(t, f)
+	inicial := fontePronta(t, c)
+	tr, _ := c.a.conteudo.ler(pastaDaFonte(inicial.ID) + "/transcricao.md")
+	limiteParte = len(tr)/3 + 1
+	c.chamar("POST", fmt.Sprintf("/api/entrada/%d/fragmentar", inicial.ID), nil, nil)
+	c.a.fila.esvaziar(context.Background())
+
+	if len(f.pedidos) != 3 {
+		t.Fatalf("devia chamar a IA uma vez por parte: %d", len(f.pedidos))
+	}
+	if p := f.arquivos[1]["pedido.md"]; !strings.Contains(p, "## Parte 2 de 3") || !strings.Contains(p, `"Começo"`) {
+		t.Fatalf("o pedido da parte 2 devia dizer a parte e o último fragmento:\n%s", p)
+	}
+	if strings.Contains(f.arquivos[1]["transcricao.md"], "[00:00]") {
+		t.Fatal("a parte 2 não leva o começo da transcrição")
+	}
+	var fo fonte
+	c.ok("GET", fmt.Sprintf("/api/entrada/%d", inicial.ID), nil, &fo)
+	frs, _ := c.a.fragmentosDaFonte(context.Background(), inicial.ID)
+	if fo.Estado != "fragmentada" || len(frs) != 2 || frs[0].Titulo != "Começo" || frs[1].Titulo != "Fim" ||
+		frs[0].Fim != frs[1].Inicio || !strings.Contains(fo.Notas, "3 partes") {
+		t.Fatalf("partes juntas: %+v %+v", fo, frs)
+	}
+}
+
+func TestFragmentarParteFalha(t *testing.T) {
+	antes := limiteParte
+	defer func() { limiteParte = antes }()
+	f := &iaFalsa{}
+	f.resposta = func(n int, arq map[string]string) (string, error) {
+		if strings.Contains(arq["pedido.md"], "Parte 2 de 2") {
+			return "", fmt.Errorf("falhou")
+		}
+		return `{"fragmentos":[{"inicio":"00:00","fim":"00:20","titulo":"A","resumo":"r","assuntos":[],"tipo":"conteudo"}],"notas":""}`, nil
+	}
+	c := clienteFragmentos(t, f)
+	inicial := fontePronta(t, c)
+	tr, _ := c.a.conteudo.ler(pastaDaFonte(inicial.ID) + "/transcricao.md")
+	limiteParte = len(tr)/2 + 1
+	c.chamar("POST", fmt.Sprintf("/api/entrada/%d/fragmentar", inicial.ID), nil, nil)
+	c.a.fila.esvaziar(context.Background())
+	if len(f.pedidos) != 3 {
+		t.Fatalf("a parte que falha tenta duas vezes: %d chamadas", len(f.pedidos))
+	}
+	var fo fonte
+	c.ok("GET", fmt.Sprintf("/api/entrada/%d", inicial.ID), nil, &fo)
+	if fo.Estado != "fragmentada" || !strings.Contains(fo.Notas, "Não consegui dividir") {
+		t.Fatalf("a parte boa fica, com o aviso da que falhou: %+v", fo)
+	}
+}

@@ -197,7 +197,7 @@ func (a *app) lerProximaFonte(ctx context.Context) bool {
 }
 
 // limiteAutomatico: vídeo mais longo que isso não é dividido sozinho (T46). A divisão lê a
-// transcrição inteira; um curso de 13 h são uns 200 mil tokens, e aí o Lucas decide.
+// transcrição inteira (em partes, T48); um curso de 13 h são uns 200 mil tokens, e aí o Lucas decide.
 var limiteAutomatico = 3 * 60 * 60 // var: os testes baixam
 
 // dividirSozinho: o modo automático depois da legenda — divide, ou deixa uma nota se é longo.
@@ -207,7 +207,7 @@ func (a *app) dividirSozinho(ctx context.Context, id int64) {
 		return
 	}
 	if f.Duracao > limiteAutomatico {
-		nota := fmt.Sprintf("Vídeo de %s: não dividi sozinho porque a IA leria a transcrição inteira de uma vez. Divida quando quiser (dá para pedir só uma parte).", tempoDos(f.Duracao))
+		nota := fmt.Sprintf("Vídeo de %s: não dividi sozinho porque gasta bastante do limite da assinatura. Divida quando quiser: vai em partes de umas 2 h (dá para pedir só um trecho).", tempoDos(f.Duracao))
 		a.db.ExecContext(ctx, `UPDATE fontes SET notas = ? WHERE id = ?`, nota, id)
 		return
 	}

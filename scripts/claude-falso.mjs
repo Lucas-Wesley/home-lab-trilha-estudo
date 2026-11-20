@@ -167,8 +167,8 @@ if (/^# Pedido: fragmentar/m.test(pedido)) {
   const paraTempo = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = String(s % 60).padStart(2, '0'); return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${String(m).padStart(2, '0')}:${ss}` }
   const transcricao = existsSync('transcricao.md') ? readFileSync('transcricao.md', 'utf8') : ''
   const marcas = [...transcricao.matchAll(/^\[((?:\d+:)?\d{1,2}:\d{2})\]/gm)].map((m) => paraSeg(m[1]))
-  const cortes = [0, marcas[Math.floor(marcas.length / 3)] ?? 20, marcas[Math.floor((2 * marcas.length) / 3)] ?? 40, (marcas.at(-1) ?? 50) + 10]
-  if (cortes[1] <= 0) cortes[1] = 20
+  const cortes = [marcas[0] ?? 0, marcas[Math.floor(marcas.length / 3)] ?? 20, marcas[Math.floor((2 * marcas.length) / 3)] ?? 40, (marcas.at(-1) ?? 50) + 10]
+  if (cortes[1] <= cortes[0]) cortes[1] = cortes[0] + 20
   if (cortes[2] <= cortes[1]) cortes[2] = cortes[1] + 20
   if (cortes[3] <= cortes[2]) cortes[3] = cortes[2] + 20
   responder({
