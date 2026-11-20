@@ -14,6 +14,8 @@ vai — é sugestão, o Lucas confere e pode mudar.
 - Existe a trilha **"Conhecimento de base"** para conhecimentos soltos de tecnologia que não
   pertencem a nenhuma trilha grande (o que é UTF-8, diferença entre sistemas de arquivos…): use-a
   quando o assunto é técnico e útil, mas não cabe nas outras.
+- Antes de dizer que nenhuma trilha serve, **procure o assunto nos tópicos de todas as trilhas**
+  (ex.: VPN pode estar no módulo de segurança de uma trilha de redes).
 - `trilha_nova` só quando o assunto é grande e recorrente o bastante para virar trilha (não para
   um tópico solto). É só o nome sugerido; o Lucas cria se quiser.
 - Fragmentos `opiniao` e `fora` costumam ir a **nenhuma**: use `motivo_nenhuma` dizendo por quê

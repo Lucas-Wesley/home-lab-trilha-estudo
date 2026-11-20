@@ -169,8 +169,12 @@ type trilhaDestino struct {
 	}
 }
 
+// limiteEtapasDestino: só uma proteção para trilha gigante; as de hoje têm até ~100 etapas.
+const limiteEtapasDestino = 300
+
 // trilhasParaDestino: todas as trilhas não concluídas, com os títulos dos módulos e das etapas
-// (~40 por trilha, com "…").
+// (todas: só os títulos, uma linha por módulo, cabem bem; com corte, a IA deixava de ver tópicos
+// que existiam, como a VPN no fim da trilha de redes, e sugeria trilha nova).
 func (a *app) trilhasParaDestino(ctx context.Context) ([]trilhaDestino, error) {
 	rows, err := a.db.QueryContext(ctx, `SELECT id, titulo, objetivo FROM trilhas WHERE estado != 'concluida' ORDER BY id`)
 	if err != nil {
@@ -211,9 +215,9 @@ func (a *app) trilhasParaDestino(ctx context.Context) ([]trilhaDestino, error) {
 			}
 			if et != "" {
 				etapas++
-				if etapas <= 40 {
+				if etapas <= limiteEtapasDestino {
 					(*mods)[len(*mods)-1].Etapas = append((*mods)[len(*mods)-1].Etapas, et)
-				} else if etapas == 41 {
+				} else if etapas == limiteEtapasDestino+1 {
 					(*mods)[len(*mods)-1].Etapas = append((*mods)[len(*mods)-1].Etapas, "…")
 				}
 			}
