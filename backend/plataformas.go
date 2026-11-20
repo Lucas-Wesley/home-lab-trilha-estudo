@@ -22,8 +22,8 @@ import (
 	"time"
 )
 
-// Cursos de plataformas (T50): as aulas da Branas.io e da LINUXtips, baixadas em vídeo, na
-// qualidade máxima, para a aba "Cursos" da Entrada. Os donos dos dois cursos autorizaram o Lucas.
+// Cursos de plataformas (T50, T51): as aulas da Branas.io, LINUXtips, Full Cycle e Tech Leads Club, baixadas em vídeo, na
+// qualidade máxima, para a aba "Cursos" da Entrada. Os donos da Branas.io e da LINUXtips autorizaram o Lucas; nas outras ele é aluno.
 // A extensão do Chrome (E15 de lá) acha o manifesto HLS no player e manda com o nome da aula;
 // aqui o ffmpeg baixa (decifra o AES-128 da LINUXtips com a chave que o próprio servidor entrega
 // a quem manda o Referer do player) e grava em CURSOS_DIR/<plataforma>/<curso>/<módulo>/<aula>.mp4.
@@ -32,6 +32,8 @@ import (
 var plataformasCurso = map[string]string{
 	"branas":    "Branas.io",
 	"linuxtips": "LINUXtips",
+	"fullcycle": "Full Cycle",
+	"techleads": "Tech Leads Club",
 }
 
 const agenteNavegador = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36"

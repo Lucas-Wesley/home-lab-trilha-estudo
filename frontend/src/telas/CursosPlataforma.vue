@@ -78,7 +78,7 @@ onBeforeUnmount(() => clearTimeout(timer))
     </template>
 
     <p class="explicacao">
-      As aulas da Branas.io e da LINUXtips, em vídeo, na qualidade máxima. Na página da aula, clique
+      As aulas da Branas.io, LINUXtips, Full Cycle e Tech Leads Club, em vídeo, na qualidade máxima. Na página da aula, clique
       no ícone da extensão do Homelab e em <strong>Baixar esta aula</strong>: ela vem para cá, no
       curso e no módulo dela, e o servidor baixa uma por vez.
     </p>
