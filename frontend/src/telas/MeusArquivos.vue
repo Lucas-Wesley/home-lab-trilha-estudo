@@ -65,11 +65,22 @@ const quantasAulas = (n) => `${n} ${n === 1 ? 'aula' : 'aulas'}`
 
 function resumoDaPasta(p) {
   const partes = [quantasAulas(p.total)]
-  if (p.baixadas && p.baixadas < p.total) partes.push(`${p.baixadas} ${p.baixadas === 1 ? 'baixada' : 'baixadas'}`)
-  if (p.baixadas === 0 && p.total) partes.push('nada baixado')
   if (p.tamanho) partes.push(`${tamanho(p.tamanho)} no servidor`)
   if (p.falta) partes.push(`faltam ${tamanho(p.falta)}`)
   return partes.join(' · ')
+}
+
+// O selo do que já está no servidor, em destaque na pasta e na aula: tudo, parte ou nada.
+function seloDaPasta(p) {
+  if (!p.total) return null
+  if (p.baixadas >= p.total) return { classe: 'tudo', texto: 'Baixada' }
+  if (p.baixadas > 0) return { classe: 'parte', texto: `${p.baixadas} de ${p.total} baixadas` }
+  return { classe: 'nada', texto: 'Só no Telegram' }
+}
+function seloDaAula(a) {
+  if (a.video) return { classe: 'tudo', texto: 'Baixada' }
+  if (estaPedida(a)) return { classe: 'parte', texto: 'Na fila' }
+  return { classe: 'nada', texto: 'Só no Telegram' }
 }
 
 async function carregar() {
@@ -271,7 +282,14 @@ const limparMarcadas = () => { marcadas.value = new Set() }
 // "Encaixar numa trilha": seletor de trilha + pedido opcional.
 const encaixando = ref(false)
 const trilhas = ref([])
-const trilhaEscolhida = ref('')
+// Um curso pode ir a várias trilhas (ex.: o MBA em Banco de dados, DDD e Observabilidade): um
+// encaixe por trilha, e cada um só pega as aulas do recorte daquela trilha.
+const trilhasEscolhidas = ref(new Set())
+const alternarTrilha = (id) => {
+  const s = new Set(trilhasEscolhidas.value)
+  s.has(id) ? s.delete(id) : s.add(id)
+  trilhasEscolhidas.value = s
+}
 const pedidoCurso = ref('')
 const mandandoEncaixe = ref(false)
 const erroEncaixe = ref('')
@@ -280,7 +298,7 @@ const criandoDosCursos = ref(false)
 const tituloTrilhaCursos = ref('')
 const pedidoCursoNovo = ref('')
 // Aviso depois de pedir: "Encaixe pedido na trilha X" com link para a aba Encaixar.
-const avisoEncaixe = ref(null) // {id, titulo}
+const avisoEncaixe = ref([]) // [{id, titulo}]
 
 async function abrirEncaixar(pastas = pastasMarcadas.value) {
   pastasDoEncaixe.value = pastas
@@ -291,31 +309,38 @@ async function abrirEncaixar(pastas = pastasMarcadas.value) {
   } catch (e) {
     erroEncaixe.value = e.message
   }
-  trilhaEscolhida.value = ''
+  trilhasEscolhidas.value = new Set()
   encaixando.value = true
 }
 
 // O material "curso" vai pelo encaixe de sempre — a IA lê só os títulos das aulas.
-async function pedirEncaixe(trilhaId, trilhaTitulo, pedido) {
+async function pedirEncaixe(lista, pedido) {
   const material = materialDe(pastasDoEncaixe.value)
   if (!material) {
     erroEncaixe.value = 'Uma das pastas marcadas não é de um grupo do Telegram.'
     return false
   }
-  await api(`/api/trilhas/${trilhaId}/encaixar`, { metodo: 'POST', corpo: { material, pedido } })
-  avisoEncaixe.value = { id: trilhaId, titulo: trilhaTitulo }
+  const feitos = []
+  try {
+    for (const t of lista) {
+      await api(`/api/trilhas/${t.id}/encaixar`, { metodo: 'POST', corpo: { material, pedido } })
+      feitos.push({ id: t.id, titulo: t.titulo })
+    }
+  } finally {
+    avisoEncaixe.value = feitos
+  }
   if (pastasDoEncaixe.value === pastasMarcadas.value) marcadas.value = new Set()
   await buscarUsos()
   return true
 }
 
 async function encaixarCursos() {
-  const t = trilhas.value.find((x) => String(x.id) === trilhaEscolhida.value)
-  if (!t) return
+  const lista = trilhas.value.filter((x) => trilhasEscolhidas.value.has(x.id))
+  if (!lista.length) return
   mandandoEncaixe.value = true
   erroEncaixe.value = ''
   try {
-    if (await pedirEncaixe(t.id, t.titulo, pedidoCurso.value)) encaixando.value = false
+    if (await pedirEncaixe(lista, pedidoCurso.value)) encaixando.value = false
   } catch (e) {
     erroEncaixe.value = e.message
   } finally {
@@ -329,7 +354,7 @@ async function criarTrilhaDosCursos() {
   erroEncaixe.value = ''
   try {
     const t = await api('/api/trilhas', { metodo: 'POST', corpo: { titulo: tituloTrilhaCursos.value.trim() } })
-    if (await pedirEncaixe(t.id, t.titulo, pedidoCursoNovo.value)) criandoDosCursos.value = false
+    if (await pedirEncaixe([t], pedidoCursoNovo.value)) criandoDosCursos.value = false
   } catch (e) {
     erroEncaixe.value = e.message
   } finally {
@@ -384,10 +409,12 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
     <!-- S57 do Streaming: o disco dos vídeos não pôde ser lido; a lista vem do banco mesmo assim. -->
     <p v-if="dados?.aviso" class="aviso">{{ dados.aviso }}</p>
     <p v-if="dados && !telegramInstalado" class="aviso">O tdl não está instalado no Streaming: dá para ver as aulas, mas não baixar.</p>
-    <p v-if="avisoEncaixe" class="aviso neutro">
-      Encaixe pedido na trilha
-      <a :href="`${linkTrilha(avisoEncaixe.id)}#encaixar`">{{ avisoEncaixe.titulo }}</a>:
-      a proposta aparece na aba Encaixar material de lá, para você aprovar.
+    <p v-if="avisoEncaixe.length" class="aviso neutro">
+      {{ avisoEncaixe.length === 1 ? 'Encaixe pedido na trilha' : 'Encaixes pedidos nas trilhas' }}
+      <template v-for="(t, i) in avisoEncaixe" :key="t.id">
+        <a :href="`${linkTrilha(t.id)}#encaixar`">{{ t.titulo }}</a>{{ i < avisoEncaixe.length - 1 ? ', ' : '' }}
+      </template>:
+      a proposta aparece na aba Encaixar material de cada uma, para você aprovar.
     </p>
 
     <!-- Raiz: um cartão por curso, lado a lado. -->
@@ -406,7 +433,10 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
             <input type="checkbox" class="marca" :checked="marcadas.has(chavePasta(g))" :aria-label="`Marcar ${g.nome}`" @change="alternarMarcada(g)" />
             <a class="curso-nome" :href="linkPasta(g.caminho.join('/'))">{{ g.nome }}</a>
           </div>
-          <p class="pequeno fraco">{{ resumoDaPasta(g) }}</p>
+          <div class="curso-baixa">
+            <span v-if="seloDaPasta(g)" class="selo" :class="seloDaPasta(g).classe">{{ seloDaPasta(g).texto }}</span>
+            <span class="pequeno fraco">{{ resumoDaPasta(g) }}</span>
+          </div>
           <div class="progresso" :title="`${pctBaixado(g)}% baixado`"><span :style="{ width: pctBaixado(g) + '%' }" /></div>
           <div v-if="trilhasDe(g).length || encaixesDe(g).length" class="usos">
             <a v-for="t in trilhasDe(g).slice(0, 3)" :key="t.trilha_id" class="etiqueta verde" :href="linkTrilha(t.trilha_id)">
@@ -448,11 +478,13 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
                 <span class="sobre">
                   <span class="nome">{{ g.nome }}</span>
                   <span class="meta">{{ resumoDaPasta(g) }}</span>
+                  <span v-if="g.baixadas && g.baixadas < g.total" class="progresso mini"><span :style="{ width: pctBaixado(g) + '%' }" /></span>
                 </span>
               </a>
+              <span v-if="seloDaPasta(g)" class="selo" :class="seloDaPasta(g).classe">{{ seloDaPasta(g).texto }}</span>
               <span class="usos">
                 <a v-for="t in trilhasDe(g).slice(0, 2)" :key="t.trilha_id" class="etiqueta verde" :href="linkTrilha(t.trilha_id)" :title="`${t.aulas} aulas na trilha ${t.trilha}`">
-                  {{ t.inteira ? t.trilha : `${t.aulas} em ${t.trilha}` }}
+                  <Icone nome="trilhas" :tamanho="12" /> {{ t.inteira ? t.trilha : `${t.aulas} em ${t.trilha}` }}
                 </a>
                 <a v-for="e in encaixesDe(g)" :key="'e' + e.trilha_id" class="etiqueta ambar" :href="`${linkTrilha(e.trilha_id)}#encaixar`">esperando · {{ e.trilha }}</a>
               </span>
@@ -471,15 +503,15 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
               <span class="sobre">
                 <span class="nome">{{ a.nome }}</span>
                 <span class="meta">
-                  {{ [segundosParaTempo(a.duracao), tamanho(a.video ? a.video.tamanho : a.tamanho), a.video ? '' : 'no Telegram'].filter(Boolean).join(' · ') }}
+                  {{ [segundosParaTempo(a.duracao), tamanho(a.video ? a.video.tamanho : a.tamanho)].filter(Boolean).join(' · ') }}
                 </span>
               </span>
+              <span class="selo" :class="seloDaAula(a).classe">{{ seloDaAula(a).texto }}</span>
               <span class="usos">
                 <a v-for="u in usosDaAula(a)" :key="u.trilha_id" class="etiqueta verde" :href="link('trilhas', u.trilha_id, 'etapas', u.etapa_id)" :title="`Etapa ${u.etapa}`">
-                  {{ u.trilha }}
+                  <Icone nome="trilhas" :tamanho="12" /> {{ u.trilha }}
                 </a>
                 <a v-if="fonteDaAula(a)" class="etiqueta azul" :href="link('entrada', String(fonteDaAula(a).id))">na Entrada</a>
-                <span v-if="!a.video && estaPedida(a)" class="etiqueta">na fila</span>
               </span>
               <span class="acoes-aula">
                 <button v-if="!fonteDaAula(a) && referenciaDaAula(a)" class="botao discreto" title="Transcrever no Whisper e dividir por assunto" @click="abrirProcessarAula(a)">Processar</button>
@@ -617,26 +649,27 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
   <!-- T43: encaixar os cursos marcados numa trilha existente. -->
   <div v-if="encaixando" class="dialogo-fundo" @click.self="encaixando = false">
     <form class="painel pilha" role="dialog" aria-label="Encaixar cursos numa trilha" @submit.prevent="encaixarCursos">
-      <h3>Encaixar numa trilha</h3>
+      <h3>Encaixar em trilhas</h3>
       <p class="pequeno">
         A IA lê só os títulos das aulas ({{ tituloDoCurso(pastasDoEncaixe) }}) e diz em que
-        etapas elas entram e o que falta. Nada é baixado.
+        etapas elas entram e o que falta. Nada é baixado. Marque quantas trilhas quiser: cada uma
+        recebe um encaixe próprio e pega só as aulas do assunto dela.
       </p>
-      <div>
-        <label class="rotulo" for="e-trilha">Trilha</label>
-        <select id="e-trilha" v-model="trilhaEscolhida" class="campo" required>
-          <option value="" disabled>Escolher…</option>
-          <option v-for="t in trilhas" :key="t.id" :value="String(t.id)">{{ t.titulo }}</option>
-        </select>
-      </div>
+      <fieldset class="escolha-trilhas">
+        <legend class="rotulo">Trilhas <span class="fraco">· {{ trilhasEscolhidas.size }} marcadas</span></legend>
+        <label v-for="t in trilhas" :key="t.id" class="opcao-trilha">
+          <input type="checkbox" :checked="trilhasEscolhidas.has(t.id)" @change="alternarTrilha(t.id)" />
+          <span>{{ t.titulo }}</span>
+        </label>
+      </fieldset>
       <div>
         <label class="rotulo" for="e-pedido">Pedido para a IA <span class="fraco">(opcional)</span></label>
         <textarea id="e-pedido" v-model="pedidoCurso" class="campo" rows="2" placeholder="Ex.: priorize as aulas de DDD tático; a parte de eventos já está coberta." />
       </div>
       <p v-if="erroEncaixe" class="aviso">{{ erroEncaixe }}</p>
       <div class="linha">
-        <button class="botao primario" type="submit" :disabled="mandandoEncaixe || !trilhaEscolhida">
-          {{ mandandoEncaixe ? 'Pedindo…' : 'Pedir o encaixe' }}
+        <button class="botao primario" type="submit" :disabled="mandandoEncaixe || !trilhasEscolhidas.size">
+          {{ mandandoEncaixe ? 'Pedindo…' : trilhasEscolhidas.size > 1 ? `Pedir ${trilhasEscolhidas.size} encaixes` : 'Pedir o encaixe' }}
         </button>
         <button class="botao discreto" type="button" @click="encaixando = false">Cancelar</button>
       </div>
@@ -722,6 +755,34 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
 .curso .pequeno { margin: 0; }
 
 .usos { display: flex; flex-wrap: wrap; gap: var(--e1); }
+.curso-baixa { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e1) var(--e2); }
+
+/* O selo do download tem outro formato que as etiquetas de trilha (contorno e bolinha), para não
+   se confundir com o verde de "está na trilha". */
+.selo {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px 2px 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.selo::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.selo.tudo { color: var(--verde); background: var(--verde-fundo); }
+.selo.parte { color: var(--azul); background: var(--azul-fundo); }
+.selo.parte::before { background: linear-gradient(90deg, currentColor 50%, transparent 50%); box-shadow: inset 0 0 0 1.5px currentColor; }
+.selo.nada { color: var(--texto-suave); border-style: dashed; }
+.selo.nada::before { background: none; box-shadow: inset 0 0 0 1.5px currentColor; }
+.progresso.mini { display: block; max-width: 160px; height: 4px; margin-top: 3px; }
+
+.escolha-trilhas { display: grid; gap: 2px; max-height: 40vh; margin: 0; padding: 0; overflow-y: auto; border: 0; }
+.opcao-trilha { display: flex; align-items: center; gap: var(--e2); padding: 6px var(--e1); border-radius: var(--raio-p); cursor: pointer; }
+.opcao-trilha:hover { background: var(--superficie); }
 .usos .etiqueta { gap: 4px; text-decoration: none; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- numa pasta ---------- */
@@ -854,7 +915,13 @@ onBeforeUnmount(() => clearInterval(relogioDaFila))
   .selecao-texto { padding-right: 36px; }
   .fechar-selecao { position: absolute; top: var(--e2); right: var(--e2); }
   .linha-item { flex-wrap: wrap; }
-  .linha-item > .usos { max-width: none; order: 5; flex-basis: 100%; justify-content: flex-start; padding-left: 40px; }
+  /* No celular o nome fica com a linha inteira; o selo e as trilhas descem para baixo dele. */
+  .linha-item > .item-principal { flex: 1 1 calc(100% - 64px); }
+  .aula > .sobre { flex: 1 1 calc(100% - 44px); }
+  .linha-item > .selo { order: 5; margin-left: 56px; }
+  .aula > .selo { margin-left: 40px; }
+  .linha-item > .usos { max-width: none; order: 6; flex: 1 1 auto; justify-content: flex-start; }
+  .linha-item > .usos:empty { display: none; }
   .aula .acoes-aula { order: 4; }
 }
 </style>
