@@ -75,7 +75,7 @@ func (a *app) handleEntradaTelegram(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		f.Canal = canalDaAula(achada.grupo, v.Caminho)
-		f.Duracao = v.Duracao
+		f.Duracao = int(v.Duracao)
 		f.Fragmentar = corpo.Fragmentar
 		if _, err := a.db.ExecContext(ctx, `UPDATE fontes SET canal = ?, duracao = ?, fragmentar = ? WHERE id = ?`,
 			f.Canal, f.Duracao, corpo.Fragmentar, f.ID); err != nil {
@@ -127,7 +127,7 @@ func (a *app) estadoDaAulaTelegram(ctx context.Context, ref string) (*aulaTelegr
 	v := dados.aulaDaSalva(achada)
 	au := &aulaTelegram{
 		Nome: v.Nome, Canal: canalDaAula(achada.grupo, v.Caminho), Tamanho: v.Tamanho,
-		Duracao: v.Duracao, Video: v.Video, Grupo: achada.grupo, Link: link, Msg: msg,
+		Duracao: int(v.Duracao), Video: v.Video, Grupo: achada.grupo, Link: link, Msg: msg,
 	}
 	if v.Video != 0 {
 		au.Estado = "baixada"

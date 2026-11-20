@@ -83,7 +83,7 @@ func arvoreDosArquivos(dados *meusVideosStreaming) *pastaArvore {
 	raiz := novaPastaArvore("", nil)
 	porId := map[int64]videoArvore{}
 	for _, v := range dados.Videos {
-		porId[v.ID] = videoArvore{ID: v.ID, Nome: v.Nome, Tamanho: v.Tamanho, Duracao: v.Duracao}
+		porId[v.ID] = videoArvore{ID: v.ID, Nome: v.Nome, Tamanho: v.Tamanho, Duracao: int(v.Duracao)}
 	}
 	doCatalogo := map[int64]bool{}
 	for _, s := range dados.Salvos {
@@ -103,7 +103,7 @@ func arvoreDosArquivos(dados *meusVideosStreaming) *pastaArvore {
 				video = &vv
 				doCatalogo[v.Video] = true
 			}
-			duracao := v.Duracao
+			duracao := int(v.Duracao)
 			if duracao == 0 && video != nil {
 				duracao = video.Duracao
 			}
@@ -126,7 +126,7 @@ func arvoreDosArquivos(dados *meusVideosStreaming) *pastaArvore {
 	var soDisco []disco
 	for _, v := range dados.Videos {
 		if !doCatalogo[v.ID] {
-			soDisco = append(soDisco, disco{v: videoArvore{ID: v.ID, Nome: v.Nome, Tamanho: v.Tamanho, Duracao: v.Duracao}, p: v.Pasta})
+			soDisco = append(soDisco, disco{v: videoArvore{ID: v.ID, Nome: v.Nome, Tamanho: v.Tamanho, Duracao: int(v.Duracao)}, p: v.Pasta})
 		}
 	}
 	sort.Slice(soDisco, func(i, j int) bool { return soDisco[i].p < soDisco[j].p })

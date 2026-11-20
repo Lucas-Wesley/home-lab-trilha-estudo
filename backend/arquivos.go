@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -99,18 +101,18 @@ type videoSalvo struct {
 	Nome     string   `json:"nome"`
 	Caminho  []string `json:"caminho"`
 	Tamanho  int64    `json:"tamanho"`
-	Duracao  int      `json:"duracao"`
+	Duracao  segundos `json:"duracao"`
 	Video    int64    `json:"video"` // id do baixado; 0 = só no Telegram
 }
 
 // meusVideosStreaming: só os campos do /api/meus-videos do Streaming que a Trilha usa.
 type meusVideosStreaming struct {
 	Videos []struct {
-		ID      int64  `json:"id"`
-		Pasta   string `json:"pasta"`
-		Nome    string `json:"nome"`
-		Tamanho int64  `json:"tamanho"`
-		Duracao int    `json:"duracao"`
+		ID      int64    `json:"id"`
+		Pasta   string   `json:"pasta"`
+		Nome    string   `json:"nome"`
+		Tamanho int64    `json:"tamanho"`
+		Duracao segundos `json:"duracao"`
 	} `json:"videos"`
 	Salvos []struct {
 		Tudo   bool         `json:"tudo"`
@@ -240,4 +242,17 @@ func contemInt(lista []int, v int) bool {
 		}
 	}
 	return false
+}
+
+// segundos: a duração que o Streaming manda vem do ffprobe, com fração ("duracao": 25.067).
+// Lê número inteiro ou fracionado e arredonda.
+type segundos int
+
+func (s *segundos) UnmarshalJSON(b []byte) error {
+	var f float64
+	if err := json.Unmarshal(b, &f); err != nil {
+		return err
+	}
+	*s = segundos(math.Round(f))
+	return nil
 }

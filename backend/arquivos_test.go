@@ -230,3 +230,16 @@ func TestArquivosErros(t *testing.T) {
 		t.Fatalf("erro dele: %d %v", s, e)
 	}
 }
+
+// O Streaming manda a duração do ffprobe com fração; os falsos mandavam inteiro e o defeito só
+// apareceu em produção (20/11: "cannot unmarshal number 25.067 ... of type int").
+func TestDuracaoFracionadaDoStreaming(t *testing.T) {
+	var m meusVideosStreaming
+	corpo := `{"videos":[{"id":1,"duracao":25.067}],"salvos":[{"tudo":true,"link":"https://t.me/c/1","videos":[{"mensagem":2,"duracao":61.5},{"mensagem":3,"duracao":90}]}]}`
+	if err := json.Unmarshal([]byte(corpo), &m); err != nil {
+		t.Fatal(err)
+	}
+	if m.Videos[0].Duracao != 25 || m.Salvos[0].Videos[0].Duracao != 62 || m.Salvos[0].Videos[1].Duracao != 90 {
+		t.Fatalf("durações: %d %d %d", m.Videos[0].Duracao, m.Salvos[0].Videos[0].Duracao, m.Salvos[0].Videos[1].Duracao)
+	}
+}
