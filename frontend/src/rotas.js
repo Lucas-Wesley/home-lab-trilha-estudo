@@ -25,3 +25,10 @@ export function lerRota(hash) {
 export function link(secao, ...partes) {
   return '#/' + [secao, ...partes].map(encodeURIComponent).join('/')
 }
+
+// linkPasta: "Meus arquivos" (T41) — o caminho "Grupo/Curso" vira
+// "#/entrada/arquivos/Grupo/Curso", um nível por parte, cada um codificado.
+export function linkPasta(caminho) {
+  const niveis = String(caminho || '').split('/').filter(Boolean)
+  return link('entrada', 'arquivos', ...niveis)
+}

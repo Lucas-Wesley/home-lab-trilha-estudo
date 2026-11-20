@@ -94,3 +94,31 @@ Commit: `Entrada (T41): Meus arquivos — os cursos do Telegram do Streaming em 
 ## Dúvidas
 
 ## Feito
+
+- **`backend/arquivos.go`** (novo): as quatro rotas de repasse — `GET /api/arquivos` devolve o
+  `/api/meus-videos` do Streaming como veio + `link_streaming`; `POST /api/arquivos/baixar`
+  `{link,grupo,mensagens}` valida (mensagens não vazias, link `https://t.me/`; senão 400) e vira
+  `{link,tudo:true,pasta:grupo,mensagens}` em `POST /api/meus-videos/telegram`;
+  `POST /api/arquivos/apagar-pasta` e `DELETE /api/arquivos/videos/{id}` repassam. Erros dele
+  voltam com a mensagem dele (`statusOu`: 4xx dele passa, o resto → 502). `integracoes` ganhou
+  `streaming`/`streamingLink` (`STREAMING_URL` + `STREAMING_LINK`, comentadas no
+  `compose.prod.yaml`); `GET /api/integracoes` devolve `streaming` — sem URL a aba diz que não
+  está configurado.
+- **Frontend**: `pastas.js` + `pastas.test.js` copiados do Streaming (S55; `tamanho` acrescentado
+  — vem do `tamanho.js` de lá). `MeusArquivos.vue` novo: `AbasPagina` "Vídeos · Meus arquivos"
+  nas duas telas da Entrada; `#/entrada/arquivos` e `#/entrada/arquivos/<caminho>` (`linkPasta`
+  em `rotas.js`, nível por parte codificado); cartões com o resumo (aulas · baixadas · GB ·
+  faltam), caminho clicável, "Baixar tudo/o que falta (N aulas · GB)" — um pedido por grupo sem
+  o que já está na fila — e "Apagar as baixadas"/lixeira por aula com confirmação; baixada abre
+  "Assistir" em `STREAMING_LINK/#/assistir/proprio:<id>` (aba nova); faltante tem "Baixar"; na
+  fila/baixando tem etiqueta; `livre` no topo e "Baixar" avisa e trava quando não cabe; sem o
+  Telegram instalado avisa e só deixa ver; pedidos na fila/baixando atualizam a cada 5 s. O
+  `.acoes-curso` vazio no topo da pasta é o lugar das ações das fases 8–10.
+- **Testes**: `arquivos_test.go` com Streaming falso (`httptest`) — repasse de corpo e resposta
+  nas quatro rotas, 400 com corpo inválido (sem chamar o Streaming), 502 quando ele está fora e
+  a mensagem dele quando responde 4xx; `pastas.test.js` copiado passando; rotas novas em
+  `rotas.test.js`. `go vet` + `go test` ok; `npm test` 53 ok; `npm run build` ok.
+- **360 px**: com Streaming falso — raiz com os grupos e "4,4 GB livres", pasta com caminho,
+  resumo e botões, módulo com aulas (Assistir → `streaming.internal/#/assistir/proprio:7`,
+  "na fila" certa), "Baixar o que falta" clicado de ponta a ponta (aviso + "2 na fila"), abas
+  trocando — sem rolagem horizontal.

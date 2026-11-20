@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lerRota, link } from './rotas.js'
+import { lerRota, link, linkPasta } from './rotas.js'
 
 describe('lerRota', () => {
   it('abre em Hoje sem hash', () => {
@@ -13,6 +13,11 @@ describe('lerRota', () => {
   it('lê a entrada e a fonte', () => {
     expect(lerRota('#/entrada')).toEqual({ secao: 'entrada', partes: [], ancora: '' })
     expect(lerRota('#/entrada/12')).toEqual({ secao: 'entrada', partes: ['12'], ancora: '' })
+  })
+
+  it('lê Meus arquivos com o caminho da pasta em níveis', () => {
+    expect(lerRota('#/entrada/arquivos')).toEqual({ secao: 'entrada', partes: ['arquivos'], ancora: '' })
+    expect(lerRota('#/entrada/arquivos/Grupo/Curso%20A').partes).toEqual(['arquivos', 'Grupo', 'Curso A'])
   })
 
   it('separa a âncora de uma seção da página', () => {
@@ -35,5 +40,10 @@ describe('lerRota', () => {
 describe('link', () => {
   it('monta o hash codificado', () => {
     expect(link('trilhas', 'história')).toBe('#/trilhas/hist%C3%B3ria')
+  })
+
+  it('linkPasta: um nível por parte, codificado', () => {
+    expect(linkPasta('Grupo/Curso A')).toBe('#/entrada/arquivos/Grupo/Curso%20A')
+    expect(linkPasta('')).toBe('#/entrada/arquivos')
   })
 })

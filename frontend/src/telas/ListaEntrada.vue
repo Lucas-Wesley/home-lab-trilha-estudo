@@ -2,6 +2,7 @@
 import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '../api.js'
 import { linkDoYouTube } from '../entrada.js'
+import AbasPagina from '../AbasPagina.vue'
 import Icone from '../Icone.vue'
 import Pagina from '../Pagina.vue'
 import { link } from '../rotas.js'
@@ -11,6 +12,15 @@ import { segundosParaTempo } from '../videoaula.js'
 
 // Aviso do compartilhar do celular (/compartilhar): o App manda o link e deixa o recado aqui.
 const avisoCompartilhar = inject('avisoCompartilhar', ref(''))
+
+// Abas da Entrada (T41): os vídeos do YouTube aqui; os cursos do Telegram em "Meus arquivos".
+const abas = [
+  { id: 'videos', nome: 'Vídeos' },
+  { id: 'arquivos', nome: 'Meus arquivos' },
+]
+const mudarAba = (id) => {
+  if (id === 'arquivos') location.hash = '#/entrada/arquivos'
+}
 
 const fontes = ref([])
 const campo = ref('')
@@ -134,6 +144,7 @@ onBeforeUnmount(() => {
 <template>
   <Pagina>
   <div class="pilha">
+    <AbasPagina :abas="abas" model-value="videos" rotulo="Partes da Entrada" @update:model-value="mudarAba" />
     <header class="cabecalho">
       <div>
         <h1>Entrada</h1>

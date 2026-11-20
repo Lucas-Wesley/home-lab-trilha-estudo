@@ -13,7 +13,7 @@ import (
 )
 
 // Os outros apps do ecossistema, pela rede interna do Docker (compose.prod.yaml). Fase 5: o
-// Flashcards; fase 6: Biblioteca e Acervo.
+// Flashcards; fase 6: Biblioteca e Acervo; Entrada fase 7 (T41): o Streaming (cursos do Telegram).
 
 var clienteApps = &http.Client{}
 

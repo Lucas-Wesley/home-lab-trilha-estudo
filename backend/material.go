@@ -113,6 +113,7 @@ func (a *app) handleIntegracoes(w http.ResponseWriter, r *http.Request) {
 		"biblioteca": a.integra.biblioteca != "",
 		"acervo":     a.integra.acervo != "",
 		"flashcards": a.integra.flashcards != "",
+		"streaming":  a.integra.streaming != "",
 	})
 }
 

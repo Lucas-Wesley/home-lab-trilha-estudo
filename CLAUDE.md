@@ -119,7 +119,7 @@ proposta `roteiro` (chave `@roteiro` ou `@roteiro:<etapa>`); `GET .../roteiro?et
 `roteiro.md` e `encaixe.md`. Telas: `RevisarRoteiro.vue`, `MudancaRoteiro.vue`; as páginas da
 trilha e da etapa usam `AbasPagina.vue`.
 
-## Entrada (T35–T40)
+## Entrada (T35–T41)
 `backend/entrada.go` e `backend/youtube.go` (código copiado do Acervo, sem chamá-lo):
 `POST /api/entrada` com um link de vídeo do YouTube cria a **fonte** (tabela `fontes`); com uma
 playlist, uma por vídeo (`--flat-playlist`). Uma fila própria do yt-dlp — separada da do Claude,
@@ -184,6 +184,16 @@ sem yt-dlp e sem IA; o `video_id` é o id da Referência (o id do vídeo sai da 
 tela). Repetir a Referência devolve a mesma fonte; se o vídeo já entrou pelo YouTube, devolve a
 fonte `youtube` existente. Na lista, "Trazer do Acervo" abre o painel com os vídeos de lá, busca
 por título e "na Entrada" nas já trazidas (some sem `ligados.acervo`).
+
+**Meus arquivos** (`backend/arquivos.go`, `telas/MeusArquivos.vue`, T41): a aba
+`#/entrada/arquivos[/<caminho>]` mostra os cursos do Telegram do **Streaming** em curso › módulo ›
+aula — a árvore é `frontend/src/pastas.js`, **copiada do Streaming** (S55 de lá). O Streaming segue
+o dono do Telegram: a Trilha só repassa a API (`GET /api/arquivos` devolve o `/api/meus-videos` dele
++ `link_streaming`; `POST /api/arquivos/baixar` vira o pedido `tudo` de lá só com as mensagens que
+faltam; `POST /api/arquivos/apagar-pasta` e `DELETE /api/arquivos/videos/{id}` repassam). Variáveis
+novas: `STREAMING_URL` (rede interna; vazio = aba avisa "não configurado") e `STREAMING_LINK` (o
+"Assistir" abre `…/#/assistir/proprio:<id>` lá). Enquanto houver pedido na fila/baixando a tela
+atualiza a cada 5 s. Mudar `GET /api/meus-videos` no Streaming é mudar a Trilha também.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

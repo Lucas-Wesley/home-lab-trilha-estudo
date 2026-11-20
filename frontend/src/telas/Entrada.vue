@@ -2,12 +2,14 @@
 import { computed } from 'vue'
 import ListaEntrada from './ListaEntrada.vue'
 import Fonte from './Fonte.vue'
+import MeusArquivos from './MeusArquivos.vue'
 
-// #/entrada · #/entrada/3
+// #/entrada · #/entrada/3 · #/entrada/arquivos/<caminho da pasta> (T41)
 const props = defineProps({ rota: { type: Object, required: true } })
 const tela = computed(() => {
-  const id = props.rota.partes[0]
-  if (id) return { comp: Fonte, props: { fonteId: Number(id) } }
+  const [primeira, ...resto] = props.rota.partes
+  if (primeira === 'arquivos') return { comp: MeusArquivos, props: { pasta: resto.join('/') } }
+  if (primeira) return { comp: Fonte, props: { fonteId: Number(primeira) } }
   return { comp: ListaEntrada, props: {} }
 })
 </script>

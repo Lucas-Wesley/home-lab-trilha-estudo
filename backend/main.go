@@ -65,6 +65,8 @@ func main() {
 		bibliotecaLink: strings.TrimSuffix(env("BIBLIOTECA_LINK", "https://biblioteca.internal"), "/"),
 		acervo:         strings.TrimSuffix(os.Getenv("ACERVO_URL"), "/"),
 		acervoLink:     strings.TrimSuffix(env("ACERVO_LINK", "https://acervo.internal"), "/"),
+		streaming:      strings.TrimSuffix(os.Getenv("STREAMING_URL"), "/"),
+		streamingLink:  strings.TrimSuffix(env("STREAMING_LINK", "https://streaming.internal"), "/"),
 	},
 		ytdlpBin:      env("YTDLP_BIN", "yt-dlp"),
 		ytdlpExtra:    strings.Fields(os.Getenv("YTDLP_ARGS")),

@@ -955,6 +955,8 @@ type integracoes struct {
 	bibliotecaLink string // BIBLIOTECA_LINK
 	acervo         string // ACERVO_URL
 	acervoLink     string // ACERVO_LINK
+	streaming      string // STREAMING_URL (Entrada fase 7, arquivos.go); vazio = aba escondida
+	streamingLink  string // STREAMING_LINK, o endereço que o navegador abre ("Assistir")
 }
 
 type envioFlashcards struct {

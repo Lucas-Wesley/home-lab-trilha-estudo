@@ -11,6 +11,9 @@ services:
       BIBLIOTECA_URL: http://biblioteca:8080
       ACERVO_URL: http://acervo:8080
       FLASHCARDS_URL: http://flashcards:8080
+      # Entrada (T41): os cursos do Telegram do Streaming na aba "Meus arquivos".
+      STREAMING_URL: http://streaming:8080
+      STREAMING_LINK: https://streaming.internal
       # Entrada (T35): vídeo sem legenda vai ao Whisper large-v3 do Mac mini, como no Acervo.
       WHISPER_URL: http://192.168.1.160:8000
     networks:
