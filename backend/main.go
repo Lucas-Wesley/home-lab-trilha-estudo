@@ -77,6 +77,7 @@ func main() {
 		acordaEntrada: make(chan struct{}, 1),
 		cursosDir:     env("CURSOS_DIR", filepath.Join(dataDir, "cursos")),
 		acordaCursos:  make(chan struct{}, 1),
+		projeto:       novoCadernoProjeto(dataDir),
 	}
 	a.ligarIA()
 	if err := a.fila.recuperar(ctx); err != nil {

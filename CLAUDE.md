@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T34), fases, riscos e o que está em aberto.
+  (T1–T52), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — aponta para o design system do **Hub**, que é a
@@ -257,6 +257,17 @@ do intervalo, com a mesma barra e o mesmo aviso.
 Uma fila própria baixa uma por vez com o ffmpeg, em vídeo na qualidade máxima, para
 `CURSOS_DIR/<plataforma>/<curso>/<módulo>/<aula>.mp4` (no servidor `/srv/cursos`, fora do backup).
 Mudar o corpo desses pedidos é mudar a extensão (`home-lab-plugin-web`) também.
+
+## Projeto de estudo (T52)
+`backend/projeto.go`, `projeto_roadmap.go` e `projeto_refs.go`: a seção **Projeto** (`#/projeto`,
+`telas/Projeto.vue`) mostra o caderno público `Lucas-Wesley/projeto-de-estudo` e **só lê**. O
+repositório vem inteiro num tarball (`PROJETO_REPO`, `PROJETO_RAMO`, `PROJETO_TARBALL`), fica em memória
+e em `DATA_DIR/projeto/caderno.tar.gz`, e é baixado de novo a cada 10 min ou pelo
+`POST /api/projeto/atualizar`; GitHub fora = última cópia com `aviso`. `GET /api/projeto` devolve
+estado, livros (T21–T23), fases e itens com as referências ligadas às trilhas (`casar`: número de
+módulo/etapa/`Cap. N` ou título normalizado; `parcial` quando só achou o módulo) e o prompt de
+`PROMPT.md` já preenchido. O parser segue o formato do `ROADMAP.md` (fixture real em
+`backend/testdata/projeto/`): mudou o formato lá, atualize a fixture e `projeto_test.go`.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

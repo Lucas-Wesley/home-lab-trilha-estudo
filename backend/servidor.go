@@ -34,6 +34,8 @@ type app struct {
 	acordaCursos  chan struct{}
 	download      downloadAtual
 	clienteCursos *http.Client // nos testes, o do servidor falso
+	// T52: o caderno do Projeto de estudo (repositório público no GitHub), só leitura.
+	projeto *cadernoProjeto
 }
 
 // ligarIA registra os tipos de tarefa na fila (fase 3).
@@ -174,6 +176,10 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/entrada/{id}/destino", a.handleEntradaDestino)
 	mux.HandleFunc("POST /api/entrada/{id}/enviar", a.handleEntradaEnviar)
 	mux.HandleFunc("PUT /api/fragmentos/{id}/destinos", a.handleFragmentoDestinos)
+
+	// Projeto de estudo (T52): o caderno do GitHub ligado às trilhas.
+	mux.HandleFunc("GET /api/projeto", a.handleProjeto)
+	mux.HandleFunc("POST /api/projeto/atualizar", a.handleAtualizarProjeto)
 
 	mux.HandleFunc("GET /api/tarefas", a.handleTarefas)
 	mux.HandleFunc("POST /api/tarefas/{id}/cancelar", a.handleCancelarTarefa)

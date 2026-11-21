@@ -2,7 +2,7 @@
 // anterior e o servidor só precisa servir o index.html.
 // "design" (a vitrine do design system) não tem aba: só se chega pelo endereço. "ajustes" abre
 // pelo ícone no topo.
-export const SECOES = ['hoje', 'trilhas', 'entrada', 'ajustes', 'design']
+export const SECOES = ['hoje', 'trilhas', 'entrada', 'projeto', 'ajustes', 'design']
 
 // Um "%" malformado no endereço (link copiado pela metade, outra codificação) não pode derrubar o
 // app: o trecho fica como veio.

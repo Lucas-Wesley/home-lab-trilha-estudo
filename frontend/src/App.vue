@@ -4,6 +4,7 @@ import Icone from './Icone.vue'
 import Hoje from './telas/Hoje.vue'
 import Entrada from './telas/Entrada.vue'
 import Trilhas from './telas/Trilhas.vue'
+import Projeto from './telas/Projeto.vue'
 import Vitrine from './telas/Vitrine.vue'
 import Ajustes from './telas/Ajustes.vue'
 import { api } from './api.js'
@@ -36,13 +37,15 @@ if (location.pathname === '/compartilhar') {
 
 const hash = ref(location.hash)
 const rota = computed(() => lerRota(hash.value))
-const telas = { hoje: Hoje, trilhas: Trilhas, entrada: Entrada, ajustes: Ajustes, design: Vitrine }
+const telas = { hoje: Hoje, trilhas: Trilhas, entrada: Entrada, projeto: Projeto, ajustes: Ajustes, design: Vitrine }
 const versao = ref('')
 
 const abas = [
   { secao: 'hoje', nome: 'Hoje', icone: 'hoje' },
   { secao: 'trilhas', nome: 'Trilhas', icone: 'trilhas' },
   { secao: 'entrada', nome: 'Entrada', icone: 'entrada' },
+  // T52: o caderno do Projeto de estudo (Banco, Nuvem e Escola) ligado às trilhas.
+  { secao: 'projeto', nome: 'Projeto', nomeLongo: 'Projeto de estudo', icone: 'projeto' },
   { secao: 'ajustes', nome: 'Ajustes', icone: 'ajustes' },
 ]
 
@@ -114,7 +117,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
           :aria-current="rota.secao === aba.secao ? 'page' : undefined"
         >
           <Icone :nome="aba.icone" :tamanho="18" />
-          <span>{{ aba.nome }}</span>
+          <span>{{ aba.nomeLongo || aba.nome }}</span>
           <span v-if="aba.secao === 'entrada' && prontas" class="contador">{{ prontas }}</span>
         </a>
       </nav>
@@ -134,7 +137,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', aoMudarHash))
     </main>
   </div>
 
-  <nav class="abas-celular" aria-label="Seções">
+  <nav class="abas-celular" aria-label="Seções" :style="{ gridTemplateColumns: `repeat(${abas.length + 1}, 1fr)` }">
     <button @click="gaveta = !gaveta">
       <Icone :nome="gaveta ? 'fechar' : 'menu'" :tamanho="20" />
       <span>Menu</span>
