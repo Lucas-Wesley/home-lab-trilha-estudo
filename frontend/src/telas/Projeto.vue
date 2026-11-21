@@ -137,7 +137,7 @@ const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
       <p v-if="!item" class="aviso">O item {{ itemId }} não está no roadmap.</p>
       <template v-else>
         <div class="topo-pagina">
-          <h1>{{ item.id }} · <span v-html="textoComCodigo(item.titulo)" /></h1>
+          <h1 class="titulo-item">{{ item.id }} · <span v-html="textoComCodigo(item.titulo)" /></h1>
           <span class="etiqueta" :class="rotuloSituacao(item).cor">{{ rotuloSituacao(item).nome }}</span>
         </div>
         <div class="ferramentas">
@@ -304,6 +304,7 @@ const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
 
 <style scoped>
 .sem-margem { margin: 0; }
+.topo-pagina .titulo-item { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .texto { font-size: 15px; line-height: 1.6; }
 .texto :deep(p) { margin: 0; }
 .texto :deep(p + p), .texto :deep(ul) { margin: var(--e2) 0 0; }
