@@ -47,6 +47,8 @@ const livros = computed(() => dados.value?.livros || [])
 const totalLivros = computed(() =>
   livros.value.reduce((s, l) => ({ feitos: s.feitos + l.concluidas, total: s.total + l.total }), { feitos: 0, total: 0 }),
 )
+// Texto curto do roadmap (negrito, `código`, links) como Markdown.
+const md = (t) => renderizar(t || '').html
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0)
 const tituloLivro = (l) => (l.titulo || '').replace(/^Livro:\s*/, '')
 
@@ -135,7 +137,7 @@ const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
       <p v-if="!item" class="aviso">O item {{ itemId }} não está no roadmap.</p>
       <template v-else>
         <div class="topo-pagina">
-          <h1>{{ item.id }} · {{ item.titulo }}</h1>
+          <h1>{{ item.id }} · <span v-html="textoComCodigo(item.titulo)" /></h1>
           <span class="etiqueta" :class="rotuloSituacao(item).cor">{{ rotuloSituacao(item).nome }}</span>
         </div>
         <div class="ferramentas">
@@ -147,20 +149,20 @@ const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
         <div class="pilha">
           <section v-if="item.implementar" class="quadro">
             <div class="quadro-topo"><h2 class="rotulo-secao">Implementar</h2></div>
-            <p class="texto" v-html="textoComCodigo(item.implementar)" />
+            <div class="texto" v-html="md(item.implementar)" />
           </section>
           <section v-if="item.pronto" class="quadro">
             <div class="quadro-topo"><h2 class="rotulo-secao">Pronto quando</h2></div>
-            <p class="texto" v-html="textoComCodigo(item.pronto)" />
+            <div class="texto" v-html="md(item.pronto)" />
           </section>
           <div v-if="item.repositorio || item.outros.length" class="quadros">
             <section v-if="item.repositorio" class="quadro">
               <div class="quadro-topo"><h2 class="rotulo-secao">Repositório</h2></div>
-              <p class="texto" v-html="textoComCodigo(item.repositorio)" />
+              <div class="texto" v-html="md(item.repositorio)" />
             </section>
             <section v-for="o in item.outros" :key="o.rotulo" class="quadro">
               <div class="quadro-topo"><h2 class="rotulo-secao">{{ o.rotulo }}</h2></div>
-              <p class="texto" v-html="textoComCodigo(o.texto)" />
+              <div class="texto" v-html="md(o.texto)" />
             </section>
           </div>
 
@@ -282,8 +284,8 @@ const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
           <li v-for="it in f.itens" :key="it.id">
             <a class="item" :href="link('projeto', it.id)" :class="{ atual: it.id === estado.item_id }">
               <span class="id">{{ it.id }}</span>
-              <span class="nome">{{ it.titulo }}</span>
-              <span class="etiqueta" :class="rotuloSituacao(it).cor">{{ rotuloSituacao(it).nome }}</span>
+              <span class="nome" v-html="textoComCodigo(it.titulo)" />
+              <span class="etiqueta" :class="[rotuloSituacao(it).cor, { 'a-fazer': it.situacao === 'a_fazer' }]">{{ rotuloSituacao(it).nome }}</span>
             </a>
           </li>
         </ul>
@@ -302,7 +304,10 @@ const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
 
 <style scoped>
 .sem-margem { margin: 0; }
-.texto { margin: 0; font-size: 15px; line-height: 1.6; }
+.texto { font-size: 15px; line-height: 1.6; }
+.texto :deep(p) { margin: 0; }
+.texto :deep(p + p), .texto :deep(ul) { margin: var(--e2) 0 0; }
+.texto :deep(code) { font-size: 0.88em; }
 .rotulo-secao.sub { margin: var(--e4) 0 var(--e2); }
 
 .nav-item .nav-id { flex: none; min-width: 2.4em; font-family: var(--fonte-mono); font-size: 12px; color: var(--texto-fraco); }
@@ -366,6 +371,7 @@ details[open] > summary { margin-bottom: var(--e3); }
   .item { flex-wrap: wrap; gap: var(--e1) var(--e3); }
   .item .nome { flex-basis: calc(100% - 3.6em); }
   .item .etiqueta { margin-left: calc(2.6em + var(--e3)); }
+  .item .etiqueta.a-fazer { display: none; }
   .estudo li { flex-direction: column; gap: var(--e1); }
 }
 </style>
