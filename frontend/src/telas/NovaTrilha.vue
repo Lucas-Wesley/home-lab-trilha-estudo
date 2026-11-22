@@ -18,7 +18,7 @@ const entradas = [
   { id: 'material', icone: 'livro', titulo: 'A partir de material', texto: 'Um livro da Biblioteca, Temas do Acervo ou documentos próprios viram a espinha dorsal.', fase: '' },
 ]
 const entrada = ref('ia')
-const dados = ref({ titulo: '', objetivo: '', recorte: '', nivel_partida: '', nivel_alvo: '', profundidade: 3, instrucoes: '' })
+const dados = ref({ titulo: '', objetivo: '', recorte: '', nivel_partida: '', nivel_alvo: '', profundidade: 3, instrucoes: '', grupo: '' })
 // Com IA (fase 4): o tema e o que você quer, em texto livre, e o tamanho da entrevista ou a lista.
 const comIA = computed(() => entrada.value !== 'manual')
 const ia = ref({ tema: '', pedido: '', entrevista: 'padrao', lista: '', profundidade: 3, instrucoes: '' })

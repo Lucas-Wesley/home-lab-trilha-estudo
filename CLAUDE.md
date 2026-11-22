@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T52), fases, riscos e o que está em aberto.
+  (T1–T55), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — aponta para o design system do **Hub**, que é a
@@ -257,6 +257,13 @@ do intervalo, com a mesma barra e o mesmo aviso.
 Uma fila própria baixa uma por vez com o ffmpeg, em vídeo na qualidade máxima, para
 `CURSOS_DIR/<plataforma>/<curso>/<módulo>/<aula>.mp4` (no servidor `/srv/cursos`, fora do backup).
 Mudar o corpo desses pedidos é mudar a extensão (`home-lab-plugin-web`) também.
+
+**Escola de cursos** (`backend/embeds.go`, `backend/cursos_trilha.go`, T55): a aula da plataforma pode vir com o
+`embed` do YouTube/Vimeo (o yt-dlp baixa, com `--referer`) ou sem vídeo (`texto` → estado `texto`), com a `ordem`
+no curso e o texto da página. Com `trilha: true` (ou `POST /api/cursos/trilha`), o curso vira trilha ativa no
+**grupo** da plataforma (coluna `trilhas.grupo`; a lista mostra o grupo como um cartão, `#/trilhas/grupo/<nome>`):
+uma etapa por aula (`aula-<id>`), vídeo `/api/cursos/aulas/<id>/video` e o documento `aula-<id>`. Depois só
+completa (nunca reimporta: a importação apagaria lições). A `Videoaula.vue` mostra o download em andamento.
 
 ## Projeto de estudo (T52)
 `backend/projeto.go`, `projeto_roadmap.go` e `projeto_refs.go`: a seção **Projeto** (`#/projeto`,

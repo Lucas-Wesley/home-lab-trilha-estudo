@@ -13,6 +13,10 @@ const dados = defineModel({ type: Object, required: true })
       <input id="t-titulo" v-model="dados.titulo" class="campo" placeholder="Ex.: Home lab: rede" required />
     </div>
     <div>
+      <label class="rotulo" for="t-grupo">Grupo <span class="fraco">(opcional: a escola ou coleção, ex.: Chef Enzo Neto; as trilhas do mesmo grupo ficam juntas)</span></label>
+      <input id="t-grupo" v-model="dados.grupo" class="campo" />
+    </div>
+    <div>
       <label class="rotulo" for="t-objetivo">Ao final, você será capaz de…</label>
       <textarea id="t-objetivo" v-model="dados.objetivo" class="campo" rows="2" placeholder="O objetivo, com um verbo: explicar, configurar, diagnosticar, comparar…" />
     </div>

@@ -53,6 +53,14 @@ var migracoes = []string{
 	// T50: a primeira versão da tabela (no ar por minutos, vazia) tinha a página como chave; na
 	// LINUXtips a página é a mesma para todas as aulas. A nova é aulas_plataforma.
 	`DROP TABLE IF EXISTS aulas_curso`,
+	// T55: o grupo da trilha (a escola dos cursos, ex.: "Chef Enzo Neto"; vazio = solta) e, na aula
+	// da plataforma, a ordem no curso, o texto da página (transcrição, notas) e o vídeo embutido
+	// (YouTube ou Vimeo, baixado pelo yt-dlp) quando não há HLS.
+	`ALTER TABLE trilhas ADD COLUMN grupo TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE aulas_plataforma ADD COLUMN ordem INTEGER NOT NULL DEFAULT 0`,
+	`ALTER TABLE aulas_plataforma ADD COLUMN texto TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE aulas_plataforma ADD COLUMN embed TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE aulas_plataforma ADD COLUMN na_trilha INTEGER NOT NULL DEFAULT 0`, // já entrou na trilha do curso
 }
 
 // O esquema cresce fase a fase (DECISOES.md §9).

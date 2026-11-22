@@ -7,9 +7,11 @@ import { api } from '../api.js'
 import { ESTADOS_AULA, agruparAulas, temDownload } from '../aulasCurso.js'
 import { tamanho } from '../pastas.js'
 import { segundosParaTempo } from '../videoaula.js'
+import { link } from '../rotas.js'
 
-// Cursos (T50): as aulas da Branas.io e da LINUXtips que a extensão do Chrome mandou baixar, em
-// vídeo, na qualidade máxima. Plataforma › curso › módulo; um download por vez, no servidor.
+// Cursos (T50, T55): as aulas que a extensão do Chrome mandou baixar, em vídeo, na qualidade máxima
+// (ou só o texto, na aula sem vídeo). Plataforma › curso › módulo; um download por vez, no servidor.
+// Cada curso pode virar uma trilha (uma etapa por aula, no grupo da plataforma).
 const ABAS = [
   { id: 'videos', nome: 'Vídeos' },
   { id: 'arquivos', nome: 'Meus arquivos' },
@@ -34,7 +36,20 @@ async function buscar() {
   if (temDownload(dados.value?.aulas || [])) timer = setTimeout(buscar, 3000)
 }
 
-const grupos = computed(() => agruparAulas(dados.value?.aulas || [], dados.value?.plataformas || {}))
+const grupos = computed(() => agruparAulas(dados.value?.aulas || [], dados.value?.plataformas || {}, dados.value?.trilhas || []))
+
+const criando = ref('')
+async function criarTrilha(c) {
+  criando.value = c.chave
+  try {
+    const r = await api('/api/cursos/trilha', { metodo: 'POST', corpo: { plataforma: c.plataforma, curso: c.nome }, tempo: 60000 })
+    location.hash = link('trilhas', r.trilha_id)
+  } catch (e) {
+    erro.value = e.message
+  } finally {
+    criando.value = ''
+  }
+}
 
 async function tentar(a) {
   try {
@@ -58,7 +73,7 @@ async function apagar(a) {
 
 function meta(a) {
   const peso = a.estado === 'pronta' ? tamanho(a.tamanho) : a.tamanho_estimado ? `~${tamanho(a.tamanho_estimado)}` : ''
-  return [a.qualidade, segundosParaTempo(a.duracao), peso].filter(Boolean).join(' · ')
+  return [a.qualidade, a.duracao ? segundosParaTempo(a.duracao) : '', peso].filter(Boolean).join(' · ')
 }
 
 onMounted(buscar)
@@ -78,9 +93,10 @@ onBeforeUnmount(() => clearTimeout(timer))
     </template>
 
     <p class="explicacao">
-      As aulas da Branas.io, LINUXtips, Full Cycle e Tech Leads Club, em vídeo, na qualidade máxima. Na página da aula, clique
-      no ícone da extensão do Homelab e em <strong>Baixar esta aula</strong>: ela vem para cá, no
-      curso e no módulo dela, e o servidor baixa uma por vez.
+      As aulas da Branas.io, LINUXtips, Full Cycle, Tech Leads Club e Chef Enzo Neto, em vídeo, na qualidade máxima. Na página da
+      aula, clique no ícone da extensão do Homelab e em <strong>Baixar esta aula</strong> (ou no curso inteiro, ou, no Chef Enzo
+      Neto, na escola inteira): ela vem para cá, no curso e no módulo dela, e o servidor baixa uma por vez. Cada curso pode virar
+      uma trilha, com uma etapa por aula.
     </p>
     <p v-if="erro" class="aviso">{{ erro }}</p>
     <p v-if="dados && !grupos.length" class="fraco">Nenhuma aula ainda.</p>
@@ -90,13 +106,18 @@ onBeforeUnmount(() => clearTimeout(timer))
       <div v-for="c in p.cursos" :key="c.chave" class="quadro curso">
         <div class="quadro-topo">
           <h3 class="nome-curso">{{ c.nome }}</h3>
-          <span class="pequeno fraco">{{ c.baixadas }} de {{ c.total }} baixadas<template v-if="c.tamanho"> · {{ tamanho(c.tamanho) }}</template></span>
+          <span class="pequeno fraco">{{ [c.total > c.soTexto ? `${c.baixadas} de ${c.total - c.soTexto} baixadas` : '', c.soTexto ? `${c.soTexto} só texto` : '', c.tamanho ? tamanho(c.tamanho) : ''].filter(Boolean).join(' · ') }}</span>
+          <span class="espaco" />
+          <a v-if="c.trilha" class="botao discreto" :href="link('trilhas', c.trilha)"><Icone nome="trilhas" :tamanho="15" /> Abrir a trilha</a>
+          <button v-else class="botao discreto" :disabled="criando === c.chave" title="Uma etapa por aula, com o vídeo e o texto da página" @click="criarTrilha(c)">
+            {{ criando === c.chave ? 'Criando…' : 'Criar trilha deste curso' }}
+          </button>
         </div>
         <div v-for="m in c.modulos" :key="m.chave" class="modulo">
           <p v-if="m.nome" class="nome-modulo"><Icone nome="pasta" :tamanho="14" /> {{ m.nome }}</p>
           <ul class="lista linhas">
             <li v-for="a in m.aulas" :key="a.id" class="linha-aula">
-              <span class="icone-aula" :class="{ vazia: a.estado !== 'pronta' }"><Icone nome="video" :tamanho="15" /></span>
+              <span class="icone-aula" :class="{ vazia: a.estado !== 'pronta' }"><Icone :nome="a.estado === 'texto' ? 'livro' : 'video'" :tamanho="15" /></span>
               <span class="sobre">
                 <a v-if="a.estado === 'pronta'" class="nome" :href="`/api/cursos/aulas/${a.id}/video`" target="_blank" rel="noopener">{{ a.titulo }}</a>
                 <span v-else class="nome">{{ a.titulo }}</span>
@@ -126,6 +147,8 @@ onBeforeUnmount(() => clearTimeout(timer))
 .plataforma { margin-top: var(--e5); }
 .curso { margin-top: var(--e3); }
 .nome-curso { font-size: 16px; font-weight: 600; margin: 0; }
+.curso .quadro-topo { display: flex; align-items: center; gap: var(--e3); flex-wrap: wrap; }
+.espaco { flex: 1; }
 .modulo + .modulo { margin-top: var(--e4); }
 .nome-modulo { display: flex; align-items: center; gap: var(--e2); margin: var(--e3) 0 var(--e1); font-size: 13.5px; font-weight: 600; color: var(--texto-suave); }
 .linha-aula { display: flex; align-items: center; gap: var(--e3); padding: var(--e2) 0; }

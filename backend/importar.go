@@ -131,9 +131,9 @@ func (a *app) importar(ctx context.Context, p pacote) (resultadoImportacao, erro
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		r, err := tx.ExecContext(ctx, `INSERT INTO trilhas (slug, titulo, objetivo, descricao, recorte, instrucoes,
-			nivel_partida, nivel_alvo, profundidade, estado, criado_em, atualizado_em)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			t.Slug, t.Titulo, t.Objetivo, t.Descricao, t.Recorte, t.Instrucoes, t.NivelPartida, t.NivelAlvo, t.Profundidade, estadoNovo, agora, agora)
+			nivel_partida, nivel_alvo, profundidade, estado, grupo, criado_em, atualizado_em)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			t.Slug, t.Titulo, t.Objetivo, t.Descricao, t.Recorte, t.Instrucoes, t.NivelPartida, t.NivelAlvo, t.Profundidade, estadoNovo, t.Grupo, agora, agora)
 		if err != nil {
 			return res, err
 		}
@@ -164,8 +164,8 @@ func (a *app) importar(ctx context.Context, p pacote) (resultadoImportacao, erro
 			return res, err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE trilhas SET titulo = ?, objetivo = ?, descricao = ?, recorte = ?, instrucoes = ?,
-			nivel_partida = ?, nivel_alvo = ?, profundidade = ?, atualizado_em = ? WHERE id = ?`,
-			t.Titulo, t.Objetivo, t.Descricao, t.Recorte, t.Instrucoes, t.NivelPartida, t.NivelAlvo, t.Profundidade, agora, id); err != nil {
+			nivel_partida = ?, nivel_alvo = ?, profundidade = ?, grupo = ?, atualizado_em = ? WHERE id = ?`,
+			t.Titulo, t.Objetivo, t.Descricao, t.Recorte, t.Instrucoes, t.NivelPartida, t.NivelAlvo, t.Profundidade, t.Grupo, agora, id); err != nil {
 			return res, err
 		}
 	}

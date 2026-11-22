@@ -78,8 +78,8 @@ const metaTexto = computed(() => {
 // ---------- dados da trilha ----------
 const editando = ref(null)
 function abrirEdicao() {
-  const { titulo, objetivo, recorte, nivel_partida, nivel_alvo, profundidade, instrucoes, descricao } = t.value
-  editando.value = { titulo, objetivo, recorte, nivel_partida, nivel_alvo, profundidade, instrucoes, descricao }
+  const { titulo, objetivo, recorte, nivel_partida, nivel_alvo, profundidade, instrucoes, descricao, grupo } = t.value
+  editando.value = { titulo, objetivo, recorte, nivel_partida, nivel_alvo, profundidade, instrucoes, descricao, grupo: grupo || "" }
 }
 async function salvarDados() {
   if (await fazer(() => api(`/api/trilhas/${props.trilhaId}`, { metodo: 'PUT', corpo: editando.value }))) editando.value = null

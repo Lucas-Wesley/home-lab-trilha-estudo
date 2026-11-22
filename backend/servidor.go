@@ -164,6 +164,8 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("POST /api/cursos/aulas/{id}/tentar", a.handleTentarAula)
 	mux.HandleFunc("DELETE /api/cursos/aulas/{id}", a.handleApagarAula)
 	mux.HandleFunc("GET /api/cursos/aulas/{id}/video", a.handleVideoAula)
+	mux.HandleFunc("GET /api/cursos/aulas/{id}", a.handleAula)
+	mux.HandleFunc("POST /api/cursos/trilha", a.handleTrilhaDoCurso)
 	mux.HandleFunc("GET /api/entrada", a.handleEntradaListar)
 	mux.HandleFunc("GET /api/entrada/{id}", a.handleEntradaFonte)
 	mux.HandleFunc("POST /api/entrada/{id}/tentar", a.handleEntradaTentar)

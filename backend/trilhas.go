@@ -42,6 +42,7 @@ type trilha struct {
 	NivelAlvo    string    `json:"nivel_alvo"`
 	Profundidade int       `json:"profundidade"`
 	Estado       string    `json:"estado"`
+	Grupo        string    `json:"grupo"` // T55: a escola/coleção (as trilhas de um mesmo grupo ficam juntas na lista)
 	Meta         meta      `json:"meta"`
 	CriadoEm     string    `json:"criado_em"`
 	AtualizadoEm string    `json:"atualizado_em"`
@@ -141,14 +142,14 @@ func slugificar(texto string) string {
 // ---------- leitura ----------
 
 const colunasTrilha = `id, slug, titulo, objetivo, descricao, recorte, instrucoes, nivel_partida, nivel_alvo,
-	profundidade, estado, meta_dias, meta_minutos, meta_inicio, meta_fim, criado_em, atualizado_em`
+	profundidade, estado, meta_dias, meta_minutos, meta_inicio, meta_fim, criado_em, atualizado_em, grupo`
 
 func lerTrilhaLinha(row interface{ Scan(...any) error }) (trilha, error) {
 	var t trilha
 	var dias string
 	err := row.Scan(&t.ID, &t.Slug, &t.Titulo, &t.Objetivo, &t.Descricao, &t.Recorte, &t.Instrucoes,
 		&t.NivelPartida, &t.NivelAlvo, &t.Profundidade, &t.Estado, &dias, &t.Meta.Minutos,
-		&t.Meta.Inicio, &t.Meta.Fim, &t.CriadoEm, &t.AtualizadoEm)
+		&t.Meta.Inicio, &t.Meta.Fim, &t.CriadoEm, &t.AtualizadoEm, &t.Grupo)
 	t.Meta.Dias = lerDias(dias)
 	return t, err
 }
@@ -388,7 +389,7 @@ func (a *app) exportar(ctx context.Context, trilhaID int64, mensagem string, ext
 	b, err := json.MarshalIndent(map[string]any{
 		"slug": t.Slug, "titulo": t.Titulo, "objetivo": t.Objetivo, "descricao": t.Descricao,
 		"recorte": t.Recorte, "instrucoes": t.Instrucoes, "nivel_partida": t.NivelPartida,
-		"nivel_alvo": t.NivelAlvo, "profundidade": t.Profundidade, "modulos": mods,
+		"nivel_alvo": t.NivelAlvo, "profundidade": t.Profundidade, "grupo": t.Grupo, "modulos": mods,
 	}, "", "  ")
 	if err != nil {
 		return err
@@ -408,6 +409,7 @@ func validarTrilha(t *trilha) error {
 	if t.Titulo == "" {
 		return errors.New("a trilha precisa de um título")
 	}
+	t.Grupo = strings.Join(strings.Fields(t.Grupo), " ")
 	if t.Profundidade == 0 {
 		t.Profundidade = 3
 	}
@@ -496,9 +498,9 @@ func (a *app) criarTrilha(ctx context.Context, t trilha) (int64, error) {
 	}
 	agora := agora()
 	res, err := a.db.ExecContext(ctx, `INSERT INTO trilhas (slug, titulo, objetivo, descricao, recorte, instrucoes,
-		nivel_partida, nivel_alvo, profundidade, estado, criado_em, atualizado_em)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?)`,
-		slug, t.Titulo, t.Objetivo, t.Descricao, t.Recorte, t.Instrucoes, t.NivelPartida, t.NivelAlvo, t.Profundidade, agora, agora)
+		nivel_partida, nivel_alvo, profundidade, estado, grupo, criado_em, atualizado_em)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'rascunho', ?, ?, ?)`,
+		slug, t.Titulo, t.Objetivo, t.Descricao, t.Recorte, t.Instrucoes, t.NivelPartida, t.NivelAlvo, t.Profundidade, t.Grupo, agora, agora)
 	if err != nil {
 		return 0, err
 	}
@@ -716,8 +718,8 @@ func (a *app) handleEditarTrilha(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := a.db.ExecContext(r.Context(), `UPDATE trilhas SET titulo = ?, objetivo = ?, descricao = ?, recorte = ?,
-		instrucoes = ?, nivel_partida = ?, nivel_alvo = ?, profundidade = ?, atualizado_em = ? WHERE id = ?`,
-		t.Titulo, t.Objetivo, t.Descricao, t.Recorte, t.Instrucoes, t.NivelPartida, t.NivelAlvo, t.Profundidade, agora(), id)
+		instrucoes = ?, nivel_partida = ?, nivel_alvo = ?, profundidade = ?, grupo = ?, atualizado_em = ? WHERE id = ?`,
+		t.Titulo, t.Objetivo, t.Descricao, t.Recorte, t.Instrucoes, t.NivelPartida, t.NivelAlvo, t.Profundidade, t.Grupo, agora(), id)
 	if err != nil {
 		a.responderErro(w, err)
 		return

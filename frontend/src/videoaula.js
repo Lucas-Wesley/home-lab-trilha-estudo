@@ -16,6 +16,23 @@ export function linkNoStreaming(referencia) {
 // mensagem, não).
 export const ehAulaDoTelegram = (ref) => /^telegram:https:\/\/t\.me\/.+#\d+$/.test(ref || '')
 
+// aulaDaPlataforma: o id da aula baixada pela Trilha (T50/T55) quando a referência é o vídeo dela
+// (/api/cursos/aulas/<id>/video, a trilha montada do curso); 0 no resto.
+export function aulaDaPlataforma(ref) {
+  const m = /^\/api\/cursos\/aulas\/(\d+)\/video$/.exec(ref || '')
+  return m ? Number(m[1]) : 0
+}
+
+// estadoDaAulaBaixada: o que a etapa mostra da aula da plataforma, pela resposta de
+// GET /api/cursos/aulas/<id>: baixada (toca), baixando (com o %), erro, ou sem vídeo (só texto).
+export function estadoDaAulaBaixada(aula, ref) {
+  if (!aula) return { estado: 'erro', mensagem: 'A aula não está mais na Trilha (apagada em Entrada › Cursos?).' }
+  if (aula.estado === 'pronta') return { estado: 'baixada', url: ref }
+  if (aula.estado === 'na_fila' || aula.estado === 'baixando') return { estado: 'baixando_curso', progresso: aula.progresso || 0, naFila: aula.estado === 'na_fila' }
+  if (aula.estado === 'texto') return { estado: 'sem_video' }
+  return { estado: 'erro_curso', mensagem: aula.erro || 'O download deu erro.', id: aula.id }
+}
+
 // tempoEstimado: quanto o download da aula leva, a ~4 MB/s (o ritmo medido do Telegram no
 // Streaming, S56 de lá) — "~1 min", "~7 min".
 export function tempoEstimado(bytes) {

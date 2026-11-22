@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ehAulaDoTelegram, linkNoStreaming, marcaDeTempo, momentosDasNotas, segundosParaTempo, tempoEstimado, tempoParaSegundos, videosDaEtapa } from './videoaula.js'
+import { aulaDaPlataforma, estadoDaAulaBaixada, ehAulaDoTelegram, linkNoStreaming, marcaDeTempo, momentosDasNotas, segundosParaTempo, tempoEstimado, tempoParaSegundos, videosDaEtapa } from './videoaula.js'
 
 describe('videoaula', () => {
   it('pega só os vídeos principais', () => {
@@ -42,5 +42,18 @@ describe('videoaula', () => {
       { parte: 1, tempo: '01:15', segundos: 75, texto: 'substantivo concreto' },
       { parte: 2, tempo: '1:02:05', segundos: 3725, texto: 'coletivo' },
     ])
+  })
+})
+
+describe('aula baixada pela Trilha (T55)', () => {
+  it('reconhece a referência e diz o estado', () => {
+    expect(aulaDaPlataforma('/api/cursos/aulas/12/video')).toBe(12)
+    expect(aulaDaPlataforma('https://streaming.internal/api/video/proprio/57.mp4')).toBe(0)
+    const ref = '/api/cursos/aulas/12/video'
+    expect(estadoDaAulaBaixada({ estado: 'pronta' }, ref)).toEqual({ estado: 'baixada', url: ref })
+    expect(estadoDaAulaBaixada({ estado: 'baixando', progresso: 40 }, ref)).toEqual({ estado: 'baixando_curso', progresso: 40, naFila: false })
+    expect(estadoDaAulaBaixada({ estado: 'texto' }, ref).estado).toBe('sem_video')
+    expect(estadoDaAulaBaixada({ id: 12, estado: 'erro', erro: 'x' }, ref)).toEqual({ estado: 'erro_curso', mensagem: 'x', id: 12 })
+    expect(estadoDaAulaBaixada(null, ref).estado).toBe('erro')
   })
 })

@@ -5,7 +5,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import BarraTrecho from './BarraTrecho.vue'
 import Icone from './Icone.vue'
 import { api } from './api.js'
-import { ehAulaDoTelegram, linkNoStreaming, marcaDeTempo, momentosDasNotas, segundosParaTempo, tempoEstimado } from './videoaula.js'
+import { aulaDaPlataforma, ehAulaDoTelegram, estadoDaAulaBaixada, linkNoStreaming, marcaDeTempo, momentosDasNotas, segundosParaTempo, tempoEstimado } from './videoaula.js'
 import { chaveDoTrecho, estadoDoTrecho, intervaloDoMaterial } from './trechoYoutube.js'
 import { tamanho } from './pastas.js'
 
@@ -81,7 +81,9 @@ function voltarAoTrecho() {
 // ---------- aulas do Telegram (T42) ----------
 // infos[i]: onde a parte i está — baixada (com a url do vídeo), na_fila, no_telegram, carregando
 // ou erro. Um material streaming comum já nasce "baixada" (a referência é a própria url).
-const infos = ref(props.videos.map((m) => ({ estado: ehAulaDoTelegram(m.referencia) ? 'carregando' : 'baixada', url: m.referencia })))
+// T55: a aula baixada pela Trilha (trilha montada de um curso) pergunta à Entrada › Cursos se já baixou.
+const precisaPerguntar = (ref) => ehAulaDoTelegram(ref) || aulaDaPlataforma(ref) > 0
+const infos = ref(props.videos.map((m) => ({ estado: precisaPerguntar(m.referencia) ? 'carregando' : 'baixada', url: m.referencia })))
 const infoDoAtual = computed(() => infos.value[parte.value] || { estado: 'carregando' })
 const srcAtual = computed(() => infoDoAtual.value.url || atual.value?.referencia)
 const faltando = computed(() => infos.value.filter((i) => i.estado === 'no_telegram').length)
@@ -90,6 +92,22 @@ let parou = false
 async function resolver(i) {
   if (parou) return
   const m = props.videos[i]
+  const idCurso = aulaDaPlataforma(m.referencia)
+  if (idCurso) {
+    let aula = null
+    try {
+      aula = await api(`/api/cursos/aulas/${idCurso}`)
+    } catch (e) {
+      if (e.status !== 404) {
+        if (!parou) infos.value[i] = { estado: 'erro', mensagem: e.message || 'Não deu para perguntar à Trilha.' }
+        return
+      }
+    }
+    if (parou) return
+    infos.value[i] = estadoDaAulaBaixada(aula, m.referencia)
+    if (infos.value[i].estado === 'baixando_curso') setTimeout(() => infos.value[i]?.estado === 'baixando_curso' && resolver(i), 5000)
+    return
+  }
   if (!ehAulaDoTelegram(m.referencia)) return // já nasceu "baixada"
   try {
     const a = await api(`/api/arquivos/aula?ref=${encodeURIComponent(m.referencia)}`)
@@ -101,6 +119,15 @@ async function resolver(i) {
   }
 }
 onMounted(() => props.videos.forEach((_, i) => infos.value[i].estado === 'carregando' && resolver(i)))
+
+async function tentarCurso(i) {
+  const id = infos.value[i]?.id
+  infos.value[i] = { estado: 'carregando' }
+  try {
+    await api(`/api/cursos/aulas/${id}/tentar`, { metodo: 'POST' })
+  } catch { /* a resposta de resolver diz o que houve */ }
+  resolver(i)
+}
 
 async function baixar(i) {
   const m = props.videos[i]
@@ -285,7 +312,7 @@ function teclas(ev) {
       />
       <div v-else class="espera">
         <template v-if="infoDoAtual.estado === 'carregando'">
-          <p class="suave">Perguntando ao Streaming…</p>
+          <p class="suave">Procurando o vídeo…</p>
         </template>
         <template v-else-if="infoDoAtual.estado === 'no_telegram'">
           <p class="titulo-espera">Esta aula ainda não está no servidor</p>
@@ -296,6 +323,19 @@ function teclas(ev) {
             <button class="botao" :disabled="infoDoAtual.baixando" @click="baixar(parte)">{{ infoDoAtual.baixando ? 'Pedindo…' : 'Baixar esta aula' }}</button>
             <button v-if="faltando > 1" class="botao discreto" @click="baixarTodas">Baixar as {{ faltando }} partes</button>
           </div>
+        </template>
+        <template v-else-if="infoDoAtual.estado === 'baixando_curso'">
+          <p class="titulo-espera">{{ infoDoAtual.naFila ? 'Na fila de downloads' : `Baixando… ${infoDoAtual.progresso}%` }}</p>
+          <p class="suave">A Trilha está baixando esta aula do curso (Entrada › Cursos). O vídeo aparece aqui quando terminar.</p>
+        </template>
+        <template v-else-if="infoDoAtual.estado === 'sem_video'">
+          <p class="titulo-espera">Esta aula não tem vídeo</p>
+          <p class="suave">Na plataforma ela é só texto ou material: está nas Fontes da etapa.</p>
+        </template>
+        <template v-else-if="infoDoAtual.estado === 'erro_curso'">
+          <p class="titulo-espera">O download desta aula deu erro</p>
+          <p class="suave">{{ infoDoAtual.mensagem }}</p>
+          <button class="botao" @click="tentarCurso(parte)">Tentar de novo</button>
         </template>
         <template v-else-if="infoDoAtual.estado === 'na_fila'">
           <p class="titulo-espera">Baixando…</p>
@@ -317,7 +357,7 @@ function teclas(ev) {
       <div v-if="infoDoAtual.estado === 'baixada'" class="linha velocidades" role="group" aria-label="Velocidade">
         <button v-for="v in VELOCIDADES" :key="v" class="botao discreto vel" :class="{ ativa: v === velocidade }" @click="mudarVelocidade(v)">{{ v }}×</button>
       </div>
-      <a v-if="infoDoAtual.estado === 'baixada'" class="botao discreto" :href="linkNoStreaming(srcAtual)" target="_blank" rel="noopener noreferrer" title="Abrir no Streaming (tela cheia, TV, projetor)">
+      <a v-if="infoDoAtual.estado === 'baixada' && !aulaDaPlataforma(atual.referencia)" class="botao discreto" :href="linkNoStreaming(srcAtual)" target="_blank" rel="noopener noreferrer" title="Abrir no Streaming (tela cheia, TV, projetor)">
         <Icone nome="video" :tamanho="16" /> Streaming
       </a>
     </div>

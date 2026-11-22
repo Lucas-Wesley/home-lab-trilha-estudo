@@ -22,8 +22,10 @@ import (
 	"time"
 )
 
-// Cursos de plataformas (T50, T51): as aulas da Branas.io, LINUXtips, Full Cycle e Tech Leads Club, baixadas em vídeo, na
-// qualidade máxima, para a aba "Cursos" da Entrada. Os donos da Branas.io e da LINUXtips autorizaram o Lucas; nas outras ele é aluno.
+// Cursos de plataformas (T50, T51, T55): as aulas da Branas.io, LINUXtips, Full Cycle, Tech Leads Club e Chef Enzo Neto, baixadas
+// em vídeo, na qualidade máxima, para a aba "Cursos" da Entrada. Os donos da Branas.io e da LINUXtips autorizaram o Lucas; nas
+// outras ele é aluno. T55: o vídeo pode vir também embutido do YouTube ou do Vimeo (baixado pelo yt-dlp), a aula pode ser só
+// texto (a página sem vídeo), e o curso pode virar trilha sozinho (cursos_trilha.go).
 // A extensão do Chrome (E15 de lá) acha o manifesto HLS no player e manda com o nome da aula;
 // aqui o ffmpeg baixa (decifra o AES-128 da LINUXtips com a chave que o próprio servidor entrega
 // a quem manda o Referer do player) e grava em CURSOS_DIR/<plataforma>/<curso>/<módulo>/<aula>.mp4.
@@ -34,6 +36,7 @@ var plataformasCurso = map[string]string{
 	"linuxtips": "LINUXtips",
 	"fullcycle": "Full Cycle",
 	"techleads": "Tech Leads Club",
+	"enzoneto":  "Chef Enzo Neto",
 }
 
 const agenteNavegador = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36"
@@ -45,6 +48,10 @@ type aulaCurso struct {
 	Modulo       string `json:"modulo"`
 	Titulo       string `json:"titulo"`
 	Pagina       string `json:"pagina"`
+	Ordem        int    `json:"ordem"`
+	Texto        string `json:"texto,omitempty"` // só no GET de uma aula (a lista leva tem_texto)
+	TemTexto     bool   `json:"tem_texto"`
+	Embed        string `json:"-"` // YouTube/Vimeo, quando o vídeo não vem por HLS
 	Manifesto    string `json:"-"`
 	Referer      string `json:"-"`
 	Variante     string `json:"-"`
@@ -53,7 +60,7 @@ type aulaCurso struct {
 	Estimado     int64  `json:"tamanho_estimado"`
 	Tamanho      int64  `json:"tamanho"`
 	Progresso    int    `json:"progresso"`
-	Estado       string `json:"estado"` // na_fila · baixando · pronta · erro
+	Estado       string `json:"estado"` // na_fila · baixando · pronta · erro · texto (aula sem vídeo, só o texto da página)
 	Erro         string `json:"erro"`
 	Arquivo      string `json:"-"` // relativo a CURSOS_DIR
 	CriadoEm     string `json:"criado_em"`
@@ -68,7 +75,7 @@ CREATE TABLE IF NOT EXISTS aulas_plataforma (
 	modulo        TEXT NOT NULL DEFAULT '',
 	titulo        TEXT NOT NULL,
 	pagina        TEXT NOT NULL,         -- o endereço da aula na plataforma (na LINUXtips é o do curso)
-	video         TEXT NOT NULL UNIQUE,  -- a chave: o HLS da variante escolhida, sem a query
+	video         TEXT NOT NULL UNIQUE,  -- a chave: o HLS da variante escolhida, sem a query (youtube:<id>, vimeo:<id>, pagina:<url>)
 	manifesto     TEXT NOT NULL,         -- o HLS que o player pediu (mestre ou de uma variante)
 	referer       TEXT NOT NULL,         -- o que o player manda (o servidor do vídeo confere)
 	variante      TEXT NOT NULL DEFAULT '', -- o HLS da maior qualidade, escolhido na estimativa
@@ -81,7 +88,19 @@ CREATE TABLE IF NOT EXISTS aulas_plataforma (
 	erro          TEXT NOT NULL DEFAULT '',
 	arquivo       TEXT NOT NULL DEFAULT '',
 	criado_em     TEXT NOT NULL,
-	atualizado_em TEXT NOT NULL
+	atualizado_em TEXT NOT NULL,
+	ordem         INTEGER NOT NULL DEFAULT 0,  -- T55: a posição no curso (a extensão manda na ordem da plataforma)
+	texto         TEXT NOT NULL DEFAULT '',    -- T55: o texto da página da aula (transcrição, notas, anexos)
+	embed         TEXT NOT NULL DEFAULT '',    -- T55: o vídeo do YouTube/Vimeo, quando não há HLS
+	na_trilha     INTEGER NOT NULL DEFAULT 0   -- T55: já entrou na trilha do curso (apagar a etapa não a traz de volta)
+);
+
+-- T55: o curso que virou trilha (uma por plataforma e curso; a trilha apagada solta o curso).
+CREATE TABLE IF NOT EXISTS cursos_trilha (
+	plataforma TEXT NOT NULL,
+	curso      TEXT NOT NULL,
+	trilha_id  INTEGER NOT NULL REFERENCES trilhas(id) ON DELETE CASCADE,
+	PRIMARY KEY (plataforma, curso)
 );
 `
 
@@ -330,13 +349,14 @@ func espacoLivre(pasta string) int64 {
 // ---------- o banco ----------
 
 const colunasAula = `id, plataforma, curso, modulo, titulo, pagina, manifesto, referer, variante, qualidade,
-	duracao, estimado, tamanho, progresso, estado, erro, arquivo, criado_em, atualizado_em`
+	duracao, estimado, tamanho, progresso, estado, erro, arquivo, criado_em, atualizado_em, ordem, texto, embed`
 
 func lerAula(s interface{ Scan(...any) error }) (aulaCurso, error) {
 	var au aulaCurso
 	err := s.Scan(&au.ID, &au.Plataforma, &au.Curso, &au.Modulo, &au.Titulo, &au.Pagina, &au.Manifesto, &au.Referer,
 		&au.Variante, &au.Qualidade, &au.Duracao, &au.Estimado, &au.Tamanho, &au.Progresso, &au.Estado, &au.Erro,
-		&au.Arquivo, &au.CriadoEm, &au.AtualizadoEm)
+		&au.Arquivo, &au.CriadoEm, &au.AtualizadoEm, &au.Ordem, &au.Texto, &au.Embed)
+	au.TemTexto = strings.TrimSpace(au.Texto) != ""
 	return au, err
 }
 
@@ -418,18 +438,8 @@ func (a *app) baixarProxima(ctx context.Context) bool {
 	return true
 }
 
-func (a *app) baixarAula(ctx context.Context, au aulaCurso) (int64, string, error) {
-	if a.cursosDir == "" {
-		return 0, "", errors.New("CURSOS_DIR não configurado")
-	}
-	variante := au.Variante
-	if variante == "" {
-		e, err := a.estimar(ctx, au.Manifesto, au.Referer)
-		if err != nil {
-			return 0, "", err
-		}
-		variante = e.Variante
-	}
+// destinoDaAula: o caminho do vídeo (relativo a CURSOS_DIR e o absoluto), com a pasta já criada.
+func (a *app) destinoDaAula(ctx context.Context, au aulaCurso) (string, string, error) {
 	rel := caminhoDaAula(au)
 	final := filepath.Join(a.cursosDir, rel)
 	// Outra aula com o mesmo nome no mesmo lugar: o id desempata.
@@ -441,7 +451,29 @@ func (a *app) baixarAula(ctx context.Context, au aulaCurso) (int64, string, erro
 		}
 	}
 	if err := os.MkdirAll(filepath.Dir(final), 0o755); err != nil {
-		return 0, "", fmt.Errorf("não deu para criar a pasta: %w", err)
+		return "", "", fmt.Errorf("não deu para criar a pasta: %w", err)
+	}
+	return rel, final, nil
+}
+
+func (a *app) baixarAula(ctx context.Context, au aulaCurso) (int64, string, error) {
+	if a.cursosDir == "" {
+		return 0, "", errors.New("CURSOS_DIR não configurado")
+	}
+	if au.Embed != "" {
+		return a.baixarEmbed(ctx, au)
+	}
+	variante := au.Variante
+	if variante == "" {
+		e, err := a.estimar(ctx, au.Manifesto, au.Referer)
+		if err != nil {
+			return 0, "", err
+		}
+		variante = e.Variante
+	}
+	rel, final, err := a.destinoDaAula(ctx, au)
+	if err != nil {
+		return 0, "", err
 	}
 	temp := final + ".baixando"
 	defer os.Remove(temp)
@@ -499,7 +531,15 @@ type pedidoAula struct {
 	Pagina     string `json:"pagina"`
 	Manifesto  string `json:"manifesto"`
 	Referer    string `json:"referer"`
+	// T55: o vídeo embutido (YouTube/Vimeo) quando não há HLS; o texto da página; a posição no
+	// curso; e se o curso deve virar (ou atualizar) a trilha dele.
+	Embed  string `json:"embed"`
+	Texto  string `json:"texto"`
+	Ordem  int    `json:"ordem"`
+	Trilha bool   `json:"trilha"`
 }
+
+const limiteTextoAula = 200000 // caracteres: uma transcrição de 2 h tem uns 120 mil
 
 func validarVideo(manifesto, referer string) error {
 	m, err := url.Parse(manifesto)
@@ -512,44 +552,88 @@ func validarVideo(manifesto, referer string) error {
 	return nil
 }
 
-// POST /api/cursos/estimar {manifesto, referer} → a qualidade máxima, a duração e o tamanho previsto.
+// videoDoPedido: de onde vem o vídeo (hls, embed ou nenhum) e a estimativa dele.
+func (a *app) videoDoPedido(ctx context.Context, p *pedidoAula) (string, estimativa, error) {
+	switch {
+	case p.Manifesto != "":
+		if err := validarVideo(p.Manifesto, p.Referer); err != nil {
+			return "", estimativa{}, err
+		}
+		e, err := a.estimar(ctx, p.Manifesto, p.Referer)
+		return "hls", e, err
+	case p.Embed != "":
+		baixar, _, ok := normalizarEmbed(p.Embed)
+		if !ok {
+			return "", estimativa{}, erroDeEntrada{errors.New("o vídeo embutido precisa ser do YouTube ou do Vimeo")}
+		}
+		p.Embed = baixar
+		if p.Referer == "" {
+			p.Referer = p.Pagina
+		}
+		e, err := a.estimarEmbed(ctx, p.Embed, p.Referer)
+		return "embed", e, err
+	}
+	return "", estimativa{}, nil
+}
+
+// POST /api/cursos/estimar {manifesto | embed, referer} → a qualidade máxima, a duração e o tamanho previsto.
 func (a *app) handleEstimarAula(w http.ResponseWriter, r *http.Request) {
 	var p pedidoAula
 	if err := lerCorpo(r, &p); err != nil {
 		a.responderErro(w, err)
 		return
 	}
-	if err := validarVideo(p.Manifesto, p.Referer); err != nil {
-		a.responderErro(w, err)
-		return
-	}
-	e, err := a.estimar(r.Context(), p.Manifesto, p.Referer)
+	tipo, e, err := a.videoDoPedido(r.Context(), &p)
 	if err != nil {
-		erroJSON(w, http.StatusBadGateway, err.Error())
+		var entrada erroDeEntrada
+		if errors.As(err, &entrada) {
+			a.responderErro(w, err)
+		} else {
+			erroJSON(w, http.StatusBadGateway, err.Error())
+		}
 		return
 	}
-	resp := map[string]any{"qualidade": e.Qualidade, "duracao": e.Duracao, "tamanho_estimado": e.Tamanho, "cifrado": e.Cifrado}
+	if tipo == "" {
+		a.responderErro(w, erroDeEntrada{errors.New("mande o manifesto (HLS) ou o vídeo embutido")})
+		return
+	}
+	resp := map[string]any{"qualidade": e.Qualidade, "duracao": e.Duracao, "tamanho_estimado": e.Tamanho, "cifrado": e.Cifrado, "tipo": tipo}
 	if a.cursosDir != "" {
 		resp["livre"] = espacoLivre(a.cursosDir)
 	}
 	// A aula já pedida (o mesmo vídeo) volta junto, para a extensão dizer.
 	var id int64
 	var estado string
-	if a.db.QueryRowContext(r.Context(), `SELECT id, estado FROM aulas_plataforma WHERE video = ?`, chaveDoVideo(e.Variante)).Scan(&id, &estado) == nil {
+	if a.db.QueryRowContext(r.Context(), `SELECT id, estado FROM aulas_plataforma WHERE video = ?`, chaveDoPedido(tipo, p, e)).Scan(&id, &estado) == nil {
 		resp["aula"] = map[string]any{"id": id, "estado": estado}
 	}
 	responderJSON(w, http.StatusOK, resp)
 }
 
+// chaveDoPedido: o que faz a aula única — o vídeo (HLS sem a query, youtube:<id>, vimeo:<id>) ou,
+// na aula sem vídeo, a página.
+func chaveDoPedido(tipo string, p pedidoAula, e estimativa) string {
+	switch tipo {
+	case "hls":
+		return chaveDoVideo(e.Variante)
+	case "embed":
+		_, chave, _ := normalizarEmbed(p.Embed)
+		return chave
+	}
+	return "pagina:" + strings.TrimRight(strings.SplitN(p.Pagina, "#", 2)[0], "/")
+}
+
 // POST /api/cursos/aulas: põe a aula na fila de download (202). O mesmo vídeo de novo: a que
-// já está baixada ou na fila volta como está (200, "repetida"); a que deu erro volta para a fila.
+// já está baixada ou na fila volta como está (200, "repetida"), com o texto, a ordem e o módulo
+// atualizados; a que deu erro volta para a fila. Sem vídeo e com texto (T55), a aula fica "texto".
+// Com "trilha": true, o curso vira trilha (ou ganha a aula nova, cursos_trilha.go).
 func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 	var p pedidoAula
 	if err := lerCorpo(r, &p); err != nil {
 		a.responderErro(w, err)
 		return
 	}
-	p.Curso, p.Modulo, p.Titulo = strings.TrimSpace(p.Curso), strings.TrimSpace(p.Modulo), strings.TrimSpace(p.Titulo)
+	p.Curso, p.Modulo, p.Titulo, p.Texto = strings.TrimSpace(p.Curso), strings.TrimSpace(p.Modulo), strings.TrimSpace(p.Titulo), strings.TrimSpace(p.Texto)
 	if plataformasCurso[p.Plataforma] == "" {
 		a.responderErro(w, erroDeEntrada{errors.New("plataforma desconhecida")})
 		return
@@ -558,39 +642,60 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, erroDeEntrada{errors.New("mande o curso, o nome da aula e o endereço da página")})
 		return
 	}
-	if err := validarVideo(p.Manifesto, p.Referer); err != nil {
-		a.responderErro(w, err)
-		return
+	if len([]rune(p.Texto)) > limiteTextoAula {
+		p.Texto = string([]rune(p.Texto)[:limiteTextoAula])
 	}
 	ctx := r.Context()
-	e, err := a.estimar(ctx, p.Manifesto, p.Referer)
+	tipo, e, err := a.videoDoPedido(ctx, &p)
 	if err != nil {
-		erroJSON(w, http.StatusBadGateway, err.Error())
+		var entrada erroDeEntrada
+		if errors.As(err, &entrada) {
+			a.responderErro(w, err)
+		} else {
+			erroJSON(w, http.StatusBadGateway, err.Error())
+		}
 		return
 	}
-	video := chaveDoVideo(e.Variante)
+	if tipo == "" && p.Texto == "" {
+		a.responderErro(w, erroDeEntrada{errors.New("a aula não tem vídeo nem texto")})
+		return
+	}
+	video := chaveDoPedido(tipo, p, e)
+	estadoNovo := "na_fila"
+	if tipo == "" {
+		estadoNovo = "texto"
+	}
 	var id int64
 	var estado string
+	t := agora()
 	if a.db.QueryRowContext(ctx, `SELECT id, estado FROM aulas_plataforma WHERE video = ?`, video).Scan(&id, &estado) == nil && estado != "erro" {
+		// Repetida: o que a página diz agora (texto, ordem, módulo) atualiza; o vídeo fica como está.
+		a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET texto = CASE WHEN ? <> '' THEN ? ELSE texto END,
+			ordem = CASE WHEN ? > 0 THEN ? ELSE ordem END, modulo = CASE WHEN ? <> '' THEN ? ELSE modulo END, atualizado_em = ? WHERE id = ?`,
+			p.Texto, p.Texto, p.Ordem, p.Ordem, p.Modulo, p.Modulo, t, id)
 		au, err := a.aulaPorID(ctx, id)
 		if err != nil {
 			a.responderErro(w, err)
 			return
 		}
-		responderJSON(w, http.StatusOK, map[string]any{"aula": au, "repetida": true})
+		resp := map[string]any{"aula": au, "repetida": true}
+		a.trilhaDoPedido(ctx, p, resp)
+		responderJSON(w, http.StatusOK, resp)
 		return
 	}
-	t := agora()
 	if id > 0 {
 		_, err = a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET plataforma = ?, curso = ?, modulo = ?, titulo = ?, pagina = ?,
-			manifesto = ?, referer = ?, variante = ?, qualidade = ?, duracao = ?, estimado = ?, progresso = 0, estado = 'na_fila',
-			erro = '', atualizado_em = ? WHERE id = ?`,
-			p.Plataforma, p.Curso, p.Modulo, p.Titulo, p.Pagina, p.Manifesto, p.Referer, e.Variante, e.Qualidade, e.Duracao, e.Tamanho, t, id)
+			manifesto = ?, referer = ?, variante = ?, qualidade = ?, duracao = ?, estimado = ?, progresso = 0, estado = ?,
+			erro = '', ordem = ?, texto = ?, embed = ?, atualizado_em = ? WHERE id = ?`,
+			p.Plataforma, p.Curso, p.Modulo, p.Titulo, p.Pagina, p.Manifesto, p.Referer, e.Variante, e.Qualidade, e.Duracao, e.Tamanho,
+			estadoNovo, p.Ordem, p.Texto, p.Embed, t, id)
 	} else {
 		var res sql.Result
 		res, err = a.db.ExecContext(ctx, `INSERT INTO aulas_plataforma (plataforma, curso, modulo, titulo, pagina, video, manifesto,
-			referer, variante, qualidade, duracao, estimado, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			p.Plataforma, p.Curso, p.Modulo, p.Titulo, p.Pagina, video, p.Manifesto, p.Referer, e.Variante, e.Qualidade, e.Duracao, e.Tamanho, t, t)
+			referer, variante, qualidade, duracao, estimado, estado, ordem, texto, embed, criado_em, atualizado_em)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			p.Plataforma, p.Curso, p.Modulo, p.Titulo, p.Pagina, video, p.Manifesto, p.Referer, e.Variante, e.Qualidade, e.Duracao, e.Tamanho,
+			estadoNovo, p.Ordem, p.Texto, p.Embed, t, t)
 		if err == nil {
 			id, err = res.LastInsertId()
 		}
@@ -599,18 +704,52 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
-	a.acordarCursos()
+	if estadoNovo == "na_fila" {
+		a.acordarCursos()
+	}
 	au, err := a.aulaPorID(ctx, id)
 	if err != nil {
 		a.responderErro(w, err)
 		return
 	}
-	responderJSON(w, http.StatusAccepted, map[string]any{"aula": au})
+	resp := map[string]any{"aula": au}
+	a.trilhaDoPedido(ctx, p, resp)
+	responderJSON(w, http.StatusAccepted, resp)
+}
+
+// trilhaDoPedido: com "trilha": true, o curso vira trilha (ou ganha a aula). Falhar aqui não
+// desfaz a aula: o erro volta junto, para a extensão mostrar.
+func (a *app) trilhaDoPedido(ctx context.Context, p pedidoAula, resp map[string]any) {
+	if !p.Trilha {
+		return
+	}
+	id, err := a.sincronizarTrilhaDoCurso(ctx, p.Plataforma, p.Curso)
+	if err != nil {
+		log.Printf("cursos: trilha de %s/%s: %v", p.Plataforma, p.Curso, err)
+		resp["trilha_erro"] = err.Error()
+		return
+	}
+	resp["trilha_id"] = id
+}
+
+// GET /api/cursos/aulas/{id}: uma aula, com o texto da página (a etapa pergunta se o vídeo já baixou).
+func (a *app) handleAula(w http.ResponseWriter, r *http.Request) {
+	id, err := idDaRota(r)
+	if err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	au, err := a.aulaPorID(r.Context(), id)
+	if err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	responderJSON(w, http.StatusOK, au)
 }
 
 // GET /api/cursos/aulas: todas as aulas (a tela agrupa por plataforma › curso › módulo) e o espaço livre.
 func (a *app) handleListarAulas(w http.ResponseWriter, r *http.Request) {
-	linhas, err := a.db.QueryContext(r.Context(), `SELECT `+colunasAula+` FROM aulas_plataforma ORDER BY plataforma, curso, modulo, id`)
+	linhas, err := a.db.QueryContext(r.Context(), `SELECT `+colunasAula+` FROM aulas_plataforma ORDER BY plataforma, curso, ordem, id`)
 	if err != nil {
 		a.responderErro(w, err)
 		return
@@ -623,9 +762,15 @@ func (a *app) handleListarAulas(w http.ResponseWriter, r *http.Request) {
 			a.responderErro(w, err)
 			return
 		}
+		au.Texto = "" // a lista leva só o tem_texto
 		aulas = append(aulas, au)
 	}
-	resp := map[string]any{"aulas": aulas, "plataformas": plataformasCurso}
+	trilhas, err := a.trilhasDosCursos(r.Context())
+	if err != nil {
+		a.responderErro(w, err)
+		return
+	}
+	resp := map[string]any{"aulas": aulas, "plataformas": plataformasCurso, "trilhas": trilhas}
 	if a.cursosDir != "" {
 		resp["livre"] = espacoLivre(a.cursosDir)
 	}
