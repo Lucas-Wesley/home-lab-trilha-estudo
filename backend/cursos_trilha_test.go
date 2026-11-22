@@ -375,3 +375,49 @@ func TestSomSeparadoDoSmartPlayer(t *testing.T) {
 		t.Fatalf("repetida com som %d %v", code, resp)
 	}
 }
+
+// T59: a aula muda veio pela imagem de 480p e a com som chega pela de 1080p (outra chave). Ela é
+// refeita no mesmo id, sem duplicar.
+func TestSomComOutraQualidade(t *testing.T) {
+	a, _ := appDeCursos(t)
+	cdn := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/s/v_0_480p.m3u8", "/s/v_0_1080p.m3u8":
+			w.Write([]byte(imagemSmart))
+		case "/s/v_0_en_192k.m3u8":
+			w.Write([]byte(somSmart))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(cdn.Close)
+	a.clienteCursos = cdn.Client()
+	h := novoServidor(a, nil, "teste")
+	ctx := context.Background()
+	base := `{"plataforma":"enzoneto","curso":"As praças","modulo":"Legumes","titulo":"Tomates","pagina":"https://aluno.enzoneto.com/area/conteudo/aula/7643856",
+		"referer":"https://player.scaleup.com.br/","manifesto":"` + cdn.URL
+
+	code, resp := pedirAulaJSON(t, h, base+`/s/v_0_480p.m3u8?token=a"}`)
+	if code != http.StatusAccepted {
+		t.Fatalf("pedir %d %v", code, resp)
+	}
+	id := int64(resp["aula"].(map[string]any)["id"].(float64))
+	a.baixarProxima(ctx)
+
+	code, resp = pedirAulaJSON(t, h, base+`/s/v_0_1080p.m3u8?token=b","audio":"`+cdn.URL+`/s/v_0_en_192k.m3u8?token=b"}`)
+	if code != http.StatusAccepted || int64(resp["aula"].(map[string]any)["id"].(float64)) != id {
+		t.Fatalf("com som %d %v (esperava o id %d)", code, resp, id)
+	}
+	if au, _ := a.aulaPorID(ctx, id); au.Estado != "na_fila" || au.Audio == "" || au.Qualidade != "1080p" {
+		t.Fatalf("refeita %+v", au)
+	}
+	var n int
+	a.db.QueryRow(`SELECT COUNT(*) FROM aulas_plataforma`).Scan(&n)
+	if n != 1 {
+		t.Fatalf("%d aulas, esperava 1", n)
+	}
+	// De novo, com a chave nova: repetida.
+	if code, resp = pedirAulaJSON(t, h, base+`/s/v_0_1080p.m3u8?token=c","audio":"`+cdn.URL+`/s/v_0_en_192k.m3u8?token=c"}`); code != 200 || resp["repetida"] != true {
+		t.Fatalf("repetida %d %v", code, resp)
+	}
+}

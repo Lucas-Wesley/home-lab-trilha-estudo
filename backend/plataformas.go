@@ -758,6 +758,9 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 	if tipo == "" {
 		estadoNovo = "texto"
 	}
+	if tipo == "hls" && p.Audio != "" {
+		a.adotarAulaMuda(ctx, p, video)
+	}
 	var id int64
 	var estado string
 	t := agora()
@@ -809,6 +812,37 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{"aula": au}
 	a.trilhaDoPedido(ctx, p, resp)
 	responderJSON(w, http.StatusAccepted, resp)
+}
+
+// adotarAulaMuda (T59): a aula muda pode ter sido pedida por outra imagem do mesmo vídeo (a extensão
+// antiga às vezes mandava a de 480p; a nova manda a de 1080p), e então a chave não bate e a aula com
+// som entraria de novo, duplicada na trilha. Sem nenhuma aula com a chave nova e com uma só aula sem
+// som na mesma página (HLS, fora de erro), ela passa a ter a chave nova e o refazerComSom a refaz no
+// mesmo id.
+func (a *app) adotarAulaMuda(ctx context.Context, p pedidoAula, video string) {
+	var n int
+	if a.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM aulas_plataforma WHERE video = ?`, video).Scan(&n); n > 0 {
+		return
+	}
+	var ids []int64
+	linhas, err := a.db.QueryContext(ctx, `SELECT id FROM aulas_plataforma WHERE plataforma = ? AND pagina = ? AND audio = ''
+		AND embed = '' AND manifesto <> '' AND estado <> 'erro'`, p.Plataforma, p.Pagina)
+	if err != nil {
+		return
+	}
+	for linhas.Next() {
+		var id int64
+		if linhas.Scan(&id) == nil {
+			ids = append(ids, id)
+		}
+	}
+	linhas.Close()
+	if len(ids) != 1 {
+		return
+	}
+	if _, err := a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET video = ? WHERE id = ?`, video, ids[0]); err != nil {
+		log.Printf("cursos: adotar a aula muda %d: %v", ids[0], err)
+	}
 }
 
 // refazerComSom (T58): a aula já pedida sem o som chega de novo com ele (a extensão antiga mandava só a
