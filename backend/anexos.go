@@ -95,8 +95,8 @@ func (a *app) handleAnexarAula(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
-	if a.cursosDir == "" {
-		erroJSON(w, http.StatusServiceUnavailable, "CURSOS_DIR não configurado")
+	if err := a.discoDosCursos(); err != nil {
+		erroJSON(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, limiteAnexo+1<<20)

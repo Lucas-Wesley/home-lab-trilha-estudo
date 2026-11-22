@@ -403,8 +403,32 @@ func (a *app) rodarCursos(ctx context.Context) {
 	}
 }
 
+// discoDosCursos (T57): os cursos ficam no SSD externo, montado com nofail. Se ele não subiu ou caiu,
+// /srv/ssd é uma pasta vazia do disco do sistema e o vídeo iria parar lá sem ninguém ver. Com
+// CURSOS_MARCA, a pasta dos cursos só vale com o arquivo-marca dentro; sem ele, a fila espera.
+func (a *app) discoDosCursos() error {
+	if a.cursosDir == "" {
+		return errors.New("CURSOS_DIR não configurado")
+	}
+	if a.cursosMarca == "" {
+		return nil
+	}
+	if _, err := os.Stat(filepath.Join(a.cursosDir, a.cursosMarca)); err != nil {
+		return errors.New("o disco dos cursos (o SSD) não está montado: os downloads esperam ele voltar")
+	}
+	return nil
+}
+
 func (a *app) baixarProxima(ctx context.Context) bool {
 	if ctx.Err() != nil {
+		return false
+	}
+	// Sem o disco, nada sai da fila: a aula fica "na fila" e a fila tenta de novo em 1 min.
+	if err := a.discoDosCursos(); err != nil {
+		var n int
+		if a.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM aulas_plataforma WHERE estado = 'na_fila'`).Scan(&n) == nil && n > 0 {
+			log.Printf("cursos: %d aula(s) esperando: %v", n, err)
+		}
 		return false
 	}
 	au, err := lerAula(a.db.QueryRowContext(ctx, `SELECT `+colunasAula+` FROM aulas_plataforma WHERE estado = 'na_fila' ORDER BY id LIMIT 1`))
@@ -786,7 +810,9 @@ func (a *app) handleListarAulas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := map[string]any{"aulas": aulas, "plataformas": plataformasCurso, "trilhas": trilhas}
-	if a.cursosDir != "" {
+	if err := a.discoDosCursos(); err != nil {
+		resp["aviso_disco"] = err.Error()
+	} else {
 		resp["livre"] = espacoLivre(a.cursosDir)
 	}
 	responderJSON(w, http.StatusOK, resp)

@@ -76,6 +76,7 @@ func main() {
 		sondaTelegram: 15 * time.Second,
 		acordaEntrada: make(chan struct{}, 1),
 		cursosDir:     env("CURSOS_DIR", filepath.Join(dataDir, "cursos")),
+		cursosMarca:   os.Getenv("CURSOS_MARCA"),
 		acordaCursos:  make(chan struct{}, 1),
 		projeto:       novoCadernoProjeto(dataDir),
 	}

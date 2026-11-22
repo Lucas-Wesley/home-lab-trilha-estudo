@@ -5,8 +5,9 @@ services:
       - /srv/data/trilha:/data
       # A conta do Claude escolhida no Hub (H11 do Hub), lida a cada chamada; só leitura.
       - /srv/data/claude/ativa:/claude:ro
-      # T50: os vídeos dos cursos (Branas.io, LINUXtips), fora de /srv/data (não vão ao backup).
-      # Provisório no disco do sistema enquanto o SSD está fora; com ele de volta: /srv/ssd/cursos.
+      # T50/T57: os vídeos e os PDFs dos cursos, fora de /srv/data (não vão ao backup). No disco do sistema:
+      # o SSD externo (gabinete USB RTL9210) cai sob escrita (22/11: a cópia de 854 MB abortou o journal).
+      # Com um gabinete confiável: /srv/ssd/cursos:/cursos, o arquivo .disco-dos-cursos dentro e CURSOS_MARCA abaixo.
       - /srv/cursos:/cursos
     environment:
       CLAUDE_TOKEN_ARQUIVO: /claude/token
@@ -20,6 +21,8 @@ services:
       # Entrada (T35): vídeo sem legenda vai ao Whisper large-v3 do Mac mini, como no Acervo.
       WHISPER_URL: http://192.168.1.160:8000
       CURSOS_DIR: /cursos
+      # T57: com os cursos no SSD (montado com nofail), CURSOS_MARCA: .disco-dos-cursos faz a fila esperar
+      # quando o arquivo some (o SSD fora), em vez de gravar no disco do sistema.
     networks:
       - proxy
 

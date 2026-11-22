@@ -99,6 +99,7 @@ onBeforeUnmount(() => clearTimeout(timer))
       uma trilha, com uma etapa por aula.
     </p>
     <p v-if="erro" class="aviso">{{ erro }}</p>
+    <p v-if="dados?.aviso_disco" class="aviso">{{ dados.aviso_disco }}</p>
     <p v-if="dados && !grupos.length" class="fraco">Nenhuma aula ainda.</p>
 
     <section v-for="p in grupos" :key="p.chave" class="plataforma">

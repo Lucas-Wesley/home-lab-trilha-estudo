@@ -261,3 +261,39 @@ func TestAnexosDaAula(t *testing.T) {
 		t.Fatal("o PDF ficou no disco")
 	}
 }
+
+func TestSemODiscoAFilaEspera(t *testing.T) {
+	a, srv := appDeCursos(t)
+	a.cursosMarca = ".disco-dos-cursos"
+	h := novoServidor(a, nil, "teste")
+	ctx := context.Background()
+	code, resp := pedirAulaJSON(t, h, `{"plataforma":"linuxtips","curso":"C","titulo":"A","pagina":"https://mesa.linuxtips.io/a",
+		"manifesto":"`+srv.URL+`/v/playlist.m3u8","referer":"https://player.exemplo.com/"}`)
+	if code != http.StatusAccepted {
+		t.Fatalf("pedir %d %v", code, resp)
+	}
+	id := int64(resp["aula"].(map[string]any)["id"].(float64))
+	// O SSD fora: nada sai da fila, a lista avisa e o PDF não é aceito.
+	if a.baixarProxima(ctx) {
+		t.Fatal("baixou sem o disco")
+	}
+	if au, _ := a.aulaPorID(ctx, id); au.Estado != "na_fila" {
+		t.Fatalf("estado %s", au.Estado)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/api/cursos/aulas", nil))
+	if !strings.Contains(rec.Body.String(), "não está montado") {
+		t.Fatalf("lista sem aviso %s", rec.Body)
+	}
+	if rec := anexar(t, h, id, "x.pdf", "%PDF-1.4"); rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("anexo sem disco %d", rec.Code)
+	}
+	// O SSD de volta (a marca na pasta): a fila anda.
+	os.WriteFile(filepath.Join(a.cursosDir, ".disco-dos-cursos"), nil, 0o644)
+	if !a.baixarProxima(ctx) {
+		t.Fatal("não baixou com o disco")
+	}
+	if au, _ := a.aulaPorID(ctx, id); au.Estado != "pronta" {
+		t.Fatalf("estado %s %s", au.Estado, au.Erro)
+	}
+}

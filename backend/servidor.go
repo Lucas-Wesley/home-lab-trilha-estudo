@@ -31,6 +31,7 @@ type app struct {
 	sondaTelegram time.Duration // o intervalo em que as fontes "baixando" são verificadas (15 s)
 	// T50: as aulas das plataformas de curso — a pasta dos vídeos e a fila de downloads.
 	cursosDir     string // CURSOS_DIR
+	cursosMarca   string // CURSOS_MARCA: o arquivo que prova que o disco dos cursos (o SSD) está montado (T57)
 	acordaCursos  chan struct{}
 	download      downloadAtual
 	clienteCursos *http.Client // nos testes, o do servidor falso
