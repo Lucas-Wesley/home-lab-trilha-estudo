@@ -112,7 +112,8 @@ async function descartar(p) {
 const ESTADO_TAREFA = { na_fila: 'na fila', rodando: 'procurando', concluida: 'pronta', falhou: 'falhou', cancelada: 'cancelada' }
 const SITUACAO = { quebrado: ['quebrado', 'vermelho'], nao_confirmado: ['não confirmado', 'ambar'] }
 
-defineExpose({ abrir: () => (abrirPedido.value = true) })
+// pedir: o "Procurar material para o que falta" da verificação (T53) chega com o pedido pronto.
+defineExpose({ abrir: () => (abrirPedido.value = true), pedir })
 </script>
 
 <template>

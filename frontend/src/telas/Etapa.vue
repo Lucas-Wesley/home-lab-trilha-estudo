@@ -15,6 +15,7 @@ import PropostaMaterial from '../PropostaMaterial.vue'
 import ResumoEtapa from '../ResumoEtapa.vue'
 import RevisarRoteiro from '../RevisarRoteiro.vue'
 import TrechoYouTube from '../TrechoYouTube.vue'
+import VerificarMaterial from '../VerificarMaterial.vue'
 import Videoaula from '../Videoaula.vue'
 import { trechos } from '../trechoYoutube.js'
 import { videosDaEtapa } from '../videoaula.js'
@@ -116,6 +117,7 @@ const irNoVideo = (parte, segundos) => (player.value || playerYt.value)?.ir(part
 const baseDocs = computed(() => `#/trilhas/${props.trilhaId}/documentos/`)
 
 const sugerir = ref(null)
+const verificador = ref(null)
 
 // Revisar o tópico com IA (T34): aplicada a revisão, a etapa pode ter mudado ou saído da trilha.
 const revisar = ref(null)
@@ -335,9 +337,11 @@ async function excluir() {
                     <span v-if="m.localizador && m.tipo !== 'documento'" class="fraco"> · {{ m.localizador }}</span>
                     <div v-if="m.nota" class="suave nota">{{ m.nota }}</div>
                   </div>
+                  <button class="botao discreto verificar-um" :aria-label="`Verificar só ${m.titulo}`" @click="verificador?.verificar([e.materiais.indexOf(m)])">Verificar</button>
                 </li>
               </ul>
             </div>
+            <VerificarMaterial ref="verificador" :key="`verificar-${e.id}`" :etapa-id="e.id" :materiais="e.materiais || []" @sugerir="(texto) => sugerir?.pedir(texto)" />
             <PropostaMaterial ref="sugerir" :key="`material-${e.id}`" :etapa-id="e.id" :trilha-id="t.id" @aprovada="recarregarEtapa" @aberta="sugestaoAberta = $event" />
             <div class="encaixar-aqui">
               <span class="rotulo">Encaixar material neste tópico</span>
@@ -505,6 +509,8 @@ async function excluir() {
 .materiais { list-style: none; margin: var(--e2) 0 0; padding: 0; display: grid; gap: var(--e3); }
 .materiais li { display: flex; gap: var(--e3); align-items: flex-start; font-size: 15px; line-height: 1.5; }
 .materiais .etiqueta { flex: none; margin-top: 2px; min-width: 76px; justify-content: center; }
+.materiais li > div { flex: 1; min-width: 0; }
+.verificar-um { flex: none; font-size: 13px; min-height: 28px; padding: 0 var(--e2); }
 .nota { font-size: 14px; margin-top: 2px; }
 .vizinhas { display: grid; grid-template-columns: 1fr 1fr; gap: var(--e3); margin-top: var(--e7); }
 .vizinhas .cartao { display: grid; gap: 2px; }

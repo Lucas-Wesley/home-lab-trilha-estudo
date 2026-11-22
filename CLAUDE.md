@@ -272,6 +272,20 @@ sem ela, "Candidatos ao estudo" (o "Estudar antes" + a 7.1 de trilhas, por trilh
 `candidatosDoItem` em `projeto.js`). O parser segue o formato do `ROADMAP.md` (fixture real em
 `backend/testdata/projeto/`): mudou o formato lá, atualize a fixture e `projeto_test.go`.
 
+## Verificar material (T53)
+`backend/verificar.go`: `POST /api/etapas/{id}/verificar` (`{pedido, materiais:[i]}`; sem `materiais` = todos)
+grava a verificação em `verificacoes` com o retrato do material e o estado do texto de cada um
+(`pronto`, `web`, `transcrevendo`, `sem_texto` + aviso). Vídeo `youtube` ou `streaming` telegram sem
+transcrição entra na Entrada (`criarFonte`/`fonteDaAulaTelegram`, a em erro volta à fila) e a
+verificação fica `aguardando`; `avancarVerificacoes` (fim de cada `lerProximaFonte` e o GET
+`/api/etapas/{id}/verificacoes`) promove para `verificando` com a tarefa `verificar_material` (regra
+`verificar-material.md`, `modelo_licao`). O executor monta o `pedido.md` (etapa, etapas do módulo,
+cada material como "### Material N") e grava o laudo em `resultado`; falha → `falhou` em
+`aoTerminarTarefa`. `trechosDoVideo` aceita localizador vazio (o vídeo inteiro) e acha a fonte também
+pelo id do YouTube (`fonteDoVideo`). Tela: `VerificarMaterial.vue` na aba Fontes (+ `verificacao.js`);
+"Procurar material para o que falta" chama `pedir` do `PropostaMaterial`. Nos testes, o yt-dlp falso
+precisa de bash: `docker compose -f compose.dev.yaml run --rm api sh -c "apk add --no-cache bash >/dev/null; go test ./..."`.
+
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,
 critérios C1–C15) → correção → nova rodada, até passar; registre cada rodada e acrescente as lições

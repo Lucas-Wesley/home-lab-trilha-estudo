@@ -129,6 +129,22 @@ if (/^# Pedido: material da etapa/m.test(pedido)) {
   if (tema[1]) materiais.push({ tipo: 'acervo', titulo: tema[2].trim(), referencia: tema[1], localizador: '', papel: 'aprofundar', nota: '', motivo: 'Tema de teste do Acervo.' })
   responder({ materiais, notas: 'Material de teste (scripts/claude-falso.mjs).' })
 }
+// Verificar material (T53): um laudo de teste com um tópico de cada situação.
+if (/^# Pedido: verificar o material/m.test(pedido)) {
+  const n = (pedido.match(/^### Material \d+/gm) || []).length
+  responder({
+    topicos: [
+      { topico: 'Tópico de teste coberto', situacao: 'coberto', onde: 'Material 1, 00:10', comentario: 'Explica com exemplo.' },
+      { topico: 'Tópico de teste raso', situacao: 'raso', onde: 'Material 1, 00:40', comentario: 'Só cita.' },
+      { topico: 'Tópico de teste ausente', situacao: 'ausente', onde: '', comentario: 'Não aparece.' },
+    ],
+    materiais: Array.from({ length: n }, (_, i) => ({ material: i + 1, lido: true, cobertura: 60, profundidade: 'na_medida', comentario: 'Material de teste.', fora: '' })),
+    cobertura: 60,
+    veredito: 'complementar',
+    faltas: [{ ponto: 'O tópico ausente de teste', onde_achar: 'A documentação oficial (teste)' }],
+    resumo: 'Laudo de teste (scripts/claude-falso.mjs).',
+  })
+}
 if (/^# Pedido: correção do simulado/m.test(pedido)) {
   const respostas = [...pedido.matchAll(/^## Pergunta (\d+)(?: \(etapa .*\))?$/gm)].map((m) => Number(m[1]))
   responder({

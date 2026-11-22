@@ -188,6 +188,8 @@ func (a *app) lerProximaFonte(ctx context.Context) bool {
 			}
 		}
 	}
+	// T53: a verificação de material que esperava esta transcrição segue para a IA.
+	a.avancarVerificacoes(ctx)
 	// A pausa entre vídeos (o YouTube bloqueia quem pede muito seguido); zero nos testes.
 	select {
 	case <-ctx.Done():

@@ -101,22 +101,29 @@ func localizadorDentro(localizador string, mandados [][2]int) bool {
 // pasta da tarefa — um bloco "## início–fim · título do fragmento" por intervalo, com o
 // resumo e as falas dele. youtube/acervo acham a fonte pela url; telegram, pela ref (video_id).
 func (a *app) trechosDoVideo(ctx context.Context, referencia, localizador string) (string, error) {
-	var fonteID int64
-	err := a.db.QueryRowContext(ctx, `SELECT id FROM fontes WHERE (url = ? AND tipo IN ('youtube', 'acervo'))
-		OR (video_id = ? AND tipo = 'telegram')`, referencia, referencia).Scan(&fonteID)
+	fonteID, err := a.fonteDoVideo(ctx, referencia)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", errors.New("o vídeo não está na Entrada")
 	}
 	if err != nil {
 		return "", err
 	}
-	intervalos, err := lerIntervalos(localizador)
-	if err != nil {
-		return "", err
-	}
 	transcricao, _ := a.conteudo.ler(pastaDaFonte(fonteID) + "/transcricao.md")
 	if strings.TrimSpace(transcricao) == "" {
 		return "", errors.New("o vídeo não tem transcrição")
+	}
+	// Sem intervalo, o material é o vídeo inteiro (o "Verificar material" lê assim um vídeo
+	// colado na etapa).
+	if strings.TrimSpace(localizador) == "" {
+		texto, cortado := cortar(transcricao, limiteTextoMaterial)
+		if cortado {
+			texto += "\n\n> (Cortado aqui: a transcrição passa do limite.)\n"
+		}
+		return texto, nil
+	}
+	intervalos, err := lerIntervalos(localizador)
+	if err != nil {
+		return "", err
 	}
 	fragmentos, err := a.fragmentosDaFonte(ctx, fonteID)
 	if err != nil {
@@ -145,6 +152,20 @@ func (a *app) trechosDoVideo(ctx context.Context, referencia, localizador string
 		texto += "\n\n> (Cortado aqui: os trechos passam do limite.)\n"
 	}
 	return texto, nil
+}
+
+// fonteDoVideo: a fonte da Entrada de um material de vídeo — pela URL exata (youtube, acervo),
+// pela ref telegram: ou, para um link do YouTube em outro formato (youtu.be, shorts), pelo id.
+func (a *app) fonteDoVideo(ctx context.Context, referencia string) (int64, error) {
+	var id int64
+	err := a.db.QueryRowContext(ctx, `SELECT id FROM fontes WHERE (url = ? AND tipo IN ('youtube', 'acervo'))
+		OR (video_id = ? AND tipo = 'telegram') ORDER BY id LIMIT 1`, referencia, referencia).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) && !strings.HasPrefix(referencia, "telegram:") {
+		if v, e := videoDoLink(referencia); e == nil {
+			err = a.db.QueryRowContext(ctx, `SELECT id FROM fontes WHERE tipo = 'youtube' AND video_id = ?`, v).Scan(&id)
+		}
+	}
+	return id, err
 }
 
 // ---------- a tarefa: a IA sugere as trilhas ----------

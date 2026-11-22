@@ -148,6 +148,7 @@ var regrasDoApp = []regra{
 	{Arquivo: "encaixe.md", Titulo: "Encaixar material", Para: "Dizer em que etapas um material entra, que tópicos ele traz que a trilha não tem e que tópicos ele mostra que deviam mudar"},
 	{Arquivo: "roteiro.md", Titulo: "Revisar o roteiro", Para: "Rever os tópicos da trilha (ou de um tópico) contra o objetivo, o recorte, os níveis e a profundidade, e propor mudanças"},
 	{Arquivo: "materiais.md", Titulo: "Sugerir material", Para: "Procurar material para uma etapa (web, Biblioteca, Acervo, documentos)"},
+	{Arquivo: "verificar-material.md", Titulo: "Verificar material", Para: "Conferir se o material de uma etapa cobre o tópico dela, o quanto cobre e o que falta"},
 	{Arquivo: "entrevista.md", Titulo: "Entrevista", Para: "Criar trilha (a IA monta): pré-pesquisa e perguntas"},
 	{Arquivo: "mapa.md", Titulo: "Mapa do assunto", Para: "Criar trilha (a IA monta): o mapa completo e o recorte sugerido"},
 	{Arquivo: "validar-lista.md", Titulo: "Validar a lista", Para: "Criar trilha (eu tenho a lista): o que falta na lista"},

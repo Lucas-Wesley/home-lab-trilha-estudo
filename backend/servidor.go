@@ -59,6 +59,7 @@ func (a *app) ligarIA() {
 	a.fila.executores[tipoNivelamento] = a.gerarNivelamento
 	a.fila.executores[tipoFragmentar] = a.fragmentar
 	a.fila.executores[tipoDestino] = a.sugerirDestinos
+	a.fila.executores[tipoVerificar] = a.verificarMaterial
 	a.fila.aoTerminar = a.aoTerminarTarefa
 }
 
@@ -130,6 +131,8 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	mux.HandleFunc("GET /api/acervo/referencias", a.handleReferenciasAcervo)
 	mux.HandleFunc("GET /api/material/abrir", a.handleAbrirMaterial)
 	mux.HandleFunc("POST /api/etapas/{id}/materiais", a.handleSugerirMaterial)
+	mux.HandleFunc("POST /api/etapas/{id}/verificar", a.handleVerificar)
+	mux.HandleFunc("GET /api/etapas/{id}/verificacoes", a.handleVerificacoes)
 	// Fase 7 (T28): domínio e revisão.
 	mux.HandleFunc("GET /api/revisoes", a.handleRevisoes)
 	mux.HandleFunc("GET /api/etapas/{id}/revisao", a.handleRevisaoDaEtapa)

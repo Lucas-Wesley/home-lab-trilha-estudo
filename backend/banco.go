@@ -320,6 +320,24 @@ CREATE TABLE IF NOT EXISTS fragmentos (
 );
 CREATE INDEX IF NOT EXISTS fragmentos_fonte ON fragmentos (fonte_id, ordem);
 
+-- Verificar material (T53): a IA confere se o material da etapa cobre o tópico dela.
+-- estado: aguardando (vídeo sendo transcrito na Entrada) · verificando (na fila do Claude) ·
+-- pronta · falhou. materiais: o retrato do que foi verificado, com o estado do texto de cada um.
+CREATE TABLE IF NOT EXISTS verificacoes (
+	id            INTEGER PRIMARY KEY AUTOINCREMENT,
+	trilha_id     INTEGER NOT NULL REFERENCES trilhas(id) ON DELETE CASCADE,
+	etapa_chave   TEXT NOT NULL,
+	estado        TEXT NOT NULL,
+	pedido        TEXT NOT NULL DEFAULT '',
+	materiais     TEXT NOT NULL DEFAULT '[]',
+	resultado     TEXT NOT NULL DEFAULT '',
+	erro          TEXT NOT NULL DEFAULT '',
+	tarefa_id     INTEGER REFERENCES tarefas(id) ON DELETE SET NULL,
+	criado_em     TEXT NOT NULL,
+	atualizado_em TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS verificacoes_etapa ON verificacoes (trilha_id, etapa_chave, id);
+
 -- Entrada (T38): as trilhas escolhidas para cada fragmento (pela IA, que já marca, ou pelo
 -- Lucas). proposta_id é o encaixe criado no "Mandar para as trilhas"; NULL = ainda não enviado.
 CREATE TABLE IF NOT EXISTS fragmento_destinos (

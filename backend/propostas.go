@@ -496,6 +496,13 @@ func (a *app) aoTerminarTarefa(t *tarefa) {
 		// (fonte.tarefa_destino), que a tela mostra com "Tentar de novo".
 		return
 	}
+	if t.Tipo == tipoVerificar {
+		if _, err := a.db.Exec(`UPDATE verificacoes SET estado = ?, erro = ?, atualizado_em = ? WHERE tarefa_id = ? AND estado = ?`,
+			verFalhou, t.Erro, agora(), t.ID, verVerificando); err != nil {
+			log.Printf("verificação da tarefa %d: %v", t.ID, err)
+		}
+		return
+	}
 	if t.PropostaID == 0 {
 		// A correção do simulado: a tentativa fica com o erro (e pode ser feita de novo).
 		if _, err := a.db.Exec(`UPDATE tentativas SET estado = ?, erro = ?, atualizado_em = ? WHERE tarefa_id = ? AND estado = ?`,

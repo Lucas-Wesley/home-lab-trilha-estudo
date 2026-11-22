@@ -41,51 +41,60 @@ func (a *app) handleEntradaTelegram(w http.ResponseWriter, r *http.Request) {
 	var dados *meusVideosStreaming
 	fontes := make([]fonte, 0, len(corpo.Refs))
 	for _, bruta := range corpo.Refs {
-		ref := strings.TrimSpace(bruta)
-		link, msg, err := referenciaTelegram(ref)
+		f, st, err := a.fonteDaAulaTelegram(ctx, strings.TrimSpace(bruta), corpo.Fragmentar, &dados)
 		if err != nil {
-			a.responderErro(w, erroDeEntrada{err})
-			return
-		}
-		if f, err := lerFonte(a.db.QueryRowContext(ctx, `SELECT `+colunasFonte+` WHERE tipo = 'telegram' AND video_id = ?`, ref)); err == nil {
-			// A fonte já existe: se ainda está sendo processada, a opção nova vale.
-			if corpo.Fragmentar && (f.Estado == "na_fila" || f.Estado == "lendo" || f.Estado == "baixando" || f.Estado == "transcrevendo") {
-				a.db.ExecContext(ctx, `UPDATE fontes SET fragmentar = 1 WHERE id = ?`, f.ID)
+			if st != 0 {
+				erroJSON(w, st, err.Error())
+			} else {
+				a.responderErro(w, err)
 			}
-			fontes = append(fontes, f)
-			continue
-		}
-		if dados == nil {
-			var st int
-			dados, st, err = a.meusVideos(ctx)
-			if err != nil {
-				erroJSON(w, statusOu(st, http.StatusBadGateway), err.Error())
-				return
-			}
-		}
-		achada := dados.acharAulaSalva(link, msg)
-		if !achada.achou {
-			a.responderErro(w, erroDeEntrada{fmt.Errorf("aula não encontrada no Streaming: %s", ref)})
-			return
-		}
-		v := dados.aulaDaSalva(achada)
-		f, err := a.criarFonte(ctx, "telegram", ref, ref, v.Nome, "")
-		if err != nil {
-			a.responderErro(w, err)
-			return
-		}
-		f.Canal = canalDaAula(achada.grupo, v.Caminho)
-		f.Duracao = int(v.Duracao)
-		f.Fragmentar = corpo.Fragmentar
-		if _, err := a.db.ExecContext(ctx, `UPDATE fontes SET canal = ?, duracao = ?, fragmentar = ? WHERE id = ?`,
-			f.Canal, f.Duracao, corpo.Fragmentar, f.ID); err != nil {
-			a.responderErro(w, err)
 			return
 		}
 		fontes = append(fontes, f)
 	}
 	a.acordarEntrada()
 	responderJSON(w, http.StatusAccepted, fontes)
+}
+
+// fonteDaAulaTelegram: a fonte telegram da aula — a que já existe ou uma nova, na fila. dados
+// guarda o /api/meus-videos do Streaming entre as aulas de um mesmo pedido (lido uma vez só).
+// st ≠ 0: o Streaming falhou com esse status.
+func (a *app) fonteDaAulaTelegram(ctx context.Context, ref string, fragmentar bool, dados **meusVideosStreaming) (fonte, int, error) {
+	link, msg, err := referenciaTelegram(ref)
+	if err != nil {
+		return fonte{}, 0, erroDeEntrada{err}
+	}
+	if f, err := lerFonte(a.db.QueryRowContext(ctx, `SELECT `+colunasFonte+` WHERE tipo = 'telegram' AND video_id = ?`, ref)); err == nil {
+		// A fonte já existe: se ainda está sendo processada, a opção nova vale.
+		if fragmentar && (f.Estado == "na_fila" || f.Estado == "lendo" || f.Estado == "baixando" || f.Estado == "transcrevendo") {
+			a.db.ExecContext(ctx, `UPDATE fontes SET fragmentar = 1 WHERE id = ?`, f.ID)
+		}
+		return f, 0, nil
+	}
+	if *dados == nil {
+		d, st, err := a.meusVideos(ctx)
+		if err != nil {
+			return fonte{}, statusOu(st, http.StatusBadGateway), err
+		}
+		*dados = d
+	}
+	achada := (*dados).acharAulaSalva(link, msg)
+	if !achada.achou {
+		return fonte{}, 0, erroDeEntrada{fmt.Errorf("aula não encontrada no Streaming: %s", ref)}
+	}
+	v := (*dados).aulaDaSalva(achada)
+	f, err := a.criarFonte(ctx, "telegram", ref, ref, v.Nome, "")
+	if err != nil {
+		return fonte{}, 0, err
+	}
+	f.Canal = canalDaAula(achada.grupo, v.Caminho)
+	f.Duracao = int(v.Duracao)
+	f.Fragmentar = fragmentar
+	if _, err := a.db.ExecContext(ctx, `UPDATE fontes SET canal = ?, duracao = ?, fragmentar = ? WHERE id = ?`,
+		f.Canal, f.Duracao, fragmentar, f.ID); err != nil {
+		return fonte{}, 0, err
+	}
+	return f, 0, nil
 }
 
 // canalDaAula: o "canal" de uma fonte telegram — grupo › curso › módulo.
