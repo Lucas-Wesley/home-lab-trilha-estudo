@@ -43,6 +43,15 @@ type capituloProjeto struct {
 	Refs    []referenciaProjeto `json:"refs"`
 }
 
+// estudoEscolhido: uma linha da tabela "2. Estudo" do caderno do item, a lista que a IA montou com
+// o Lucas na fase de estudo (a que vale; o roadmap só traz candidatos).
+type estudoEscolhido struct {
+	Fonte    string              `json:"fonte"`
+	PorQue   string              `json:"por_que,omitempty"`
+	Situacao string              `json:"situacao,omitempty"`
+	Refs     []referenciaProjeto `json:"refs"`
+}
+
 type itemProjeto struct {
 	ID             string            `json:"id"`
 	Titulo         string            `json:"titulo"`
@@ -58,6 +67,7 @@ type itemProjeto struct {
 	Livros71       *linhaEstudo      `json:"livros_71,omitempty"`
 	Trilhas71      *linhaEstudo      `json:"trilhas_71,omitempty"`
 	Capitulos      []capituloProjeto `json:"capitulos"`
+	Escolhido      []estudoEscolhido `json:"estudo_escolhido,omitempty"`
 	Caderno        string            `json:"caderno,omitempty"`
 	CadernoArquivo string            `json:"caderno_arquivo,omitempty"`
 	Link           string            `json:"link"`
@@ -609,4 +619,49 @@ func estadoDoCaderno(texto string) string {
 		return strings.TrimSpace(strings.ReplaceAll(m[1], "**", ""))
 	}
 	return ""
+}
+
+// estudoDoCaderno lê a primeira tabela da seção "Estudo" do caderno (colunas Fonte, Por quê e
+// Situação). A linha de exemplo do modelo ("Tn › Módulo › Etapa") e as linhas vazias ficam de fora.
+func estudoDoCaderno(texto string) []estudoEscolhido {
+	var t tabelaMD
+	naSecao := false
+	for _, linha := range strings.Split(texto, "\n") {
+		l := strings.TrimSpace(linha)
+		if strings.HasPrefix(l, "## ") {
+			if naSecao {
+				break
+			}
+			naSecao = strings.Contains(normalizar(l), "estudo")
+			continue
+		}
+		if !naSecao {
+			continue
+		}
+		if strings.HasPrefix(l, "|") {
+			t.linhas = append(t.linhas, l)
+		} else if len(t.linhas) > 0 {
+			break
+		}
+	}
+	cab, linhas := t.cabecalhoELinhas()
+	if cab == nil {
+		return nil
+	}
+	cFonte := coluna(cab, "fonte")
+	if cFonte < 0 {
+		cFonte = 0
+	}
+	cPorque, cSit := coluna(cab, "por que", "porque"), coluna(cab, "situacao")
+	var lista []estudoEscolhido
+	for _, l := range linhas {
+		fonte := celula(l, cFonte)
+		if fonte == "" || normalizar(fonte) == "tn modulo etapa" {
+			continue
+		}
+		lista = append(lista, estudoEscolhido{
+			Fonte: fonte, PorQue: celula(l, cPorque), Situacao: celula(l, cSit), Refs: []referenciaProjeto{},
+		})
+	}
+	return lista
 }

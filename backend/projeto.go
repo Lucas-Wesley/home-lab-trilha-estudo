@@ -291,6 +291,10 @@ func (a *app) montarProjeto(ctx context.Context, arquivos map[string]string) (re
 			it.Caderno = texto
 			it.LinkCaderno = c.linkArquivo(caminho)
 			it.Estado = estadoDoCaderno(texto)
+			it.Escolhido = estudoDoCaderno(texto)
+			for i := range it.Escolhido {
+				it.Escolhido[i].Refs = cat.referencias(it.Escolhido[i].Fonte)
+			}
 		}
 		switch {
 		case it.Feito || normalizar(it.Estado) == "feito":

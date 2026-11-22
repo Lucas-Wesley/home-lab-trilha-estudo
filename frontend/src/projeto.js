@@ -73,3 +73,51 @@ export async function copiarTexto(texto) {
   campo.remove()
   return ok
 }
+
+// semTrilha: o caminho sem o "T13 › " do começo (o nome da trilha já está no grupo).
+export function semTrilha(texto) {
+  return (texto || '').replace(/^T\d+\s*(?:›\s*|$)/, '').trim()
+}
+
+// numeroTrilha: 13 em "T13 › …"; 0 sem número.
+function numeroTrilha(r) {
+  if (r?.trilha_id) return r.trilha_id
+  const m = /\bT(\d+)\b/.exec(r?.texto || '')
+  return m ? Number(m[1]) : 0
+}
+
+// agruparPorTrilha: as referências agrupadas pela trilha, na ordem em que aparecem, sem repetir.
+export function agruparPorTrilha(refs) {
+  const grupos = new Map()
+  const vistos = new Set()
+  for (const r of refs) {
+    const chave = `${r.tipo || ''}:${r.etapa_id || r.modulo_id || ''}:${textoReferencia(r)}`
+    if (vistos.has(chave)) continue
+    vistos.add(chave)
+    const n = numeroTrilha(r)
+    if (!grupos.has(n)) grupos.set(n, { id: n, titulo: r.trilha_titulo || (n ? `T${n}` : 'Outras fontes'), refs: [] })
+    const g = grupos.get(n)
+    if (!g.titulo || g.titulo === `T${n}`) g.titulo = r.trilha_titulo || g.titulo
+    g.refs.push(r)
+  }
+  return [...grupos.values()]
+}
+
+// candidatosDoItem: o "Estudar antes" e as trilhas da 7.1 do roadmap numa lista só, por trilha.
+// Os capítulos de livro ficam no quadro lateral; por isso a linha de livros da 7.1 não entra.
+export function candidatosDoItem(item) {
+  const refs = []
+  for (const l of [...(item?.estudo || []), item?.trilhas_71].filter(Boolean)) {
+    if (l.refs?.length) refs.push(...l.refs)
+    else if (l.texto) refs.push({ texto: l.texto })
+  }
+  return agruparPorTrilha(refs)
+}
+
+// situacaoEstudo: a cor da situação de uma fonte escolhida ("estudado", "já sabia", "a estudar").
+export function situacaoEstudo(texto) {
+  const n = (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  if (n.includes('ja sabia') || n.includes('estudado') || n.includes('feito')) return 'verde'
+  if (n.includes('estudando')) return 'azul'
+  return ''
+}

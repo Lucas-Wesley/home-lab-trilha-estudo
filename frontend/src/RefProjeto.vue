@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import Icone from './Icone.vue'
-import { linkReferencia, progressoReferencia, textoReferencia } from './projeto.js'
+import { linkReferencia, progressoReferencia, semTrilha, textoReferencia } from './projeto.js'
 
 // Uma referência do roadmap do Projeto de estudo (T52): link para a etapa/módulo/trilha quando
 // casou, com o ✓ de concluída; sem par, só o texto.
@@ -20,10 +20,10 @@ const dica = computed(() => {
 <template>
   <a v-if="href" class="ref" :class="{ feita, parcial: r.parcial }" :href="href" :title="dica">
     <Icone v-if="feita" nome="check" :tamanho="14" class="marca-feita" />
-    <span>{{ textoReferencia(r) }}</span>
+    <span>{{ texto }}</span>
     <span v-if="progresso" class="conta">{{ progresso }}</span>
   </a>
-  <span v-else class="ref sem-par" :title="dica">{{ r.texto }}</span>
+  <span v-else class="ref sem-par" :title="dica">{{ curto ? semTrilha(r.texto) || r.texto : r.texto }}</span>
 </template>
 
 <style scoped>

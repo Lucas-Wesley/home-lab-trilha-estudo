@@ -6,7 +6,7 @@ import Pagina from '../Pagina.vue'
 import RefProjeto from '../RefProjeto.vue'
 import { api } from '../api.js'
 import { renderizar, textoComCodigo } from '../markdown.js'
-import { copiarTexto, itensPorId, resumoFase, rotuloSituacao } from '../projeto.js'
+import { candidatosDoItem, copiarTexto, itensPorId, resumoFase, rotuloSituacao, situacaoEstudo } from '../projeto.js'
 import { link } from '../rotas.js'
 
 // Projeto de estudo (T52): o caderno do GitHub (roadmap, estado e cadernos dos itens) ligado às
@@ -76,7 +76,7 @@ async function conversar(it) {
 }
 onBeforeUnmount(() => clearTimeout(relogio))
 
-const MARCAS = { '✔': 'tem e cobre bem', '✓': 'tem e cobre bem', '◐': 'tem, mas raso para este uso', '⏳': 'módulo ainda sem etapas', '✖': 'lacuna' }
+const candidatos = computed(() => candidatosDoItem(item.value))
 const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
 </script>
 
@@ -166,38 +166,44 @@ const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
             </section>
           </div>
 
-          <section class="quadro">
-            <div class="quadro-topo"><h2 class="rotulo-secao">Estudo</h2></div>
-            <p v-if="!item.estudo.length && !item.livros_71 && !item.trilhas_71" class="pequeno sem-margem">O roadmap não indica estudo para este item.</p>
-            <ul v-if="item.estudo.length" class="lista estudo">
-              <li v-for="(l, i) in item.estudo" :key="i">
-                <span class="marca" :title="MARCAS[l.marca] || ''">{{ l.marca || '·' }}</span>
-                <div class="refs">
-                  <RefProjeto v-for="(r, j) in l.refs" :key="j" :r="r" />
-                  <span v-if="!l.refs.length" class="suave">{{ l.texto }}</span>
+          <section v-if="item.estudo_escolhido?.length" class="quadro">
+            <div class="quadro-topo">
+              <h2 class="rotulo-secao">O que estudar, nesta ordem</h2>
+              <span class="pequeno">escolhido com a IA · caderno do item</span>
+            </div>
+            <ol class="lista escolhido">
+              <li v-for="(e, i) in item.estudo_escolhido" :key="i">
+                <span class="num">{{ i + 1 }}</span>
+                <div class="escolhido-corpo">
+                  <div class="linha entre">
+                    <div class="refs">
+                      <RefProjeto v-for="(r, j) in e.refs" :key="j" :r="r" />
+                      <span v-if="!e.refs.length">{{ e.fonte }}</span>
+                    </div>
+                    <span v-if="e.situacao" class="etiqueta" :class="situacaoEstudo(e.situacao)">{{ e.situacao }}</span>
+                  </div>
+                  <p v-if="e.por_que" class="pequeno sem-margem">{{ e.por_que }}</p>
                 </div>
               </li>
-            </ul>
-            <template v-if="item.livros_71 || item.trilhas_71">
-              <p class="rotulo-secao sub">Ordem de estudo (7.1)</p>
-              <ul class="lista estudo">
-                <li v-if="item.livros_71">
-                  <span class="marca pequeno">Livros</span>
-                  <div class="refs">
-                    <RefProjeto v-for="(r, j) in item.livros_71.refs" :key="j" :r="r" />
-                    <span v-if="!item.livros_71.refs.length" class="suave">{{ item.livros_71.texto }}</span>
-                  </div>
-                </li>
-                <li v-if="item.trilhas_71">
-                  <span class="marca pequeno">Trilhas</span>
-                  <div class="refs">
-                    <RefProjeto v-for="(r, j) in item.trilhas_71.refs" :key="j" :r="r" />
-                    <span v-if="!item.trilhas_71.refs.length" class="suave">{{ item.trilhas_71.texto }}</span>
-                  </div>
-                </li>
-              </ul>
-            </template>
+            </ol>
           </section>
+
+          <component :is="item.estudo_escolhido?.length ? 'details' : 'section'" v-if="candidatos.length" class="quadro">
+            <component :is="item.estudo_escolhido?.length ? 'summary' : 'div'" class="quadro-topo">
+              <h2 class="rotulo-secao">{{ item.estudo_escolhido?.length ? 'Outras fontes candidatas' : 'Candidatos ao estudo' }}</h2>
+            </component>
+            <p v-if="!item.estudo_escolhido?.length" class="pequeno aviso-candidatos">
+              Não é para estudar tudo isto. Na conversa, a IA pergunta o que você já sabe, escolhe o mínimo
+              que destrava as decisões do item e explica o porquê. A lista escolhida aparece aqui, em ordem.
+            </p>
+            <div v-for="g in candidatos" :key="g.id" class="grupo-trilha">
+              <a v-if="g.id && g.refs[0]?.trilha_id" class="grupo-nome" :href="link('trilhas', g.id)">{{ g.titulo }}</a>
+              <span v-else class="grupo-nome">{{ g.titulo }}</span>
+              <ul class="lista candidatos">
+                <li v-for="(r, j) in g.refs" :key="j"><RefProjeto :r="r" curto /></li>
+              </ul>
+            </div>
+          </component>
 
           <section class="quadro">
             <div class="quadro-topo">
@@ -348,8 +354,17 @@ const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
 .item .etiqueta { flex: none; }
 .item.atual .nome { font-weight: 600; }
 
-.estudo li { display: flex; gap: var(--e3); align-items: baseline; padding: var(--e2) 0; }
-.estudo .marca { flex: none; min-width: 3.6em; color: var(--texto-fraco); }
+.escolhido { margin: 0; padding: 0; list-style: none; }
+.escolhido li { display: flex; gap: var(--e3); align-items: baseline; padding: var(--e3) 0; }
+.escolhido .num { flex: none; min-width: 1.4em; font-family: var(--fonte-mono); font-size: 13px; color: var(--texto-fraco); }
+.escolhido-corpo { flex: 1; min-width: 0; display: grid; gap: var(--e1); }
+.aviso-candidatos { margin: 0 0 var(--e3); }
+.grupo-trilha { padding: var(--e2) 0; }
+.grupo-nome { display: block; font-size: 13px; font-weight: 600; color: var(--texto); text-decoration: none; }
+a.grupo-nome:hover { text-decoration: underline; }
+.candidatos { margin: var(--e1) 0 0; padding: 0; list-style: none; font-size: 14.5px; line-height: 1.5; }
+.candidatos li { padding: 2px 0; }
+details > summary.quadro-topo { list-style: revert; }
 .refs { display: flex; flex-wrap: wrap; gap: 2px var(--e3); min-width: 0; font-size: 14.5px; line-height: 1.5; }
 .capitulos li { display: grid; gap: var(--e1); padding: var(--e3) 0; }
 .capitulos .refs { flex-direction: column; gap: 2px; font-size: 13.5px; }
@@ -373,6 +388,6 @@ details[open] > summary { margin-bottom: var(--e3); }
   .item .nome { flex-basis: calc(100% - 3.6em); }
   .item .etiqueta { margin-left: calc(2.6em + var(--e3)); }
   .item .etiqueta.a-fazer { display: none; }
-  .estudo li { flex-direction: column; gap: var(--e1); }
+  .escolhido .linha.entre { flex-wrap: wrap; gap: var(--e1); }
 }
 </style>

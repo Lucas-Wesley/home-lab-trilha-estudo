@@ -371,3 +371,40 @@ func TestPacoteSemRoadmap(t *testing.T) {
 		t.Error("aceitou lixo")
 	}
 }
+
+func TestEstudoDoCaderno(t *testing.T) {
+	caderno := `# 0.1 · O repositório
+
+## 1. Problema
+| Fonte | Por quê |
+|---|---|
+| T99 › Não é daqui | não |
+
+## 2. Estudo
+| Fonte | Por quê (o que ela destrava) | Situação |
+|---|---|---|
+| Tn › Módulo › Etapa | Para decidir X você precisa saber A | a estudar · estudado · já sabia |
+| T40 › Git no dia a dia | Para decidir o fluxo de branches | estudado |
+| T21 cap. 21 | O formato do ADR | a estudar |
+
+Notas depois da tabela.
+
+## 3. Checagem
+| Fonte | x | y |
+|---|---|---|
+| T1 › Fora | a | b |
+`
+	got := estudoDoCaderno(caderno)
+	if len(got) != 2 {
+		t.Fatalf("esperava 2 linhas, veio %d: %+v", len(got), got)
+	}
+	if got[0].Fonte != "T40 › Git no dia a dia" || got[0].PorQue != "Para decidir o fluxo de branches" || got[0].Situacao != "estudado" {
+		t.Errorf("primeira linha errada: %+v", got[0])
+	}
+	if got[1].Fonte != "T21 cap. 21" || got[1].Situacao != "a estudar" {
+		t.Errorf("segunda linha errada: %+v", got[1])
+	}
+	if estudoDoCaderno("# só o título\n\n## 2. Estudo\nainda nada\n") != nil {
+		t.Error("sem tabela deveria vir vazio")
+	}
+}
