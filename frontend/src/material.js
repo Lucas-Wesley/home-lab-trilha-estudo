@@ -6,6 +6,8 @@ import { linkNoStreaming } from './videoaula.js'
 // servidor, que acha o ponto do livro e redireciona para a Biblioteca ou o Acervo.
 export function hrefMaterial(m, trilhaId) {
   if (m.tipo === 'web') return m.referencia
+  // T56: o PDF guardado na Trilha (os anexos das aulas dos cursos) abre direto dela.
+  if (m.tipo === 'arquivo') return m.referencia
   if (m.tipo === 'streaming') return linkNoStreaming(m.referencia)
   if (m.tipo === 'documento') return `#/trilhas/${trilhaId}/documentos/${encodeURIComponent(m.referencia)}${m.localizador ? '#' + m.localizador : ''}`
   if ((m.tipo === 'livro' || m.tipo === 'acervo') && m.referencia) {

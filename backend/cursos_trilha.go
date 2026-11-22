@@ -50,6 +50,14 @@ func materiaisDaAula(au aulaCurso) []material {
 		}
 		ms = append(ms, material{Tipo: "documento", Papel: papel, Titulo: "Texto da aula", Referencia: chaveEtapaDaAula(au.ID)})
 	}
+	// T56: os PDFs da aula (na aula sem vídeo, eles são a aula).
+	for _, x := range au.Anexos {
+		papel := "apoio"
+		if !temVideo(au) {
+			papel = "principal"
+		}
+		ms = append(ms, material{Tipo: "arquivo", Papel: papel, Titulo: x.Nome, Referencia: refAnexo(x.ID)})
+	}
 	return ms
 }
 
@@ -88,7 +96,18 @@ func (a *app) aulasDoCurso(ctx context.Context, plataforma, curso string) ([]aul
 		}
 		aulas = append(aulas, au)
 	}
-	return aulas, linhas.Err()
+	if err := linhas.Err(); err != nil {
+		return nil, err
+	}
+	linhas.Close()
+	anexos, err := a.anexosDasAulas(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range aulas {
+		aulas[i].Anexos = anexos[aulas[i].ID]
+	}
+	return aulas, nil
 }
 
 // sincronizarTrilhaDoCurso cria a trilha do curso ou acrescenta o que falta; devolve o id dela.

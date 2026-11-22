@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -185,5 +188,76 @@ func TestAulaSemVideoNemTexto(t *testing.T) {
 	code, resp := pedirAulaJSON(t, h, `{"plataforma":"enzoneto","curso":"C","titulo":"A","pagina":"https://aluno.enzoneto.com/area/conteudo/aula/9"}`)
 	if code != 400 || !strings.Contains(resp["erro"].(string), "nem texto") {
 		t.Fatalf("%d %v", code, resp)
+	}
+}
+
+func anexar(t *testing.T, h http.Handler, aula int64, nome, conteudo string) *httptest.ResponseRecorder {
+	t.Helper()
+	var corpo bytes.Buffer
+	f := multipart.NewWriter(&corpo)
+	f.WriteField("nome", nome)
+	f.WriteField("url", "https://aluno.enzoneto.com/area/arquivo/anexo?n=x")
+	p, _ := f.CreateFormFile("file", nome)
+	p.Write([]byte(conteudo))
+	f.Close()
+	req := httptest.NewRequest("POST", fmt.Sprintf("/api/cursos/aulas/%d/anexos", aula), &corpo)
+	req.Header.Set("Content-Type", f.FormDataContentType())
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestAnexosDaAula(t *testing.T) {
+	a, _ := appDeCursos(t)
+	h := novoServidor(a, nil, "teste")
+	ctx := context.Background()
+	code, resp := pedirAulaJSON(t, h, `{"plataforma":"enzoneto","curso":"Congelamento inteligente 2026","modulo":"Materiais em PDF",
+		"titulo":"PDF para download e impressão","pagina":"https://aluno.enzoneto.com/area/conteudo/aula/9521338","texto":"## Anexos\n\n- Tabela.pdf","ordem":21,"trilha":true}`)
+	if code != http.StatusAccepted {
+		t.Fatalf("aula %d %v", code, resp)
+	}
+	aula := int64(resp["aula"].(map[string]any)["id"].(float64))
+	trilhaID := int64(resp["trilha_id"].(float64))
+
+	if rec := anexar(t, h, aula, "Tabela.pdf", "<html>login</html>"); rec.Code != 400 {
+		t.Fatalf("aceitou um não-PDF: %d %s", rec.Code, rec.Body)
+	}
+	rec := anexar(t, h, aula, "Tabela de Durabilidade e Etiquetas-print.pdf", "%PDF-1.4 tabela")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("anexar %d %s", rec.Code, rec.Body)
+	}
+	var r struct{ Anexo anexoAula }
+	json.Unmarshal(rec.Body.Bytes(), &r)
+	// O mesmo nome de novo troca o arquivo, sem duplicar.
+	if rec := anexar(t, h, aula, "Tabela de Durabilidade e Etiquetas-print.pdf", "%PDF-1.4 tabela nova"); rec.Code != http.StatusOK {
+		t.Fatalf("de novo %d %s", rec.Code, rec.Body)
+	}
+	anexos, _ := a.anexosDaAula(ctx, aula)
+	if len(anexos) != 1 || anexos[0].Arquivo != filepath.Join("Chef Enzo Neto", "Congelamento inteligente 2026", "Materiais em PDF", "PDF para download e impressão - Tabela de Durabilidade e Etiquetas-print.pdf") {
+		t.Fatalf("anexos %+v", anexos)
+	}
+
+	// O PDF abre pela Trilha.
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", fmt.Sprintf("/api/cursos/anexos/%d", r.Anexo.ID), nil))
+	if rec.Code != 200 || rec.Body.String() != "%PDF-1.4 tabela nova" || rec.Header().Get("Content-Type") != "application/pdf" {
+		t.Fatalf("abrir %d %q %v", rec.Code, rec.Body, rec.Header())
+	}
+	// A etapa da aula (sem vídeo) ganha o PDF como material principal.
+	tr, _ := a.trilhaCompleta(ctx, trilhaID)
+	ms := tr.Modulos[0].Etapas[0].Materiais
+	if len(ms) != 2 || ms[1].Tipo != "arquivo" || ms[1].Papel != "principal" || ms[1].Referencia != fmt.Sprintf("/api/cursos/anexos/%d", r.Anexo.ID) {
+		t.Fatalf("materiais %+v", ms)
+	}
+	// A lista e a aula mostram os anexos; apagar a aula apaga o PDF.
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/api/cursos/aulas", nil))
+	if !strings.Contains(rec.Body.String(), `"anexos":[{"id":`) {
+		t.Fatalf("lista %s", rec.Body)
+	}
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("DELETE", fmt.Sprintf("/api/cursos/aulas/%d", aula), nil))
+	if _, err := os.Stat(filepath.Join(a.cursosDir, anexos[0].Arquivo)); !os.IsNotExist(err) {
+		t.Fatal("o PDF ficou no disco")
 	}
 }

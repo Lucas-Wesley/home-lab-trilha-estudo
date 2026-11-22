@@ -56,6 +56,7 @@ export const TIPOS_MATERIAL = {
   streaming: 'Streaming',
   youtube: 'YouTube',
   curso: 'Curso',
+  arquivo: 'PDF',
 }
 
 // T38: o estado do encaixe criado no "Mandar para as trilhas".

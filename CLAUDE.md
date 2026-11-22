@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T55), fases, riscos e o que está em aberto.
+  (T1–T56), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — aponta para o design system do **Hub**, que é a
@@ -264,6 +264,8 @@ no curso e o texto da página. Com `trilha: true` (ou `POST /api/cursos/trilha`)
 **grupo** da plataforma (coluna `trilhas.grupo`; a lista mostra o grupo como um cartão, `#/trilhas/grupo/<nome>`):
 uma etapa por aula (`aula-<id>`), vídeo `/api/cursos/aulas/<id>/video` e o documento `aula-<id>`. Depois só
 completa (nunca reimporta: a importação apagaria lições). A `Videoaula.vue` mostra o download em andamento.
+Os PDFs da aula (`backend/anexos.go`, T56) chegam por `POST /api/cursos/aulas/{id}/anexos`, ficam ao lado do vídeo e entram na
+etapa como material `arquivo` (`/api/cursos/anexos/<id>`).
 
 ## Projeto de estudo (T52)
 `backend/projeto.go`, `projeto_roadmap.go` e `projeto_refs.go`: a seção **Projeto** (`#/projeto`,

@@ -42,29 +42,30 @@ var plataformasCurso = map[string]string{
 const agenteNavegador = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36"
 
 type aulaCurso struct {
-	ID           int64  `json:"id"`
-	Plataforma   string `json:"plataforma"`
-	Curso        string `json:"curso"`
-	Modulo       string `json:"modulo"`
-	Titulo       string `json:"titulo"`
-	Pagina       string `json:"pagina"`
-	Ordem        int    `json:"ordem"`
-	Texto        string `json:"texto,omitempty"` // só no GET de uma aula (a lista leva tem_texto)
-	TemTexto     bool   `json:"tem_texto"`
-	Embed        string `json:"-"` // YouTube/Vimeo, quando o vídeo não vem por HLS
-	Manifesto    string `json:"-"`
-	Referer      string `json:"-"`
-	Variante     string `json:"-"`
-	Qualidade    string `json:"qualidade"`
-	Duracao      int    `json:"duracao"`
-	Estimado     int64  `json:"tamanho_estimado"`
-	Tamanho      int64  `json:"tamanho"`
-	Progresso    int    `json:"progresso"`
-	Estado       string `json:"estado"` // na_fila · baixando · pronta · erro · texto (aula sem vídeo, só o texto da página)
-	Erro         string `json:"erro"`
-	Arquivo      string `json:"-"` // relativo a CURSOS_DIR
-	CriadoEm     string `json:"criado_em"`
-	AtualizadoEm string `json:"atualizado_em"`
+	ID           int64       `json:"id"`
+	Plataforma   string      `json:"plataforma"`
+	Curso        string      `json:"curso"`
+	Modulo       string      `json:"modulo"`
+	Titulo       string      `json:"titulo"`
+	Pagina       string      `json:"pagina"`
+	Ordem        int         `json:"ordem"`
+	Texto        string      `json:"texto,omitempty"` // só no GET de uma aula (a lista leva tem_texto)
+	TemTexto     bool        `json:"tem_texto"`
+	Anexos       []anexoAula `json:"anexos"` // T56: os PDFs da aula, guardados na Trilha
+	Embed        string      `json:"-"`      // YouTube/Vimeo, quando o vídeo não vem por HLS
+	Manifesto    string      `json:"-"`
+	Referer      string      `json:"-"`
+	Variante     string      `json:"-"`
+	Qualidade    string      `json:"qualidade"`
+	Duracao      int         `json:"duracao"`
+	Estimado     int64       `json:"tamanho_estimado"`
+	Tamanho      int64       `json:"tamanho"`
+	Progresso    int         `json:"progresso"`
+	Estado       string      `json:"estado"` // na_fila · baixando · pronta · erro · texto (aula sem vídeo, só o texto da página)
+	Erro         string      `json:"erro"`
+	Arquivo      string      `json:"-"` // relativo a CURSOS_DIR
+	CriadoEm     string      `json:"criado_em"`
+	AtualizadoEm string      `json:"atualizado_em"`
 }
 
 const esquemaCursos = `
@@ -744,11 +745,21 @@ func (a *app) handleAula(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
+	if au.Anexos, err = a.anexosDaAula(r.Context(), id); err != nil {
+		a.responderErro(w, err)
+		return
+	}
 	responderJSON(w, http.StatusOK, au)
 }
 
 // GET /api/cursos/aulas: todas as aulas (a tela agrupa por plataforma › curso › módulo) e o espaço livre.
 func (a *app) handleListarAulas(w http.ResponseWriter, r *http.Request) {
+	// Os anexos antes da lista: o banco tem uma conexão só, e a lista aberta a seguraria.
+	anexos, err := a.anexosDasAulas(r.Context())
+	if err != nil {
+		a.responderErro(w, err)
+		return
+	}
 	linhas, err := a.db.QueryContext(r.Context(), `SELECT `+colunasAula+` FROM aulas_plataforma ORDER BY plataforma, curso, ordem, id`)
 	if err != nil {
 		a.responderErro(w, err)
@@ -763,6 +774,10 @@ func (a *app) handleListarAulas(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		au.Texto = "" // a lista leva só o tem_texto
+		au.Anexos = anexos[au.ID]
+		if au.Anexos == nil {
+			au.Anexos = []anexoAula{}
+		}
 		aulas = append(aulas, au)
 	}
 	trilhas, err := a.trilhasDosCursos(r.Context())
@@ -810,6 +825,7 @@ func (a *app) handleApagarAula(w http.ResponseWriter, r *http.Request) {
 		a.responderErro(w, err)
 		return
 	}
+	a.apagarArquivosDosAnexos(r.Context(), id)
 	if _, err := a.db.ExecContext(r.Context(), `DELETE FROM aulas_plataforma WHERE id = ?`, id); err != nil {
 		a.responderErro(w, err)
 		return

@@ -124,6 +124,9 @@ onBeforeUnmount(() => clearTimeout(timer))
                 <span class="meta">{{ meta(a) }}</span>
                 <span v-if="a.estado === 'baixando'" class="progresso mini" :title="`${a.progresso}%`"><span :style="{ width: a.progresso + '%' }" /></span>
                 <span v-if="a.estado === 'erro'" class="erro-aula">{{ a.erro }}</span>
+                <span v-if="a.anexos?.length" class="anexos">
+                  <a v-for="x in a.anexos" :key="x.id" :href="`/api/cursos/anexos/${x.id}`" target="_blank" rel="noopener"><Icone nome="livro" :tamanho="13" /> {{ x.nome }} <span class="fraco">· {{ tamanho(x.tamanho) }}</span></a>
+                </span>
               </span>
               <span class="etiqueta" :class="ESTADOS_AULA[a.estado]?.cor">
                 {{ a.estado === 'baixando' ? `${a.progresso}%` : ESTADOS_AULA[a.estado]?.nome || a.estado }}
@@ -160,6 +163,9 @@ onBeforeUnmount(() => clearTimeout(timer))
 .meta { font-size: 12.5px; color: var(--texto-fraco); }
 .progresso.mini { max-width: 240px; margin-top: 2px; }
 .erro-aula { font-size: 12.5px; color: var(--vermelho); overflow-wrap: anywhere; }
+.anexos { display: flex; flex-wrap: wrap; gap: 2px var(--e3); margin-top: 2px; }
+.anexos a { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--link); text-decoration: none; overflow-wrap: anywhere; }
+.anexos a:hover { text-decoration: underline; }
 .botoes { display: flex; align-items: center; gap: 2px; flex: none; }
 @media (max-width: 599px) {
   .linha-aula { flex-wrap: wrap; }

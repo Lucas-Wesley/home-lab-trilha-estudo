@@ -15,7 +15,7 @@ func abrirBanco(caminho string) (*sql.DB, error) {
 	// Um escritor por vez: o SQLite serializa de qualquer jeito, e assim as transações não
 	// esbarram umas nas outras.
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(esquema + esquemaCursos); err != nil {
+	if _, err := db.Exec(esquema + esquemaCursos + esquemaAnexos); err != nil {
 		db.Close()
 		return nil, err
 	}

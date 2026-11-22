@@ -18,3 +18,7 @@ it('capítulos e páginas viram o localizador que o servidor lê', () => {
   expect(localizadorDePaginas(12, 12)).toBe('p. 12')
   expect(localizadorDePaginas(0, 0)).toBe('')
 })
+
+it('o PDF guardado na Trilha abre direto (T56)', () => {
+  expect(hrefMaterial({ tipo: 'arquivo', referencia: '/api/cursos/anexos/4' }, 1)).toBe('/api/cursos/anexos/4')
+})

@@ -98,7 +98,7 @@ var (
 	niveisBloom     = []string{"lembrar", "entender", "aplicar", "analisar", "avaliar", "criar"}
 	statusEtapa     = []string{"disponivel", "em_andamento", "concluida", "pulada"}
 	estadosTrilha   = []string{"rascunho", "ativa", "pausada", "concluida"}
-	tiposMaterial   = []string{"documento", "web", "livro", "acervo", "streaming", "youtube"}
+	tiposMaterial   = []string{"documento", "web", "livro", "acervo", "streaming", "youtube", "arquivo"} // arquivo: o PDF guardado na Trilha (T56)
 	papeisMaterial  = []string{"principal", "apoio", "aprofundar"}
 	tiposEtapa      = []string{"normal", "base", "reforco", "projeto"}
 	errNaoEncontrou = errors.New("não encontrado")
