@@ -31,8 +31,13 @@ func TestRoadmapReal(t *testing.T) {
 	if len(r.Fases) != 11 {
 		t.Fatalf("fases = %d, esperava 11 (Fase 0 a 9 + a trilha paralela)", len(r.Fases))
 	}
-	if len(r.Itens) != 60 {
-		t.Fatalf("itens = %d, esperava 60 (56 + R1 a R4)", len(r.Itens))
+	if len(r.Itens) != 61 {
+		t.Fatalf("itens = %d, esperava 61 (57 + R1 a R4)", len(r.Itens))
+	}
+	// A faixa de leitura (7.3): 18 blocos em ordem, cobrindo os 59 capítulos.
+	if len(r.Faixa) != 18 || r.Faixa[0].Numero != 1 || r.Faixa[0].Livro != "T23" || r.Faixa[0].Caps != "1 a 6" ||
+		r.Faixa[0].Antes != "0.3" || !strings.HasPrefix(r.Faixa[0].Assunto, "o domínio") || r.Faixa[17].Numero != 18 {
+		t.Errorf("faixa: %d blocos, %+v", len(r.Faixa), r.Faixa)
 	}
 	if r.Fases[0].Objetivo == "" || !strings.HasPrefix(r.Fases[0].Titulo, "Fase 0") {
 		t.Errorf("fase 0: %+v", r.Fases[0])
@@ -43,7 +48,7 @@ func TestRoadmapReal(t *testing.T) {
 		!strings.Contains(it.Implementar, "go.mod") || !strings.Contains(it.Pronto, "make test") {
 		t.Fatalf("0.1: %+v", it)
 	}
-	if len(it.Estudo) != 4 || it.Estudo[0].Marca != "✔" || it.Estudo[0].Texto != "T13 › Fundamentos › Por que Go e o ambiente" {
+	if len(it.Estudo) != 5 || it.Estudo[0].Marca != "✔" || it.Estudo[0].Texto != "T13 › Fundamentos › Por que Go e o ambiente" {
 		t.Errorf("0.1 estudo: %+v", it.Estudo)
 	}
 	if it.Livros71 == nil || !strings.HasPrefix(it.Livros71.Texto, "T21 cap. 1, 2 e 21") || it.Trilhas71 == nil {
@@ -53,8 +58,8 @@ func TestRoadmapReal(t *testing.T) {
 		t.Errorf("0.1 capítulos: %+v", it.Capitulos)
 	}
 
-	// 6.4 tem campos fora do padrão ("Por quê aqui", "Antes").
-	if o := r.porID["6.4"].Outros; len(o) != 2 || o[0].Rotulo != "Por quê aqui" {
+	// 6.4 tem campos fora do padrão ("Tipo", "Por quê aqui", "Antes", "Consultar").
+	if o := r.porID["6.4"].Outros; len(o) != 4 || o[0].Rotulo != "Tipo" || o[1].Rotulo != "Por quê aqui" {
 		t.Errorf("6.4 outros: %+v", o)
 	}
 	// A trilha paralela: itens na tabela e o repositório solto abaixo dela.
@@ -103,7 +108,7 @@ func TestRoadmapReal(t *testing.T) {
 	}
 
 	e := lerEstado(lerFixtureProjeto(t, "ESTADO.md"), r)
-	if e.AtualizadoEm != "21/11/2026" || e.Fase != "preparação" || e.ItemID != "" ||
+	if e.AtualizadoEm != "22/11/2026" || e.Fase != "preparação" || e.ItemID != "" ||
 		!strings.Contains(e.Proximos, "Primeiro item") {
 		t.Errorf("estado: %+v", e)
 	}
@@ -330,6 +335,16 @@ func TestAPIProjeto(t *testing.T) {
 	}
 	if len(resp.Livros) != 3 || resp.Livros[0].ID != "T21" || resp.Livros[0].Concluidas != 1 || resp.Livros[0].Total != 2 {
 		t.Errorf("livros: %+v", resp.Livros)
+	}
+	// A faixa: o bloco 2 (T21 cap. 1 a 3) tem o cap. 1 lido e o 2 por ler; o bloco 1 (T23, que
+	// não existe neste banco) fica como o atual, sem próximo capítulo.
+	fx := resp.Faixa
+	if len(fx.Blocos) != 18 || fx.Atual != 1 || fx.Blocos[0].Situacao != "atual" || fx.Proximo != nil ||
+		fx.Blocos[1].Concluidas != 1 || fx.Blocos[1].Total != 2 || fx.Blocos[1].Situacao != "a_ler" {
+		t.Errorf("faixa: atual %d, blocos %+v", fx.Atual, fx.Blocos[:2])
+	}
+	if f := montarFaixa(fx.Blocos[1:2], nil); f.Atual != 2 || f.Proximo != nil {
+		t.Errorf("faixa sem trilhas: %+v", f)
 	}
 	if resp.Referencias.Casadas == 0 || resp.Referencias.NaoCasadas == 0 {
 		t.Errorf("contagem: %+v", resp.Referencias)

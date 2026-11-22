@@ -51,6 +51,10 @@ const totalLivros = computed(() =>
 const md = (t) => renderizar(t || '').html
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0)
 const tituloLivro = (l) => (l.titulo || '').replace(/^Livro:\s*/, '')
+// A faixa de leitura (ROADMAP §7.3): os livros em ordem, o bloco atual e o próximo capítulo.
+const faixa = computed(() => dados.value?.faixa || { blocos: [], atual: 0 })
+const blocoAtual = computed(() => faixa.value.blocos.find((b) => b.numero === faixa.value.atual))
+const antesDe = (b) => (itens.value[b.antes] ? `${b.antes} · ${itens.value[b.antes].titulo}` : b.antes)
 
 const baixadoEm = computed(() => {
   if (!dados.value?.baixado_em) return ''
@@ -280,6 +284,34 @@ const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
         </div>
       </div>
 
+      <section v-if="faixa.blocos.length" class="quadro faixa">
+        <div class="quadro-topo">
+          <h2 class="rotulo-secao">Faixa de leitura</h2>
+          <span class="pequeno">{{ faixa.atual ? `bloco ${faixa.atual} de ${faixa.blocos.length}` : 'os três livros lidos' }}</span>
+        </div>
+        <div v-if="blocoAtual" class="faixa-atual">
+          <p class="sem-margem">
+            <strong>{{ blocoAtual.livro }} cap. {{ blocoAtual.caps }}</strong>
+            <span v-if="blocoAtual.assunto" class="suave"> · {{ blocoAtual.assunto }}</span>
+          </p>
+          <p class="pequeno sem-margem">
+            {{ blocoAtual.concluidas }} de {{ blocoAtual.total }} capítulos lidos<template v-if="blocoAtual.antes"> · de preferência antes de {{ antesDe(blocoAtual) }}</template>.
+            Um capítulo por semana, na ordem do livro.
+          </p>
+          <p v-if="faixa.proximo" class="sem-margem proximo">Próximo: <RefProjeto :r="faixa.proximo" /></p>
+        </div>
+        <details>
+          <summary class="pequeno">A faixa inteira (18 blocos, 59 capítulos)</summary>
+          <ol class="blocos">
+            <li v-for="b in faixa.blocos" :key="b.numero" :class="b.situacao">
+              <span class="num">{{ b.numero }}</span>
+              <span class="leitura">{{ b.livro }} cap. {{ b.caps }}<span v-if="b.assunto" class="suave"> · {{ b.assunto }}</span></span>
+              <span class="pequeno conta">{{ b.situacao === 'lido' ? 'lido' : `${b.concluidas}/${b.total}` }}</span>
+            </li>
+          </ol>
+        </details>
+      </section>
+
       <section v-for="f in dados.fases" :key="f.titulo" class="quadro fase">
         <div class="quadro-topo">
           <h2 class="rotulo-secao">{{ f.titulo }}</h2>
@@ -333,6 +365,15 @@ const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
 .leitura.curta :deep(li) { margin: 2px 0; }
 
 .livros a.numero-quadro { color: inherit; text-decoration: none; }
+.faixa-atual { display: grid; gap: var(--e2); margin-bottom: var(--e3); }
+.faixa summary { cursor: pointer; color: var(--texto-suave); }
+.blocos { list-style: none; margin: var(--e2) 0 0; padding: 0; display: grid; gap: var(--e1); }
+.blocos li { display: flex; gap: var(--e3); align-items: baseline; font-size: 14px; line-height: 1.5; }
+.blocos .num { flex: none; min-width: 1.8em; font-family: var(--fonte-mono); font-size: 12.5px; color: var(--texto-fraco); }
+.blocos .leitura { flex: 1; min-width: 0; }
+.blocos .conta { flex: none; font-family: var(--fonte-mono); }
+.blocos li.lido { color: var(--texto-fraco); }
+.blocos li.atual .leitura { font-weight: 600; }
 .livros a.numero-quadro:hover { border-color: var(--borda-forte); }
 .livros .de { font-size: 15px; font-weight: 500; color: var(--texto-fraco); }
 .livros .titulo-livro { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

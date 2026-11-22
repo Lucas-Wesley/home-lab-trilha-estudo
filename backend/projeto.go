@@ -202,6 +202,50 @@ type livroProjeto struct {
 	Total      int    `json:"total"`
 }
 
+// faixaProjeto: a faixa de leitura com o progresso de cada bloco (das trilhas dos livros), o bloco
+// em que o Lucas está e o próximo capítulo a ler.
+type faixaProjeto struct {
+	Blocos  []blocoFaixa       `json:"blocos"`
+	Atual   int                `json:"atual"` // o número do bloco; 0 = tudo lido (ou sem faixa)
+	Proximo *referenciaProjeto `json:"proximo,omitempty"`
+}
+
+// montarFaixa liga cada bloco às etapas da trilha do livro: lido quando todos os capítulos estão
+// concluídos; o primeiro bloco não lido é o atual e o primeiro capítulo não concluído dele, o próximo.
+func montarFaixa(blocos []blocoFaixa, cat catalogoTrilhas) faixaProjeto {
+	f := faixaProjeto{Blocos: []blocoFaixa{}}
+	for _, b := range blocos {
+		b.Refs = cat.referencias(b.Livro + " cap. " + b.Caps)
+		b.Concluidas, b.Total = 0, 0
+		var proximo *referenciaProjeto
+		for i, ref := range b.Refs {
+			if ref.Tipo != "etapa" {
+				continue
+			}
+			b.Total++
+			if ref.Status == "concluida" {
+				b.Concluidas++
+			} else if proximo == nil {
+				proximo = &b.Refs[i]
+			}
+		}
+		switch {
+		case b.Total > 0 && b.Concluidas == b.Total:
+			b.Situacao = "lido"
+		case f.Atual == 0:
+			b.Situacao, f.Atual = "atual", b.Numero
+			if proximo != nil {
+				p := *proximo
+				f.Proximo = &p
+			}
+		default:
+			b.Situacao = "a_ler"
+		}
+		f.Blocos = append(f.Blocos, b)
+	}
+	return f
+}
+
 type contagemRefs struct {
 	Casadas    int      `json:"casadas"`
 	Parciais   int      `json:"parciais"`
@@ -216,6 +260,7 @@ type respostaProjeto struct {
 	Aviso       string         `json:"aviso,omitempty"`
 	Estado      estadoProjeto  `json:"estado"`
 	Livros      []livroProjeto `json:"livros"`
+	Faixa       faixaProjeto   `json:"faixa"`
 	Fases       []*faseProjeto `json:"fases"`
 	Referencias contagemRefs   `json:"referencias"`
 }
@@ -312,6 +357,8 @@ func (a *app) montarProjeto(ctx context.Context, arquivos map[string]string) (re
 			break
 		}
 	}
+
+	resp.Faixa = montarFaixa(r.Faixa, cat)
 
 	// Os livros (a 7.2): capítulos concluídos / total, da própria trilha.
 	ids := map[string]string{}

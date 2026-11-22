@@ -269,7 +269,7 @@ módulo/etapa/`Cap. N` ou título normalizado; `parcial` quando só achou o mód
 `PROMPT.md` já preenchido. Estudo na tela: com a tabela "2. Estudo" no caderno do item
 (`estudoDoCaderno` → `estudo_escolhido`), "O que estudar, nesta ordem" no topo e os candidatos recolhidos;
 sem ela, "Candidatos ao estudo" (o "Estudar antes" + a 7.1 de trilhas, por trilha, sem repetir:
-`candidatosDoItem` em `projeto.js`). O parser segue o formato do `ROADMAP.md` (fixture real em
+`candidatosDoItem` em `projeto.js`). A **faixa de leitura** (a 7.3, T54): `lerTabela73` → `montarFaixa` (bloco lido/atual/a ler e o próximo capítulo, pelas etapas concluídas das trilhas T21–T23) → quadro "Faixa de leitura" na visão geral. O parser segue o formato do `ROADMAP.md` (fixture real em
 `backend/testdata/projeto/`): mudou o formato lá, atualize a fixture e `projeto_test.go`.
 
 ## Verificar material (T53)

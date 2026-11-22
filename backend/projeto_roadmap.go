@@ -3,6 +3,7 @@ package main
 import (
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -86,6 +87,20 @@ type roadmapProjeto struct {
 	Itens  []*itemProjeto // na ordem do documento
 	porID  map[string]*itemProjeto
 	Livros []livroRoadmap
+	Faixa  []blocoFaixa // a 7.3: os livros em ordem
+}
+
+// blocoFaixa: uma linha da faixa de leitura (ROADMAP §7.3), "T23 cap. 1 a 6 (o domínio…)".
+type blocoFaixa struct {
+	Numero     int                 `json:"numero"`
+	Livro      string              `json:"livro"`   // "T23"
+	Caps       string              `json:"caps"`    // "1 a 6"
+	Assunto    string              `json:"assunto"` // o que está entre parênteses
+	Antes      string              `json:"antes"`   // "de preferência antes de"
+	Refs       []referenciaProjeto `json:"refs"`
+	Concluidas int                 `json:"concluidas"`
+	Total      int                 `json:"total"`
+	Situacao   string              `json:"situacao"` // lido · atual · a_ler
 }
 
 type estadoProjeto struct {
@@ -108,6 +123,7 @@ var (
 	reNegrito      = regexp.MustCompile(`\*\*([^*]+)\*\*`)
 	reParenteses   = regexp.MustCompile(`\([^()]*\)`)
 	reEstadoCad    = regexp.MustCompile(`(?m)^[-*]\s+\*\*Estado:?\*\*:?\s*(.+)$`)
+	reLeituraFaixa = regexp.MustCompile(`^(T\d+)\s+caps?\.?\s+([^(]+?)\s*(?:\((.+)\))?$`)
 	reBlocoPrompt  = regexp.MustCompile("(?s)```text\\s*\\n(.*?)\\n```")
 )
 
@@ -286,6 +302,8 @@ func lerRoadmap(texto string) *roadmapProjeto {
 				secao = "71"
 			case strings.Contains(n, "capitulo por capitulo"):
 				secao = "72"
+			case strings.Contains(n, "faixa de leitura"):
+				secao = "73"
 			default:
 				secao = ""
 			}
@@ -381,6 +399,8 @@ func lerRoadmap(texto string) *roadmapProjeto {
 			r.lerTabela71(t)
 		case "72":
 			r.lerTabela72(t)
+		case "73":
+			r.lerTabela73(t)
 		}
 	}
 	for _, f := range r.Fases {
@@ -664,4 +684,23 @@ func estudoDoCaderno(texto string) []estudoEscolhido {
 		})
 	}
 	return lista
+}
+
+// lerTabela73: a faixa de leitura (# | Leitura | De preferência antes de). Linha que não segue
+// "Tn cap. … (assunto)" é ignorada.
+func (r *roadmapProjeto) lerTabela73(t *tabelaMD) {
+	cab, linhas := t.cabecalhoELinhas()
+	cLeitura, cAntes := coluna(cab, "leitura"), coluna(cab, "de preferencia", "antes")
+	if cLeitura < 0 {
+		return
+	}
+	for _, l := range linhas {
+		m := reLeituraFaixa.FindStringSubmatch(strings.ReplaceAll(celula(l, cLeitura), "*", ""))
+		if m == nil {
+			continue
+		}
+		n, _ := strconv.Atoi(strings.TrimSpace(celula(l, 0)))
+		r.Faixa = append(r.Faixa, blocoFaixa{Numero: n, Livro: m[1], Caps: strings.TrimSpace(m[2]),
+			Assunto: strings.TrimSpace(m[3]), Antes: celula(l, cAntes), Refs: []referenciaProjeto{}})
+	}
 }
