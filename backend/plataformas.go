@@ -758,14 +758,14 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 	if tipo == "" {
 		estadoNovo = "texto"
 	}
-	if tipo == "hls" && p.Audio != "" {
-		a.adotarAulaMuda(ctx, p, video)
+	if tipo != "" {
+		a.adotarAulaDaPagina(ctx, p, tipo, video)
 	}
 	var id int64
 	var estado string
 	t := agora()
 	if a.db.QueryRowContext(ctx, `SELECT id, estado FROM aulas_plataforma WHERE video = ?`, video).Scan(&id, &estado) == nil && estado != "erro" &&
-		!a.refazerComSom(ctx, id, p, e) {
+		!(estado == "texto" && tipo != "") && !a.refazerComSom(ctx, id, p, e) {
 		// Repetida: o que a página diz agora (texto, ordem, módulo) atualiza; o vídeo fica como está.
 		a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET texto = CASE WHEN ? <> '' THEN ? ELSE texto END,
 			ordem = CASE WHEN ? > 0 THEN ? ELSE ordem END, modulo = CASE WHEN ? <> '' THEN ? ELSE modulo END, atualizado_em = ? WHERE id = ?`,
@@ -783,9 +783,9 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 	if id > 0 {
 		_, err = a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET plataforma = ?, curso = ?, modulo = ?, titulo = ?, pagina = ?,
 			manifesto = ?, referer = ?, variante = ?, qualidade = ?, duracao = ?, estimado = ?, progresso = 0, estado = ?,
-			erro = '', ordem = ?, texto = ?, embed = ?, audio = ?, atualizado_em = ? WHERE id = ?`,
+			erro = '', ordem = ?, texto = CASE WHEN ? <> '' THEN ? ELSE texto END, embed = ?, audio = ?, atualizado_em = ? WHERE id = ?`,
 			p.Plataforma, p.Curso, p.Modulo, p.Titulo, p.Pagina, p.Manifesto, p.Referer, e.Variante, e.Qualidade, e.Duracao, e.Tamanho,
-			estadoNovo, p.Ordem, p.Texto, p.Embed, p.Audio, t, id)
+			estadoNovo, p.Ordem, p.Texto, p.Texto, p.Embed, p.Audio, t, id)
 	} else {
 		var res sql.Result
 		res, err = a.db.ExecContext(ctx, `INSERT INTO aulas_plataforma (plataforma, curso, modulo, titulo, pagina, video, manifesto,
@@ -814,14 +814,26 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 	responderJSON(w, http.StatusAccepted, resp)
 }
 
-// adotarAulaMuda (T59): a aula muda pode ter sido pedida por outra imagem do mesmo vídeo (a extensão
-// antiga às vezes mandava a de 480p; a nova manda a de 1080p), e então a chave não bate e a aula com
-// som entraria de novo, duplicada na trilha. Sem nenhuma aula com a chave nova e com uma só aula sem
-// som na mesma página (HLS, fora de erro), ela passa a ter a chave nova e o refazerComSom a refaz no
-// mesmo id.
-func (a *app) adotarAulaMuda(ctx context.Context, p pedidoAula, video string) {
+// adotarAulaDaPagina: o mesmo vídeo pode chegar por outra chave, e a aula entraria de novo, duplicada
+// na trilha. Sem nenhuma aula com a chave nova, a da mesma página passa a ter a chave nova (e o
+// handlePedirAula a refaz no mesmo id, que é para onde a etapa aponta):
+//   - T59: a aula muda pedida por outra imagem (a extensão antiga às vezes mandava a de 480p; a nova
+//     manda a de 1080p e o som): uma só aula HLS sem som, fora de erro;
+//   - T60: a aula que tinha ido só com o texto (o player demorou e a extensão não o viu) e agora vem com
+//     o vídeo: a chave dela era "pagina:<url>".
+func (a *app) adotarAulaDaPagina(ctx context.Context, p pedidoAula, tipo, video string) {
 	var n int
 	if a.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM aulas_plataforma WHERE video = ?`, video).Scan(&n); n > 0 {
+		return
+	}
+	porPagina := chaveDoPedido("", p, estimativa{})
+	if a.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM aulas_plataforma WHERE video = ? AND estado = 'texto'`, porPagina).Scan(&n); n == 1 {
+		if _, err := a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET video = ? WHERE video = ?`, video, porPagina); err != nil {
+			log.Printf("cursos: a aula só de texto %s ganha o vídeo: %v", p.Pagina, err)
+		}
+		return
+	}
+	if tipo != "hls" || p.Audio == "" {
 		return
 	}
 	var ids []int64

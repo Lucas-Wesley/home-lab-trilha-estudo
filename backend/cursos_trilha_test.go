@@ -376,6 +376,63 @@ func TestSomSeparadoDoSmartPlayer(t *testing.T) {
 	}
 }
 
+// T60: a aula que foi só com o texto (o player demorou) chega de novo com o vídeo: no mesmo id e na mesma
+// etapa, que passa a ter o vídeo como a aula e o texto como apoio.
+func TestAulaDeTextoGanhaOVideo(t *testing.T) {
+	a, _ := appDeCursos(t)
+	cdn := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/s/v_0_1080p.m3u8":
+			w.Write([]byte(imagemSmart))
+		case "/s/v_0_en_192k.m3u8":
+			w.Write([]byte(somSmart))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(cdn.Close)
+	a.clienteCursos = cdn.Client()
+	h := novoServidor(a, nil, "teste")
+	ctx := context.Background()
+	base := `{"plataforma":"enzoneto","curso":"Café minuto","titulo":"Iogurte caseiro","pagina":"https://aluno.enzoneto.com/area/conteudo/aula/7645951","ordem":2,"trilha":true`
+
+	code, resp := pedirAulaJSON(t, h, base+`,"texto":"O iogurte, passo a passo."}`)
+	if code != http.StatusAccepted || resp["aula"].(map[string]any)["estado"] != "texto" {
+		t.Fatalf("só texto %d %v", code, resp)
+	}
+	id := int64(resp["aula"].(map[string]any)["id"].(float64))
+	code, resp = pedirAulaJSON(t, h, base+`,"referer":"https://player.scaleup.com.br/","manifesto":"`+cdn.URL+`/s/v_0_1080p.m3u8?token=a","audio":"`+cdn.URL+`/s/v_0_en_192k.m3u8?token=a"}`)
+	if code != http.StatusAccepted || int64(resp["aula"].(map[string]any)["id"].(float64)) != id {
+		t.Fatalf("com vídeo %d %v (esperava o id %d)", code, resp, id)
+	}
+	au, _ := a.aulaPorID(ctx, id)
+	if au.Estado != "na_fila" || au.Audio == "" || au.Texto != "O iogurte, passo a passo." {
+		t.Fatalf("aula %+v", au)
+	}
+	var aulas, etapas int
+	a.db.QueryRow(`SELECT COUNT(*) FROM aulas_plataforma`).Scan(&aulas)
+	a.db.QueryRow(`SELECT COUNT(*) FROM etapas`).Scan(&etapas)
+	if aulas != 1 || etapas != 1 {
+		t.Fatalf("%d aulas e %d etapas, esperava 1 e 1", aulas, etapas)
+	}
+	var objetivo string
+	a.db.QueryRow(`SELECT objetivo FROM etapas`).Scan(&objetivo)
+	if objetivo != "Assistir à aula: Iogurte caseiro" {
+		t.Fatalf("objetivo %q", objetivo)
+	}
+	papeis := map[string]string{}
+	linhas, _ := a.db.Query(`SELECT tipo, papel FROM materiais`)
+	for linhas.Next() {
+		var tipo, papel string
+		linhas.Scan(&tipo, &papel)
+		papeis[tipo] = papel
+	}
+	linhas.Close()
+	if papeis["streaming"] != "principal" || papeis["documento"] != "apoio" {
+		t.Fatalf("materiais %v", papeis)
+	}
+}
+
 // T59: a aula muda veio pela imagem de 480p e a com som chega pela de 1080p (outra chave). Ela é
 // refeita no mesmo id, sem duplicar.
 func TestSomComOutraQualidade(t *testing.T) {

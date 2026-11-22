@@ -366,8 +366,25 @@ func (a *app) completarTrilhaDoCurso(ctx context.Context, trilhaID int64, aulas 
 	return nil
 }
 
-// completarMateriais: a etapa que já existe ganha o vídeo ou o texto da aula, se ainda não tem.
+// completarMateriais: a etapa que já existe ganha o vídeo ou o texto da aula, se ainda não tem. A aula
+// que era só texto e ganhou o vídeo (T60): o vídeo é a aula; o texto e os PDFs viram apoio.
 func completarMateriais(ctx context.Context, tx *sql.Tx, etapaID int64, au aulaCurso) error {
+	if temVideo(au) {
+		var n int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM materiais WHERE etapa_id = ? AND tipo = 'streaming' AND referencia = ?`,
+			etapaID, refVideoDaAula(au.ID)).Scan(&n); err != nil {
+			return err
+		}
+		if n == 0 {
+			if _, err := tx.ExecContext(ctx, `UPDATE materiais SET papel = 'apoio' WHERE etapa_id = ? AND tipo IN ('documento', 'arquivo') AND papel = 'principal'`, etapaID); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE etapas SET objetivo = ?, minutos = ? WHERE id = ? AND objetivo LIKE 'Ler a aula: %'`,
+				"Assistir à aula: "+au.Titulo, minutosDaAula(au), etapaID); err != nil {
+				return err
+			}
+		}
+	}
 	for _, m := range materiaisDaAula(au) {
 		var n int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM materiais WHERE etapa_id = ? AND tipo = ? AND referencia = ?`,
