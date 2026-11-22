@@ -433,6 +433,58 @@ func TestAulaDeTextoGanhaOVideo(t *testing.T) {
 	}
 }
 
+// T61: na escola, a aula que veio em 480p chega de novo em 1080p (o player ainda não tinha subido a
+// resolução): é refeita no mesmo id. Em 480p de novo, é repetida e não baixa outra vez.
+func TestAulaDaEscolaEmResolucaoMaior(t *testing.T) {
+	a, _ := appDeCursos(t)
+	cdn := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/s/v_0_480p.m3u8", "/s/v_0_1080p.m3u8":
+			w.Write([]byte(imagemSmart))
+		case "/s/v_0_en_192k.m3u8":
+			w.Write([]byte(somSmart))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(cdn.Close)
+	a.clienteCursos = cdn.Client()
+	h := novoServidor(a, nil, "teste")
+	ctx := context.Background()
+	pedido := func(q string) string {
+		return `{"plataforma":"enzoneto","curso":"Café minuto","titulo":"Congelando Pães","pagina":"https://aluno.enzoneto.com/area/conteudo/aula/7645957",
+			"referer":"https://player.scaleup.com.br/","manifesto":"` + cdn.URL + `/s/v_0_` + q + `.m3u8?token=a","audio":"` + cdn.URL + `/s/v_0_en_192k.m3u8?token=a"}`
+	}
+	code, resp := pedirAulaJSON(t, h, pedido("480p"))
+	if code != http.StatusAccepted {
+		t.Fatalf("480p %d %v", code, resp)
+	}
+	id := int64(resp["aula"].(map[string]any)["id"].(float64))
+	a.baixarProxima(ctx)
+	if au, _ := a.aulaPorID(ctx, id); au.Estado != "pronta" || au.Qualidade != "480p" {
+		t.Fatalf("480p %+v", au)
+	}
+
+	code, resp = pedirAulaJSON(t, h, pedido("1080p"))
+	if code != http.StatusAccepted || int64(resp["aula"].(map[string]any)["id"].(float64)) != id {
+		t.Fatalf("1080p %d %v (esperava o id %d)", code, resp, id)
+	}
+	if au, _ := a.aulaPorID(ctx, id); au.Estado != "na_fila" || au.Qualidade != "1080p" {
+		t.Fatalf("1080p %+v", au)
+	}
+	a.baixarProxima(ctx)
+
+	if code, resp = pedirAulaJSON(t, h, pedido("480p")); code != 200 || resp["repetida"] != true {
+		t.Fatalf("480p de novo %d %v", code, resp)
+	}
+	au, _ := a.aulaPorID(ctx, id)
+	var n int
+	a.db.QueryRow(`SELECT COUNT(*) FROM aulas_plataforma`).Scan(&n)
+	if n != 1 || au.Estado != "pronta" || au.Qualidade != "1080p" {
+		t.Fatalf("%d aulas; %+v", n, au)
+	}
+}
+
 // T59: a aula muda veio pela imagem de 480p e a com som chega pela de 1080p (outra chave). Ela é
 // refeita no mesmo id, sem duplicar.
 func TestSomComOutraQualidade(t *testing.T) {

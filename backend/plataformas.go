@@ -758,14 +758,15 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 	if tipo == "" {
 		estadoNovo = "texto"
 	}
+	adotada := false
 	if tipo != "" {
-		a.adotarAulaDaPagina(ctx, p, tipo, video)
+		adotada = a.adotarAulaDaPagina(ctx, p, tipo, video)
 	}
 	var id int64
 	var estado string
 	t := agora()
 	if a.db.QueryRowContext(ctx, `SELECT id, estado FROM aulas_plataforma WHERE video = ?`, video).Scan(&id, &estado) == nil && estado != "erro" &&
-		!(estado == "texto" && tipo != "") && !a.refazerComSom(ctx, id, p, e) {
+		!(estado == "texto" && tipo != "") && !a.refazerMelhor(ctx, id, p, e, adotada) {
 		// Repetida: o que a página diz agora (texto, ordem, módulo) atualiza; o vídeo fica como está.
 		a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET texto = CASE WHEN ? <> '' THEN ? ELSE texto END,
 			ordem = CASE WHEN ? > 0 THEN ? ELSE ordem END, modulo = CASE WHEN ? <> '' THEN ? ELSE modulo END, atualizado_em = ? WHERE id = ?`,
@@ -820,27 +821,36 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 //   - T59: a aula muda pedida por outra imagem (a extensão antiga às vezes mandava a de 480p; a nova
 //     manda a de 1080p e o som): uma só aula HLS sem som, fora de erro;
 //   - T60: a aula que tinha ido só com o texto (o player demorou e a extensão não o viu) e agora vem com
-//     o vídeo: a chave dela era "pagina:<url>".
-func (a *app) adotarAulaDaPagina(ctx context.Context, p pedidoAula, tipo, video string) {
+//     o vídeo: a chave dela era "pagina:<url>";
+//   - T61: na escola (Cademí, /area/conteudo/aula/N), a página é a aula: o vídeo dela em outra
+//     resolução (o player ainda não tinha chegado a 1080p) é a mesma aula, com som ou sem.
+//
+// Devolve true quando adotou uma aula HLS (o refazerMelhor decide se baixa de novo).
+func (a *app) adotarAulaDaPagina(ctx context.Context, p pedidoAula, tipo, video string) bool {
 	var n int
 	if a.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM aulas_plataforma WHERE video = ?`, video).Scan(&n); n > 0 {
-		return
+		return false
 	}
 	porPagina := chaveDoPedido("", p, estimativa{})
 	if a.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM aulas_plataforma WHERE video = ? AND estado = 'texto'`, porPagina).Scan(&n); n == 1 {
 		if _, err := a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET video = ? WHERE video = ?`, video, porPagina); err != nil {
 			log.Printf("cursos: a aula só de texto %s ganha o vídeo: %v", p.Pagina, err)
 		}
-		return
+		return false
 	}
-	if tipo != "hls" || p.Audio == "" {
-		return
+	escola := reAulaDaEscola.MatchString(strings.SplitN(p.Pagina, "?", 2)[0])
+	if tipo != "hls" || (p.Audio == "" && !escola) {
+		return false
+	}
+	semSom := " AND audio = ''"
+	if escola {
+		semSom = ""
 	}
 	var ids []int64
-	linhas, err := a.db.QueryContext(ctx, `SELECT id FROM aulas_plataforma WHERE plataforma = ? AND pagina = ? AND audio = ''
+	linhas, err := a.db.QueryContext(ctx, `SELECT id FROM aulas_plataforma WHERE plataforma = ? AND pagina = ?`+semSom+`
 		AND embed = '' AND manifesto <> '' AND estado <> 'erro'`, p.Plataforma, p.Pagina)
 	if err != nil {
-		return
+		return false
 	}
 	for linhas.Next() {
 		var id int64
@@ -850,22 +860,36 @@ func (a *app) adotarAulaDaPagina(ctx context.Context, p pedidoAula, tipo, video 
 	}
 	linhas.Close()
 	if len(ids) != 1 {
-		return
-	}
-	if _, err := a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET video = ? WHERE id = ?`, video, ids[0]); err != nil {
-		log.Printf("cursos: adotar a aula muda %d: %v", ids[0], err)
-	}
-}
-
-// refazerComSom (T58): a aula já pedida sem o som chega de novo com ele (a extensão antiga mandava só a
-// imagem do SmartPlayer). Ela volta para a fila com o som, no mesmo id (a etapa da trilha aponta para
-// ele), e o vídeo mudo sai do disco; o download que estiver no meio para. Devolve true se refez.
-func (a *app) refazerComSom(ctx context.Context, id int64, p pedidoAula, e estimativa) bool {
-	if p.Audio == "" {
 		return false
 	}
+	if _, err := a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET video = ? WHERE id = ?`, video, ids[0]); err != nil {
+		log.Printf("cursos: adotar a aula %d: %v", ids[0], err)
+		return false
+	}
+	return true
+}
+
+var reAulaDaEscola = regexp.MustCompile(`/area/conteudo/aula/\d+/?$`)
+
+// alturaDe: "1080p" → 1080 (0 sem a qualidade).
+func alturaDe(q string) int {
+	n, _ := strconv.Atoi(strings.TrimSuffix(q, "p"))
+	return n
+}
+
+// refazerMelhor: a aula já pedida chega de novo com um vídeo melhor e volta para a fila no mesmo id (a
+// etapa da trilha aponta para ele); o MP4 antigo sai do disco e o download que estiver no meio para.
+// Melhor é: com o som que faltava (T58: a extensão antiga mandava só a imagem do SmartPlayer) ou, na
+// aula adotada por outra chave, numa resolução maior (T61). Igual ou pior: fica como está (repetida).
+// Devolve true se refez.
+func (a *app) refazerMelhor(ctx context.Context, id int64, p pedidoAula, e estimativa, adotada bool) bool {
 	au, err := a.aulaPorID(ctx, id)
-	if err != nil || au.Audio != "" {
+	if err != nil || au.Manifesto == "" {
+		return false
+	}
+	comSom := p.Audio != "" && au.Audio == ""
+	maior := adotada && alturaDe(e.Qualidade) > alturaDe(au.Qualidade) && (p.Audio != "" || au.Audio == "")
+	if !comSom && !maior {
 		return false
 	}
 	a.download.mu.Lock()
@@ -881,7 +905,7 @@ func (a *app) refazerComSom(ctx context.Context, id int64, p pedidoAula, e estim
 		texto = CASE WHEN ? <> '' THEN ? ELSE texto END, ordem = CASE WHEN ? > 0 THEN ? ELSE ordem END, atualizado_em = ? WHERE id = ?`,
 		p.Manifesto, p.Referer, e.Variante, p.Audio, e.Qualidade, e.Duracao, e.Tamanho, p.Texto, p.Texto, p.Ordem, p.Ordem, agora(), id)
 	if err != nil {
-		log.Printf("cursos: refazer a aula %d com o som: %v", id, err)
+		log.Printf("cursos: refazer a aula %d: %v", id, err)
 		return false
 	}
 	a.acordarCursos()
