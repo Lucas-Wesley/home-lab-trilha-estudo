@@ -283,8 +283,7 @@ verificação fica `aguardando`; `avancarVerificacoes` (fim de cada `lerProximaF
 cada material como "### Material N") e grava o laudo em `resultado`; falha → `falhou` em
 `aoTerminarTarefa`. `trechosDoVideo` aceita localizador vazio (o vídeo inteiro) e acha a fonte também
 pelo id do YouTube (`fonteDoVideo`). Tela: `VerificarMaterial.vue` na aba Fontes (+ `verificacao.js`);
-"Procurar material para o que falta" chama `pedir` do `PropostaMaterial`. Nos testes, o yt-dlp falso
-precisa de bash: `docker compose -f compose.dev.yaml run --rm api sh -c "apk add --no-cache bash >/dev/null; go test ./..."`.
+"Procurar material para o que falta" chama `pedir` do `PropostaMaterial`.
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

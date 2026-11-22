@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # yt-dlp falso para os testes da Entrada (dados inventados). O id do vídeo decide o caso:
 #   AAAAAAAAAAA português com legenda manual e capítulos · EEEEEEEEEEE inglês só automática
 #   SSSSSSSSSSS sem legenda · FFFFFFFFFFF vídeo indisponível · B/CCCCCCCCCCC sem legenda
-url="${!#}"
+for url; do :; done # o último argumento (POSIX: sem o ${!#} do bash)
 
 # Playlist (--flat-playlist -J): três vídeos inventados.
 case "$*" in
@@ -38,7 +38,7 @@ if [ $json = 1 ]; then
 fi
 # Só o áudio (o vídeo sem legenda): o Whisper falso não lê o arquivo, basta ele existir.
 if [ $audio = 1 ]; then
-  printf 'audio de mentira' > "${out/\%(ext)s/mp3}"
+  printf 'audio de mentira' > "${out%'%(ext)s'}mp3"
   exit 0
 fi
 cp "$(dirname "$0")/legenda.json3" "$out.$lang.json3"

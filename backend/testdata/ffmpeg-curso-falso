@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # ffmpeg falso para os cursos (T50): finge baixar o HLS — escreve o progresso como o -progress
 # e um "mp4" de mentira no último argumento; grava os argumentos em $FFMPEG_ARGS_LOG.
 [ -n "$FFMPEG_ARGS_LOG" ] && printf '%s\n' "$*" >> "$FFMPEG_ARGS_LOG"
-saida="${!#}"
+for saida; do :; done # o último argumento
 case "$*" in
   *falha*) echo "erro de mentira do ffmpeg" >&2; exit 1 ;;
 esac

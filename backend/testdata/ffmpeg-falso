@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # ffmpeg falso para os testes da Entrada (T44): finge cortar o áudio em pedaços — escreve
 # dois arquivos "flac" de mentira no padrão de saída e grava os argumentos recebidos em
 # $FFMPEG_ARGS_LOG quando a env existe (o teste confere a url interna e os flags).
@@ -6,7 +6,7 @@
 [ -n "$FFMPEG_ARGS_LOG" ] && printf '%s\n' "$*" >> "$FFMPEG_ARGS_LOG"
 
 # O último argumento é o padrão de saída (…/pedaco-%03d.flac); o -i é a entrada.
-padrao="${!#}"
+for padrao; do :; done # o último argumento
 entrada=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -18,7 +18,7 @@ case "$entrada" in
   *falha*) echo "erro de mentira do ffmpeg" >&2; exit 1 ;;
 esac
 
-prefixo="${padrao/%03d/}"
+prefixo="${padrao%%'%03d'*}" # …/pedaco-
 printf 'pedaco de audio de mentira' > "${prefixo}000.flac"
 printf 'pedaco de audio de mentira' > "${prefixo}001.flac"
 exit 0
