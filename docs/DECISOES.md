@@ -343,3 +343,16 @@ A documentação do homelab **continua sendo escrita em `estudo/`**, como antes.
 - [ ] Primeira trilha a partir de material com o Claude de verdade (um livro da Biblioteca), e
       o primeiro "Sugerir material", para ajustar `espinha.md` e `materiais.md`; ver se o limite de
       60 mil caracteres por capítulo na espinha basta para a IA julgar o que é raso.
+
+### 12.1 Próximas funcionalidades
+
+- [ ] **Verificar material (prioridade, pedido do Lucas em 22/11/2026).** Antes de estudar uma
+      etapa, conferir se o material escolhido (aula do Telegram, vídeo do YouTube, capítulo da
+      Biblioteca, tema do Acervo, documentação) **cobre de verdade** o tópico da etapa: a IA lê o
+      material (transcrição ou texto) contra o objetivo e o critério da etapa e devolve o que está
+      coberto, o que falta e o que sobra, com uma nota de cobertura. Serve para as trilhas de roteiro
+      (T8–T15, T36–T47), em que o material é escolhido na hora do estudo (P10 do Projeto de estudo).
+      Se faltar algo, sugerir a fonte primária do item do roadmap. Deve ser uma proposta, como as
+      outras (T12, T13).
+- [ ] Projeto de estudo: mostrar na aba a **faixa de leitura** dos livros (ROADMAP §7.3 do caderno):
+      o próximo capítulo e o bloco em que o Lucas está.
