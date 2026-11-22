@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agruparPorTrilha, candidatosDoItem, itensPorId, semTrilha, situacaoEstudo, linkReferencia, progressoReferencia, resumoFase, rotuloSituacao, textoReferencia } from './projeto.js'
+import { agruparPorTrilha, candidatosDoItem, itensPorId, semTrilha, situacaoEstudo, linkReferencia, progressoReferencia, resumoFase, rotuloSituacao, textoDoLink, textoReferencia } from './projeto.js'
 
 describe('projeto de estudo', () => {
   it('liga a referência à etapa ou à trilha', () => {
@@ -60,4 +60,13 @@ describe('projeto de estudo', () => {
     expect(situacaoEstudo('estudado')).toBe('verde')
     expect(situacaoEstudo('a estudar')).toBe('')
   })
+})
+
+describe('textoDoLink', () => {
+  const r = { texto: 'T23 cap. 1', tipo: 'etapa', trilha_id: 23, etapa_id: 1, caminho: 'T23 › Parte I › Cap. 1 · Analisando domínios' }
+  it('o caminho da etapa, inteiro ou sem a trilha', () => {
+    expect(textoDoLink(r)).toBe('T23 › Parte I › Cap. 1 · Analisando domínios')
+    expect(textoDoLink(r, true)).toBe('Parte I › Cap. 1 · Analisando domínios')
+  })
+  it('sem par: o texto do roadmap', () => expect(textoDoLink({ texto: 'algo solto' })).toBe('algo solto'))
 })

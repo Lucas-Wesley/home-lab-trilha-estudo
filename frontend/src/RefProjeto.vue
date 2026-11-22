@@ -1,13 +1,17 @@
 <script setup>
 import { computed } from 'vue'
 import Icone from './Icone.vue'
-import { linkReferencia, progressoReferencia, semTrilha, textoReferencia } from './projeto.js'
+import { linkReferencia, progressoReferencia, semTrilha, textoDoLink } from './projeto.js'
 
 // Uma referência do roadmap do Projeto de estudo (T52): link para a etapa/módulo/trilha quando
 // casou, com o ✓ de concluída; sem par, só o texto.
-const props = defineProps({ r: { type: Object, required: true } })
+const props = defineProps({
+  r: { type: Object, required: true },
+  curto: { type: Boolean, default: false }, // sem o "Tn ›" (a lista já está agrupada pela trilha)
+})
 
 const href = computed(() => linkReferencia(props.r))
+const texto = computed(() => textoDoLink(props.r, props.curto))
 const feita = computed(() => props.r.status === 'concluida')
 const progresso = computed(() => progressoReferencia(props.r))
 const dica = computed(() => {

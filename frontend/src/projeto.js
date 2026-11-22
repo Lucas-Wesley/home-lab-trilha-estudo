@@ -29,6 +29,12 @@ export function textoReferencia(r) {
   return r?.texto || ''
 }
 
+// textoDoLink: o texto do link da referência; curto tira o "Tn ›" (a lista já agrupa por trilha).
+export function textoDoLink(r, curto = false) {
+  const t = textoReferencia(r)
+  return curto ? semTrilha(t) || t : t
+}
+
 // progressoReferencia: "3/5" para módulo e trilha; vazio para etapa.
 export function progressoReferencia(r) {
   if (!r || r.tipo === 'etapa' || !r.total) return ''
