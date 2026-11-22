@@ -61,6 +61,8 @@ var migracoes = []string{
 	`ALTER TABLE aulas_plataforma ADD COLUMN texto TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE aulas_plataforma ADD COLUMN embed TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE aulas_plataforma ADD COLUMN na_trilha INTEGER NOT NULL DEFAULT 0`, // já entrou na trilha do curso
+	// T58: o som em lista separada (SmartPlayer: _0_1080p.m3u8 é só imagem, _0_en_192k.m3u8 é o som).
+	`ALTER TABLE aulas_plataforma ADD COLUMN audio TEXT NOT NULL DEFAULT ''`,
 }
 
 // O esquema cresce fase a fase (DECISOES.md §9).

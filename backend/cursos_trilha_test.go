@@ -297,3 +297,81 @@ func TestSemODiscoAFilaEspera(t *testing.T) {
 		t.Fatalf("estado %s %s", au.Estado, au.Erro)
 	}
 }
+
+// O SmartPlayer (Chef Enzo Neto, T58): sem lista mestre; a imagem em …_0_1080p.m3u8 e o som em
+// …_0_en_192k.m3u8, cada pedaço um trecho (BYTERANGE) de um MP4 só.
+const imagemSmart = "#EXTM3U\n#EXT-X-VERSION:6\n#EXT-X-TARGETDURATION:8\n#EXT-X-MAP:URI=\"v_0_1080p.mp4\",BYTERANGE=\"893@0\"\n" +
+	"#EXTINF:7.9,\n#EXT-X-BYTERANGE:1000@893\nv_0_1080p.mp4\n#EXTINF:4.0,\n#EXT-X-BYTERANGE:2000\nv_0_1080p.mp4\n#EXT-X-ENDLIST\n"
+const somSmart = "#EXTM3U\n#EXT-X-VERSION:6\n#EXT-X-MAP:URI=\"v_0_en_192k.mp4\",BYTERANGE=\"700@0\"\n" +
+	"#EXTINF:7.9,\n#EXT-X-BYTERANGE:300@700\nv_0_en_192k.mp4\n#EXTINF:4.0,\n#EXT-X-BYTERANGE:100\nv_0_en_192k.mp4\n#EXT-X-ENDLIST\n"
+
+func TestSomSeparadoDoSmartPlayer(t *testing.T) {
+	a, _ := appDeCursos(t)
+	cdn := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/s/v_0_1080p.m3u8":
+			w.Write([]byte(imagemSmart))
+		case "/s/v_0_en_192k.m3u8":
+			w.Write([]byte(somSmart))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	t.Cleanup(cdn.Close)
+	a.clienteCursos = cdn.Client()
+	registro := filepath.Join(t.TempDir(), "ffmpeg.log")
+	t.Setenv("FFMPEG_ARGS_LOG", registro)
+	h := novoServidor(a, nil, "teste")
+	ctx := context.Background()
+	base := `{"plataforma":"enzoneto","curso":"As praças","modulo":"Legumes","titulo":"Pimentões","pagina":"https://aluno.enzoneto.com/area/conteudo/aula/7643854",
+		"referer":"https://player.scaleup.com.br/","manifesto":"` + cdn.URL + `/s/v_0_1080p.m3u8?token=a"`
+
+	// Como a extensão antiga mandava: só a imagem. A aula baixa (muda).
+	code, resp := pedirAulaJSON(t, h, base+`}`)
+	if code != http.StatusAccepted {
+		t.Fatalf("pedir %d %v", code, resp)
+	}
+	aula := resp["aula"].(map[string]any)
+	id := int64(aula["id"].(float64))
+	// Tamanho exato pelos BYTERANGE (893 + 1000 + 2000), qualidade pelo nome.
+	if aula["tamanho_estimado"] != float64(3893) || aula["qualidade"] != "1080p" || aula["duracao"] != float64(12) {
+		t.Fatalf("estimativa %v", aula)
+	}
+	a.baixarProxima(ctx)
+	muda, _ := a.aulaPorID(ctx, id)
+	if muda.Estado != "pronta" {
+		t.Fatalf("muda %+v", muda)
+	}
+
+	// A extensão nova manda a mesma aula com o som: ela volta para a fila, no mesmo id, e o MP4 mudo sai.
+	code, resp = pedirAulaJSON(t, h, base+`,"audio":"`+cdn.URL+`/s/v_0_en_192k.m3u8?token=b"}`)
+	if code != http.StatusAccepted {
+		t.Fatalf("com som %d %v", code, resp)
+	}
+	refeita, _ := a.aulaPorID(ctx, id)
+	if refeita.Estado != "na_fila" || refeita.Audio == "" || refeita.Estimado != 3893+1100 || refeita.Arquivo != "" {
+		t.Fatalf("refeita %+v", refeita)
+	}
+	if _, err := os.Stat(filepath.Join(a.cursosDir, muda.Arquivo)); !os.IsNotExist(err) {
+		t.Fatal("o MP4 mudo ficou")
+	}
+	os.Remove(registro)
+	a.baixarProxima(ctx)
+	if au, _ := a.aulaPorID(ctx, id); au.Estado != "pronta" {
+		t.Fatalf("depois %+v", au)
+	}
+	// O ffmpeg recebeu as duas entradas (cada uma com o Referer) e juntou a imagem de uma com o som da outra.
+	args, _ := os.ReadFile(registro)
+	for _, parte := range []string{"-i " + cdn.URL + "/s/v_0_1080p.m3u8?token=a", "-i " + cdn.URL + "/s/v_0_en_192k.m3u8?token=b", "-map 0:v:0 -map 1:a:0"} {
+		if !strings.Contains(string(args), parte) {
+			t.Fatalf("faltou %q em %s", parte, args)
+		}
+	}
+	if strings.Count(string(args), "Referer: https://player.scaleup.com.br/") != 2 {
+		t.Fatalf("Referer nas duas entradas: %s", args)
+	}
+	// Mandar de novo com o som não baixa outra vez.
+	if code, resp = pedirAulaJSON(t, h, base+`,"audio":"`+cdn.URL+`/s/v_0_en_192k.m3u8?token=c"}`); code != 200 || resp["repetida"] != true {
+		t.Fatalf("repetida com som %d %v", code, resp)
+	}
+}

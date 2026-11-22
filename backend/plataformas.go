@@ -53,6 +53,7 @@ type aulaCurso struct {
 	TemTexto     bool        `json:"tem_texto"`
 	Anexos       []anexoAula `json:"anexos"` // T56: os PDFs da aula, guardados na Trilha
 	Embed        string      `json:"-"`      // YouTube/Vimeo, quando o vídeo não vem por HLS
+	Audio        string      `json:"-"`      // T58: o HLS do som, quando o player o pede separado da imagem
 	Manifesto    string      `json:"-"`
 	Referer      string      `json:"-"`
 	Variante     string      `json:"-"`
@@ -93,7 +94,8 @@ CREATE TABLE IF NOT EXISTS aulas_plataforma (
 	ordem         INTEGER NOT NULL DEFAULT 0,  -- T55: a posição no curso (a extensão manda na ordem da plataforma)
 	texto         TEXT NOT NULL DEFAULT '',    -- T55: o texto da página da aula (transcrição, notas, anexos)
 	embed         TEXT NOT NULL DEFAULT '',    -- T55: o vídeo do YouTube/Vimeo, quando não há HLS
-	na_trilha     INTEGER NOT NULL DEFAULT 0   -- T55: já entrou na trilha do curso (apagar a etapa não a traz de volta)
+	na_trilha     INTEGER NOT NULL DEFAULT 0,  -- T55: já entrou na trilha do curso (apagar a etapa não a traz de volta)
+	audio         TEXT NOT NULL DEFAULT ''     -- T58: o HLS do som, quando ele vem separado da imagem
 );
 
 -- T55: o curso que virou trilha (uma por plataforma e curso; a trilha apagada solta o curso).
@@ -277,6 +279,18 @@ func (a *app) estimar(ctx context.Context, manifesto, referer string) (estimativ
 		return estimativa{}, errors.New("o manifesto não tem pedaços de vídeo")
 	}
 	e.Duracao, e.Cifrado = int(duracao+0.5), cifrado
+	if e.Qualidade == "" {
+		// T58: a lista de uma qualidade só diz a altura no nome (…_0_1080p.m3u8, …/720p/video.m3u8).
+		if m := reQualidadeNoNome.FindStringSubmatch(e.Variante); m != nil {
+			e.Qualidade = m[1] + "p"
+		}
+	}
+	// T58: pedaços que são trechos (BYTERANGE) de um arquivo só: o tamanho é a soma exata deles (o HEAD
+	// de cada pedaço devolveria o arquivo inteiro).
+	if b := bytesHLS(texto); b > 0 {
+		e.Tamanho = b
+		return e, nil
+	}
 	var soma, medidos int64
 	for _, i := range []int{0, len(pedacos) / 2, len(pedacos) - 1} {
 		if resp, err := a.pedirVideo(ctx, http.MethodHead, pedacos[i], referer); err == nil {
@@ -293,6 +307,43 @@ func (a *app) estimar(ctx context.Context, manifesto, referer string) (estimativ
 		e.Tamanho = banda * int64(e.Duracao) / 8
 	}
 	return e, nil
+}
+
+var reQualidadeNoNome = regexp.MustCompile(`(?:[_/-])(\d{3,4})p(?:/[^/?]*)?\.m3u8`)
+
+// bytesHLS: a soma dos EXT-X-BYTERANGE (e do EXT-X-MAP com BYTERANGE) de um manifesto; 0 sem eles.
+func bytesHLS(texto string) int64 {
+	var soma int64
+	for _, l := range strings.Split(strings.ReplaceAll(texto, "\r", ""), "\n") {
+		l = strings.TrimSpace(l)
+		var faixa string
+		switch {
+		case strings.HasPrefix(l, "#EXT-X-BYTERANGE:"):
+			faixa = strings.TrimPrefix(l, "#EXT-X-BYTERANGE:")
+		case strings.HasPrefix(l, "#EXT-X-MAP:"):
+			faixa = atributosM3U8(l)["BYTERANGE"]
+		default:
+			continue
+		}
+		n, _, _ := strings.Cut(faixa, "@")
+		if v, err := strconv.ParseInt(strings.TrimSpace(n), 10, 64); err == nil {
+			soma += v
+		}
+	}
+	return soma
+}
+
+// estimarAudio (T58): o tamanho do som que vem em lista separada (somado ao da imagem).
+func (a *app) estimarAudio(ctx context.Context, audio, referer string) (int64, error) {
+	texto, err := a.lerManifesto(ctx, audio, referer)
+	if err != nil {
+		return 0, fmt.Errorf("o som: %w", err)
+	}
+	if b := bytesHLS(texto); b > 0 {
+		return b, nil
+	}
+	_, duracao, _ := pedacosHLS(audio, texto)
+	return int64(duracao) * 192000 / 8, nil // sem BYTERANGE: ~192 kb/s
 }
 
 // chaveDoVideo: o mesmo vídeo pedido de novo (de outra página ou com outro token na query).
@@ -331,12 +382,19 @@ func caminhoDaAula(au aulaCurso) string {
 }
 
 // argsFFmpeg: baixa o HLS sem recodificar (cópia direta) para um MP4 que toca no navegador.
-// Os -allowed_* e -extension_picky aceitam os pedaços ".dts" da LINUXtips (Bunny).
-func argsFFmpeg(variante, referer, saida string) []string {
-	return []string{"-nostdin", "-y", "-loglevel", "error", "-progress", "pipe:1",
-		"-user_agent", agenteNavegador, "-headers", "Referer: " + referer + "\r\n",
-		"-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0",
-		"-i", variante, "-c", "copy", "-bsf:a", "aac_adtstoasc", "-movflags", "+faststart", "-f", "mp4", saida}
+// Os -allowed_* e -extension_picky aceitam os pedaços ".dts" da LINUXtips (Bunny). Com o som em lista
+// separada (T58), são duas entradas (cada uma com o Referer) e o MP4 leva a imagem de uma e o som da outra.
+func argsFFmpeg(variante, audio, referer, saida string) []string {
+	entrada := func(u string) []string {
+		return []string{"-user_agent", agenteNavegador, "-headers", "Referer: " + referer + "\r\n",
+			"-allowed_extensions", "ALL", "-allowed_segment_extensions", "ALL", "-extension_picky", "0", "-i", u}
+	}
+	args := append([]string{"-nostdin", "-y", "-loglevel", "error", "-progress", "pipe:1"}, entrada(variante)...)
+	if audio != "" {
+		args = append(args, entrada(audio)...)
+		args = append(args, "-map", "0:v:0", "-map", "1:a:0")
+	}
+	return append(args, "-c", "copy", "-bsf:a", "aac_adtstoasc", "-movflags", "+faststart", "-f", "mp4", saida)
 }
 
 func espacoLivre(pasta string) int64 {
@@ -350,13 +408,13 @@ func espacoLivre(pasta string) int64 {
 // ---------- o banco ----------
 
 const colunasAula = `id, plataforma, curso, modulo, titulo, pagina, manifesto, referer, variante, qualidade,
-	duracao, estimado, tamanho, progresso, estado, erro, arquivo, criado_em, atualizado_em, ordem, texto, embed`
+	duracao, estimado, tamanho, progresso, estado, erro, arquivo, criado_em, atualizado_em, ordem, texto, embed, audio`
 
 func lerAula(s interface{ Scan(...any) error }) (aulaCurso, error) {
 	var au aulaCurso
 	err := s.Scan(&au.ID, &au.Plataforma, &au.Curso, &au.Modulo, &au.Titulo, &au.Pagina, &au.Manifesto, &au.Referer,
 		&au.Variante, &au.Qualidade, &au.Duracao, &au.Estimado, &au.Tamanho, &au.Progresso, &au.Estado, &au.Erro,
-		&au.Arquivo, &au.CriadoEm, &au.AtualizadoEm, &au.Ordem, &au.Texto, &au.Embed)
+		&au.Arquivo, &au.CriadoEm, &au.AtualizadoEm, &au.Ordem, &au.Texto, &au.Embed, &au.Audio)
 	au.TemTexto = strings.TrimSpace(au.Texto) != ""
 	return au, err
 }
@@ -503,7 +561,7 @@ func (a *app) baixarAula(ctx context.Context, au aulaCurso) (int64, string, erro
 	temp := final + ".baixando"
 	defer os.Remove(temp)
 
-	cmd := exec.CommandContext(ctx, a.ffmpegBin, argsFFmpeg(variante, au.Referer, temp)...)
+	cmd := exec.CommandContext(ctx, a.ffmpegBin, argsFFmpeg(variante, au.Audio, au.Referer, temp)...)
 	saida, err := cmd.StdoutPipe()
 	if err != nil {
 		return 0, "", err
@@ -559,6 +617,7 @@ type pedidoAula struct {
 	// T55: o vídeo embutido (YouTube/Vimeo) quando não há HLS; o texto da página; a posição no
 	// curso; e se o curso deve virar (ou atualizar) a trilha dele.
 	Embed  string `json:"embed"`
+	Audio  string `json:"audio"` // T58: o HLS do som, quando vem separado da imagem
 	Texto  string `json:"texto"`
 	Ordem  int    `json:"ordem"`
 	Trilha bool   `json:"trilha"`
@@ -585,6 +644,15 @@ func (a *app) videoDoPedido(ctx context.Context, p *pedidoAula) (string, estimat
 			return "", estimativa{}, err
 		}
 		e, err := a.estimar(ctx, p.Manifesto, p.Referer)
+		if err == nil && p.Audio != "" {
+			if err = validarVideo(p.Audio, p.Referer); err != nil {
+				return "", estimativa{}, err
+			}
+			var som int64
+			if som, err = a.estimarAudio(ctx, p.Audio, p.Referer); err == nil {
+				e.Tamanho += som
+			}
+		}
 		return "hls", e, err
 	case p.Embed != "":
 		baixar, _, ok := normalizarEmbed(p.Embed)
@@ -693,7 +761,8 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 	var id int64
 	var estado string
 	t := agora()
-	if a.db.QueryRowContext(ctx, `SELECT id, estado FROM aulas_plataforma WHERE video = ?`, video).Scan(&id, &estado) == nil && estado != "erro" {
+	if a.db.QueryRowContext(ctx, `SELECT id, estado FROM aulas_plataforma WHERE video = ?`, video).Scan(&id, &estado) == nil && estado != "erro" &&
+		!a.refazerComSom(ctx, id, p, e) {
 		// Repetida: o que a página diz agora (texto, ordem, módulo) atualiza; o vídeo fica como está.
 		a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET texto = CASE WHEN ? <> '' THEN ? ELSE texto END,
 			ordem = CASE WHEN ? > 0 THEN ? ELSE ordem END, modulo = CASE WHEN ? <> '' THEN ? ELSE modulo END, atualizado_em = ? WHERE id = ?`,
@@ -711,16 +780,16 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 	if id > 0 {
 		_, err = a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET plataforma = ?, curso = ?, modulo = ?, titulo = ?, pagina = ?,
 			manifesto = ?, referer = ?, variante = ?, qualidade = ?, duracao = ?, estimado = ?, progresso = 0, estado = ?,
-			erro = '', ordem = ?, texto = ?, embed = ?, atualizado_em = ? WHERE id = ?`,
+			erro = '', ordem = ?, texto = ?, embed = ?, audio = ?, atualizado_em = ? WHERE id = ?`,
 			p.Plataforma, p.Curso, p.Modulo, p.Titulo, p.Pagina, p.Manifesto, p.Referer, e.Variante, e.Qualidade, e.Duracao, e.Tamanho,
-			estadoNovo, p.Ordem, p.Texto, p.Embed, t, id)
+			estadoNovo, p.Ordem, p.Texto, p.Embed, p.Audio, t, id)
 	} else {
 		var res sql.Result
 		res, err = a.db.ExecContext(ctx, `INSERT INTO aulas_plataforma (plataforma, curso, modulo, titulo, pagina, video, manifesto,
-			referer, variante, qualidade, duracao, estimado, estado, ordem, texto, embed, criado_em, atualizado_em)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			referer, variante, qualidade, duracao, estimado, estado, ordem, texto, embed, audio, criado_em, atualizado_em)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			p.Plataforma, p.Curso, p.Modulo, p.Titulo, p.Pagina, video, p.Manifesto, p.Referer, e.Variante, e.Qualidade, e.Duracao, e.Tamanho,
-			estadoNovo, p.Ordem, p.Texto, p.Embed, t, t)
+			estadoNovo, p.Ordem, p.Texto, p.Embed, p.Audio, t, t)
 		if err == nil {
 			id, err = res.LastInsertId()
 		}
@@ -740,6 +809,37 @@ func (a *app) handlePedirAula(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{"aula": au}
 	a.trilhaDoPedido(ctx, p, resp)
 	responderJSON(w, http.StatusAccepted, resp)
+}
+
+// refazerComSom (T58): a aula já pedida sem o som chega de novo com ele (a extensão antiga mandava só a
+// imagem do SmartPlayer). Ela volta para a fila com o som, no mesmo id (a etapa da trilha aponta para
+// ele), e o vídeo mudo sai do disco; o download que estiver no meio para. Devolve true se refez.
+func (a *app) refazerComSom(ctx context.Context, id int64, p pedidoAula, e estimativa) bool {
+	if p.Audio == "" {
+		return false
+	}
+	au, err := a.aulaPorID(ctx, id)
+	if err != nil || au.Audio != "" {
+		return false
+	}
+	a.download.mu.Lock()
+	if a.download.id == id && a.download.cancelar != nil {
+		a.download.cancelar()
+	}
+	a.download.mu.Unlock()
+	if au.Arquivo != "" && a.cursosDir != "" {
+		os.Remove(filepath.Join(a.cursosDir, au.Arquivo))
+	}
+	_, err = a.db.ExecContext(ctx, `UPDATE aulas_plataforma SET manifesto = ?, referer = ?, variante = ?, audio = ?, qualidade = ?,
+		duracao = ?, estimado = ?, tamanho = 0, progresso = 0, estado = 'na_fila', erro = '', arquivo = '',
+		texto = CASE WHEN ? <> '' THEN ? ELSE texto END, ordem = CASE WHEN ? > 0 THEN ? ELSE ordem END, atualizado_em = ? WHERE id = ?`,
+		p.Manifesto, p.Referer, e.Variante, p.Audio, e.Qualidade, e.Duracao, e.Tamanho, p.Texto, p.Texto, p.Ordem, p.Ordem, agora(), id)
+	if err != nil {
+		log.Printf("cursos: refazer a aula %d com o som: %v", id, err)
+		return false
+	}
+	a.acordarCursos()
+	return true
 }
 
 // trilhaDoPedido: com "trilha": true, o curso vira trilha (ou ganha a aula). Falhar aqui não

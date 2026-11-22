@@ -82,7 +82,7 @@ func TestCaminhoDaAula(t *testing.T) {
 	if c := caminhoDaAula(aulaCurso{Plataforma: "linuxtips", Curso: "System Design", Titulo: "  "}); c != filepath.Join("LINUXtips", "System Design", "sem nome.mp4") {
 		t.Fatalf("sem módulo: %q", c)
 	}
-	args := strings.Join(argsFFmpeg("https://cdn/v.m3u8", "https://player/", "/tmp/a.mp4"), " ")
+	args := strings.Join(argsFFmpeg("https://cdn/v.m3u8", "", "https://player/", "/tmp/a.mp4"), " ")
 	for _, parte := range []string{"-headers Referer: https://player/\r\n", "-allowed_segment_extensions ALL", "-extension_picky 0", "-c copy", "-i https://cdn/v.m3u8"} {
 		if !strings.Contains(args, parte) {
 			t.Fatalf("faltou %q em %q", parte, args)
