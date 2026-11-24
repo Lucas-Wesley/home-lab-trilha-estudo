@@ -61,6 +61,7 @@ func (a *app) ligarIA() {
 	a.fila.executores[tipoFragmentar] = a.fragmentar
 	a.fila.executores[tipoDestino] = a.sugerirDestinos
 	a.fila.executores[tipoVerificar] = a.verificarMaterial
+	a.fila.executores[tipoBlog] = a.gerarBlog
 	a.fila.aoTerminar = a.aoTerminarTarefa
 }
 
@@ -188,6 +189,9 @@ func novoServidor(a *app, web fs.FS, versao string) http.Handler {
 	// Projeto de estudo (T52): o caderno do GitHub ligado às trilhas.
 	mux.HandleFunc("GET /api/projeto", a.handleProjeto)
 	mux.HandleFunc("POST /api/projeto/atualizar", a.handleAtualizarProjeto)
+	mux.HandleFunc("GET /api/projeto/itens/{id}/blog", a.handleBlogDoItem)
+	mux.HandleFunc("POST /api/projeto/itens/{id}/blog", a.handlePedirBlog)
+	mux.HandleFunc("PUT /api/blog/{id}/marcas/{n}", a.handleMarcarBlog)
 
 	mux.HandleFunc("GET /api/tarefas", a.handleTarefas)
 	mux.HandleFunc("POST /api/tarefas/{id}/cancelar", a.handleCancelarTarefa)

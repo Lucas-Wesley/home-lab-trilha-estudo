@@ -503,6 +503,13 @@ func (a *app) aoTerminarTarefa(t *tarefa) {
 		}
 		return
 	}
+	if t.Tipo == tipoBlog {
+		if _, err := a.db.Exec(`UPDATE blog_pedidos SET estado = ?, erro = ?, atualizado_em = ? WHERE tarefa_id = ? AND estado = ?`,
+			blogFalhou, t.Erro, agora(), t.ID, blogGerando); err != nil {
+			log.Printf("pedido do blog da tarefa %d: %v", t.ID, err)
+		}
+		return
+	}
 	if t.PropostaID == 0 {
 		// A correção do simulado: a tentativa fica com o erro (e pode ser feita de novo).
 		if _, err := a.db.Exec(`UPDATE tentativas SET estado = ?, erro = ?, atualizado_em = ? WHERE tarefa_id = ? AND estado = ?`,

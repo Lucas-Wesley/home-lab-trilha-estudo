@@ -1,6 +1,6 @@
 # Plano: sugestões de artigo para o blog (aba Projeto)
 
-Plano de 23/11/2026. Ainda não implementado.
+Plano de 23/11/2026. Implementado em 24/11/2026 (T62); só a fase 4 fica para depois.
 
 ## O que é
 No item do Projeto (0.1, 0.2…), um quadro **Blog** que orienta o Lucas sobre o que escrever a partir

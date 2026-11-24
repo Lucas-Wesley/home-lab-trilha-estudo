@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import BlogItem from '../BlogItem.vue'
 import Icone from '../Icone.vue'
 import Leitor from '../Leitor.vue'
 import Pagina from '../Pagina.vue'
@@ -217,6 +218,8 @@ const ICONE_SITUACAO = { feito: '✓', em_andamento: '●', a_fazer: '' }
             <Leitor v-if="item.caderno" :texto="item.caderno" />
             <p v-else class="pequeno sem-margem">Ainda não existe: ele nasce na primeira conversa com a IA sobre este item.</p>
           </section>
+
+          <BlogItem :item-id="item.id" />
 
           <details class="quadro">
             <summary class="rotulo-secao">Ver o prompt</summary>

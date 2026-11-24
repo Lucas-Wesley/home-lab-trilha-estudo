@@ -367,4 +367,24 @@ CREATE TABLE IF NOT EXISTS trechos_vistos (
 	visto_em    TEXT NOT NULL,
 	PRIMARY KEY (trilha_id, etapa_chave, referencia, localizador)
 );
+
+-- Blog (T62): os pedidos de sugestão de artigo (ou de tópicos para um título) de cada item do
+-- Projeto. marcas: {"<n da sugestão>": {"estado": "guardada|descartada|escrita", "link", "em"}}.
+CREATE TABLE IF NOT EXISTS blog_pedidos (
+	id            INTEGER PRIMARY KEY AUTOINCREMENT,
+	item_id       TEXT NOT NULL,
+	modo          TEXT NOT NULL,
+	titulo        TEXT NOT NULL DEFAULT '',
+	nota          TEXT NOT NULL DEFAULT '',
+	opcoes        TEXT NOT NULL DEFAULT '{}',
+	pedido        TEXT NOT NULL DEFAULT '',
+	estado        TEXT NOT NULL,
+	resultado     TEXT NOT NULL DEFAULT '',
+	marcas        TEXT NOT NULL DEFAULT '{}',
+	erro          TEXT NOT NULL DEFAULT '',
+	tarefa_id     INTEGER REFERENCES tarefas(id) ON DELETE SET NULL,
+	criado_em     TEXT NOT NULL,
+	atualizado_em TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS blog_pedidos_item ON blog_pedidos (item_id, id);
 `

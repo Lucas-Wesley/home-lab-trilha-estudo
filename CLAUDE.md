@@ -7,7 +7,7 @@ acompanha meta, ritmo e domínio.
 
 **Comece lendo:**
 - [`docs/DECISOES.md`](docs/DECISOES.md) — **a fonte da verdade.** Vocabulário, fluxos, decisões
-  (T1–T61), fases, riscos e o que está em aberto.
+  (T1–T62), fases, riscos e o que está em aberto.
 - [`docs/PEDAGOGIA.md`](docs/PEDAGOGIA.md) — como a trilha ensina (entrevista por perfil de domínio,
   profundidade em 5 níveis, molde da lição).
 - [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md) — aponta para o design system do **Hub**, que é a
@@ -293,6 +293,15 @@ cada material como "### Material N") e grava o laudo em `resultado`; falha → `
 `aoTerminarTarefa`. `trechosDoVideo` aceita localizador vazio (o vídeo inteiro) e acha a fonte também
 pelo id do YouTube (`fonteDoVideo`). Tela: `VerificarMaterial.vue` na aba Fontes (+ `verificacao.js`);
 "Procurar material para o que falta" chama `pedir` do `PropostaMaterial`.
+
+## Blog (T62)
+`backend/blog.go`: `POST /api/projeto/itens/{id}/blog` (`{modo: sugerir|topicos, titulo, nota, opcoes, pedido}`)
+cria um `blog_pedidos` e enfileira a tarefa `blog` (sem proposta; regra `blog.md`, `modelo_licao`, só `Read`).
+O `pedido.md` sai do item já montado (`itemDoProjeto` = a mesma montagem do `GET /api/projeto`): o trecho do
+roadmap, `caderno.md`, as fontes do estudo com a situação e as lições aprovadas em `licoes/`, as engrenagens e as
+ideias marcadas de todos os itens. `GET .../blog` = os 5 últimos + os que têm marca; `PUT /api/blog/{id}/marcas/{n}`
+(guardada, descartada, escrita + link; vazio tira). Tela: `BlogItem.vue` + `PedidoBlog.vue` (+ `blog.js`) no item.
+**A IA não redige o artigo**: o Lucas escreve tudo (plano em `docs/plano-blog.md`).
 
 ## Criar trilhas à mão
 Siga [`regras/criar-trilha.md`](regras/criar-trilha.md): versão → revisão (automática + manual,

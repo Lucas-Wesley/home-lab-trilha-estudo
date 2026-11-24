@@ -145,6 +145,32 @@ if (/^# Pedido: verificar o material/m.test(pedido)) {
     resumo: 'Laudo de teste (scripts/claude-falso.mjs).',
   })
 }
+// Blog (T62): sugestões de artigo a partir do item, ou os tópicos de um título.
+const arcoFalso = { comeco: 'Começo de teste.', meio: 'Meio de teste.', fim: 'Fim de teste.' }
+if (/^# Pedido: artigos do blog/m.test(pedido)) {
+  const n = Number((pedido.match(/^Sugira (\d+) artigo/m) || [])[1] || 1)
+  responder({
+    sugestoes: Array.from({ length: n }, (_, i) => ({
+      titulo: `Artigo de teste ${i + 1}`, alternativas: ['Alternativa A', 'Alternativa B'], tese: 'Tese de teste.',
+      leitor: 'Quem já programa.', formato: 'Ensaio de fundamentos (teste).', horizonte: 'Atemporal (teste).', arco: arcoFalso,
+      topicos: [{ topico: 'Tópico de teste', porque: 'Porque sim (teste).', obrigatorio: true }],
+      exemplo_central: 'Exemplo de teste.', fora: 'Nada (teste).', fontes: ['Documentação oficial (teste)'],
+      base: [{ fonte: 'T13 › teste', situacao: 'a_estudar' }],
+    })),
+    notas: 'Sugestões de teste (scripts/claude-falso.mjs).',
+  })
+}
+if (/^# Pedido: tópicos para um título do blog/m.test(pedido)) {
+  responder({
+    tese: 'Tese de teste.', titulo_melhor: '',
+    topicos: [
+      { topico: 'Tópico obrigatório de teste', porque: 'Sem ele não há artigo.', obrigatorio: true, situacao: 'estudado', onde: 'T13 › teste' },
+      { topico: 'Tópico opcional de teste', porque: 'Enriquece.', obrigatorio: false, situacao: 'fora_do_item', onde: 'A documentação oficial' },
+    ],
+    arco: arcoFalso, fora: 'Nada (teste).', armadilhas: ['Armadilha de teste'], perguntas: ['Pergunta de teste?'],
+    fontes: ['Documentação oficial (teste)'], notas: 'Tópicos de teste (scripts/claude-falso.mjs).',
+  })
+}
 if (/^# Pedido: correção do simulado/m.test(pedido)) {
   const respostas = [...pedido.matchAll(/^## Pergunta (\d+)(?: \(etapa .*\))?$/gm)].map((m) => Number(m[1]))
   responder({
